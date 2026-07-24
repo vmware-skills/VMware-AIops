@@ -495,7 +495,7 @@ def load_deploy_spec(spec_path: str) -> dict:
         ova: /path/to/image.ova       # Per-VM OVA override
     ```
     """
-    with open(spec_path) as f:
+    with open(spec_path, encoding="utf-8") as f:
         spec = yaml.safe_load(f)
 
     if not spec or "vms" not in spec:

@@ -193,7 +193,7 @@ def test_mcp_server_uses_optional_not_pep604() -> None:
 
     bad = []
     for path in files:
-        src = path.read_text()
+        src = path.read_text(encoding="utf-8")
         # exclude comments / docstrings — look only at type annotations
         for i, line in enumerate(src.splitlines(), 1):
             stripped = line.strip()

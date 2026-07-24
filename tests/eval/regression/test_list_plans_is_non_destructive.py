@@ -45,7 +45,8 @@ def _write_plan(directory, plan_id: str, *, age_seconds: float, status: str = "f
                 "status": status,
                 "summary": {"total_steps": 3, "vms_affected": 2},
             }
-        )
+        ),
+        encoding="utf-8",
     )
     stamp = time.time() - age_seconds
     import os

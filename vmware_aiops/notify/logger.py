@@ -24,7 +24,7 @@ class ScanLogger:
         }
 
         # Append to JSONL file
-        with open(self._path, "a") as f:
+        with open(self._path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
         # Also log to console

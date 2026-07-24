@@ -33,7 +33,7 @@ scanner:
 notify:
   log_file: /tmp/test-scan.log
   webhook_url: https://hooks.example.com/test
-""")
+""", encoding="utf-8")
     return config
 
 

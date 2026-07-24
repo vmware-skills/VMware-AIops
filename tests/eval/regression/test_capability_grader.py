@@ -182,7 +182,8 @@ def test_an_error_returned_via_a_local_is_still_seen(tmp_path):
         "        pass\n"
         "    except Exception as exc:\n"
         "        payload = {'error': str(exc), 'hint': _HINT}\n"
-        "        return payload\n"
+        "        return payload\n",
+        encoding="utf-8",
     )
     sites = list(_error_returns_in_server(server_dir=tmp_path, module=None))
 
@@ -218,7 +219,7 @@ def test_a_partial_run_does_not_erase_metrics_it_did_not_measure(tmp_path):
     partial.add(Score(name="alpha", value=2, maximum=2))
     partial.write(path)
 
-    scores = json.loads(path.read_text())["scores"]
+    scores = json.loads(path.read_text(encoding="utf-8"))["scores"]
     assert set(scores) == {"alpha", "beta"}, "a partial run deleted a metric"
     assert scores["alpha"]["value"] == 2, "the fresh measurement must win"
     assert not scores["alpha"].get("stale"), "a freshly measured metric is not stale"
@@ -237,7 +238,7 @@ def test_an_empty_run_leaves_the_baseline_alone(tmp_path):
     seeded.write(path)
 
     ScoreBoard().write(path)
-    assert set(json.loads(path.read_text())["scores"]) == {"alpha"}
+    assert set(json.loads(path.read_text(encoding="utf-8"))["scores"]) == {"alpha"}
 
 
 def test_credits_a_real_subcommand_under_a_group():

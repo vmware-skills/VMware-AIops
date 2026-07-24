@@ -79,7 +79,7 @@ def mcp_config_generate(
         console.print(f"[red]Template file not found: {template_file}[/]")
         raise typer.Exit(1)
 
-    content = template_file.read_text()
+    content = template_file.read_text(encoding="utf-8")
 
     # Replace placeholder with actual path if provided
     if install_path:
@@ -93,7 +93,7 @@ def mcp_config_generate(
             content = content.replace("/path/to/VMware-AIops", str(pkg_dir))
 
     if output:
-        output.write_text(content)
+        output.write_text(content, encoding="utf-8")
         console.print(f"[green]Config written to: {output}[/]")
     else:
         console.print(content)
@@ -153,7 +153,7 @@ def mcp_config_install(
         console.print(f"[red]Template file not found: {template_file}[/]")
         raise typer.Exit(1)
 
-    content = template_file.read_text()
+    content = template_file.read_text(encoding="utf-8")
     if install_path:
         abs_path = str(Path(install_path).resolve())
         content = content.replace("/path/to/VMware-AIops", abs_path)
@@ -184,26 +184,26 @@ def mcp_config_install(
     # For JSON configs: merge mcpServers entry if file exists
     if dest.suffix == ".json" and dest.exists():
         try:
-            existing = json.loads(dest.read_text())
+            existing = json.loads(dest.read_text(encoding="utf-8"))
             new_entry = json.loads(content)
             # Merge: support both {mcpServers: {...}} and flat formats
             if "mcpServers" in new_entry:
                 existing.setdefault("mcpServers", {}).update(new_entry["mcpServers"])
             else:
                 existing.update(new_entry)
-            dest.write_text(json.dumps(existing, indent=2) + "\n")
+            dest.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
             console.print(f"[green]✓ Merged vmware-aiops into: {dest}[/]")
         except json.JSONDecodeError as e:
             console.print(f"[red]Existing config is not valid JSON: {e}[/]")
             console.print("[yellow]Writing new config (backup original first).[/]")
-            dest.with_suffix(".bak").write_text(dest.read_text())
-            dest.write_text(content)
+            dest.with_suffix(".bak").write_text(dest.read_text(encoding="utf-8"), encoding="utf-8")
+            dest.write_text(content, encoding="utf-8")
             console.print(f"[green]✓ Written: {dest} (backup: {dest.with_suffix('.bak')})[/]")
         except OSError as e:
             console.print(f"[red]Failed to read/write config: {e}[/]")
             raise typer.Exit(1) from e
     else:
-        dest.write_text(content)
+        dest.write_text(content, encoding="utf-8")
         console.print(f"[green]✓ Written: {dest}[/]")
 
     console.print("\n[dim]Run 'vmware-aiops doctor' to verify your setup.[/]")

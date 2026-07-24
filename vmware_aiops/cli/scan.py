@@ -66,7 +66,7 @@ def daemon_status() -> None:
     """Check scanner daemon status."""
     pid_file = CONFIG_DIR / "daemon.pid"
     if pid_file.exists():
-        pid = pid_file.read_text().strip()
+        pid = pid_file.read_text(encoding="utf-8").strip()
         console.print(f"[green]Daemon running (PID: {pid})[/]")
     else:
         console.print("[yellow]Daemon not running.[/]")
@@ -83,7 +83,7 @@ def daemon_stop() -> None:
         console.print("[yellow]Daemon not running.[/]")
         return
 
-    pid = int(pid_file.read_text().strip())
+    pid = int(pid_file.read_text(encoding="utf-8").strip())
     try:
         _os.kill(pid, signal.SIGTERM)
         console.print(f"[green]Daemon (PID: {pid}) stopped.[/]")

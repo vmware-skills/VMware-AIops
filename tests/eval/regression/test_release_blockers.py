@@ -41,7 +41,7 @@ def test_pyproject_ships_the_server_inside_the_package() -> None:
     The server now lives inside the package namespace, where the name is ours.
     """
     pyproject = REPO_ROOT / "pyproject.toml"
-    data = tomllib.loads(pyproject.read_text())
+    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
     packages = (
         data.get("tool", {}).get("hatch", {})
         .get("build", {}).get("targets", {})
@@ -127,7 +127,7 @@ def test_runtime_names_have_imports() -> None:
     pkg_dir = REPO_ROOT / PKG_NAME
     failures: list[str] = []
     for py in _walk_python_files(pkg_dir):
-        src = py.read_text()
+        src = py.read_text(encoding="utf-8")
         try:
             tree = ast.parse(src)
         except SyntaxError:

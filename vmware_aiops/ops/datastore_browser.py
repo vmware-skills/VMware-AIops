@@ -182,7 +182,7 @@ def _load_registry() -> dict:
     """Load the local image registry from disk."""
     if not IMAGE_REGISTRY_FILE.exists():
         return {"images": [], "last_scan": None}
-    with open(IMAGE_REGISTRY_FILE) as f:
+    with open(IMAGE_REGISTRY_FILE, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -191,7 +191,7 @@ def _save_registry(registry: dict) -> None:
     from vmware_aiops._fsutil import secure_chmod_file, secure_mkdir
 
     secure_mkdir(CONFIG_DIR)
-    with open(IMAGE_REGISTRY_FILE, "w") as f:
+    with open(IMAGE_REGISTRY_FILE, "w", encoding="utf-8") as f:
         json.dump(registry, f, indent=2, ensure_ascii=False)
     secure_chmod_file(IMAGE_REGISTRY_FILE)
 
