@@ -353,6 +353,107 @@ def remove_host_vmk(
     return result
 
 
+# vim.host.VirtualNicManager.NicType enum values (pyVmomi 8/9). Kept as a
+# static allowlist so an unknown/mistyped service fails loudly at validation
+# instead of surfacing as an opaque vCenter fault at call time.
+_NIC_TYPES = frozenset({
+    "management", "vmotion", "vsan", "vSphereProvisioning",
+    "faultToleranceLogging", "vSphereReplication", "vSphereReplicationNFC",
+    "vSphereBackupNFC", "ptp", "nvmeRdma", "nvmeTcp", "vnetworking",
+    "vsanExternal", "vsanReplication", "vsanWitness",
+})
+
+
+def set_vmk_service(
+    si: ServiceInstance,
+    host_name: str,
+    vmk: str,
+    service: str,
+    enabled: bool,
+    confirm: bool = False,
+) -> dict:
+    """Enable/disable a host service (nicType) on an existing vmk - confirm-gated.
+
+    FAIL CLOSED: when the host's service map cannot be read, BOTH directions
+    refuse - idempotence checks and the management guard below each need the
+    verified current state, and unverifiable is never treated as safe.
+
+    ABSOLUTE (no override): disabling ``management`` on the host's only
+    management-enabled vmk. The call rides the interface it would untag;
+    after it succeeded, nothing could reach the host to undo it.
+    """
+    host = _require_host(si, host_name)
+
+    if service not in _NIC_TYPES:
+        raise HostNetworkError(
+            f"Unknown service '{sanitize(service, 60)}'. "
+            f"Valid services: {', '.join(sorted(_NIC_TYPES))}"
+        )
+
+    existing = {v.device for v in host.config.network.vnic or []}
+    if vmk not in existing:
+        raise HostNetworkError(
+            f"'{vmk}' not found on '{host_name}'. "
+            f"Present: {sanitize(str(sorted(existing)), 300) or 'none'}"
+        )
+
+    services = _vmk_services(host)
+    if services is None:
+        raise HostNetworkError(
+            "REFUSED: the host's service map cannot be read (virtualNicManager "
+            "unavailable), so the current selections cannot be verified and "
+            "this change cannot be made safely. Retry when the host is "
+            "reachable/healthy."
+        )
+    current = sorted(services.get(vmk, []))
+
+    if not enabled and service == "management" and "management" in current:
+        mgmt_vmks = [d for d, svcs in services.items() if "management" in svcs]
+        if len(mgmt_vmks) <= 1:
+            raise HostNetworkError(
+                f"REFUSED (no override): {vmk} is the ONLY management-enabled "
+                f"vmk on '{host_name}'. Untagging management severs the API "
+                "path this call rides on; after it succeeded, nothing could "
+                "reach the host to undo it."
+            )
+
+    change = {
+        "host": sanitize(host.name, 200),
+        "device": vmk,
+        "service": service,
+        "enabled": enabled,
+        "current_services": current,
+    }
+
+    if (service in current) == enabled:
+        return {
+            "action": "noop",
+            "unchanged": change,
+            "hint": f"{vmk} already has '{service}' "
+                    f"{'enabled' if enabled else 'disabled'}.",
+        }
+
+    if not confirm:
+        return {
+            "action": "preview",
+            "would_set": change,
+            "hint": "Re-run with confirm=True to apply.",
+        }
+
+    mgr = host.configManager.virtualNicManager
+    if enabled:
+        mgr.SelectVnicForNicType(service, vmk)
+    else:
+        mgr.DeselectVnicForNicType(service, vmk)
+
+    after = _vmk_services(host)
+    return {
+        "action": "set",
+        "set": change,
+        "services_now": sorted(after.get(vmk, [])) if after is not None else None,
+    }
+
+
 # --- vmk_ping (esxcli over API, raw SOAP) ---------------------------------------
 #
 # The ManagedMethodExecuter types are internal VMODL that modern pyVmomi does

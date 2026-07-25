@@ -475,3 +475,111 @@ def test_soap_post_verify_true_uses_system_ca_context(monkeypatch):
     verify = _capture_soap_verify(monkeypatch, verify_ssl_returns=True)
     # Verified against the system store (an SSLContext), never certifi/default True.
     assert isinstance(verify, ssl.SSLContext)
+
+
+# --- set_vmk_service ------------------------------------------------------------
+
+class FakeVnicManager:
+    """Stateful virtualNicManager: selections mutate via Select/Deselect."""
+
+    def __init__(self, selections):
+        self.calls = []
+        self._sel = {d: list(s) for d, s in selections.items()}
+
+    @property
+    def info(self):
+        devices = sorted(self._sel)
+        cands = [types.SimpleNamespace(key=f"k-{d}", device=d) for d in devices]
+        nic_types = sorted({t for s in self._sel.values() for t in s})
+        cfgs = [
+            types.SimpleNamespace(
+                nicType=t,
+                selectedVnic=[f"k-{d}" for d in devices if t in self._sel[d]],
+                candidateVnic=cands,
+            )
+            for t in nic_types
+        ]
+        return types.SimpleNamespace(netConfig=cfgs)
+
+    def SelectVnicForNicType(self, nicType, device):  # noqa: N802, N803 - pyVmomi API
+        self.calls.append(("select", nicType, device))
+        self._sel.setdefault(device, []).append(nicType)
+
+    def DeselectVnicForNicType(self, nicType, device):  # noqa: N802, N803 - pyVmomi API
+        self.calls.append(("deselect", nicType, device))
+        self._sel[device].remove(nicType)
+
+
+def _svc_env(monkeypatch, selections):
+    host, _ = _host([_vnic("vmk0", ip="192.0.2.11"), _vnic("vmk3", ip="192.0.2.31")])
+    mgr = FakeVnicManager(selections)
+    host.configManager.virtualNicManager = mgr
+    monkeypatch.setattr(hnm, "find_host_by_name",
+                        lambda si, n: host if n == host.name else None)
+    return host, mgr
+
+
+def test_set_service_validates_service_and_vmk(monkeypatch):
+    host, mgr = _svc_env(monkeypatch, {"vmk0": ["management"]})
+    with pytest.raises(hnm.HostNetworkError, match="Unknown service"):
+        hnm.set_vmk_service(object(), host.name, "vmk3", "provisioning", True, confirm=True)
+    with pytest.raises(hnm.HostNetworkError, match="not found"):
+        hnm.set_vmk_service(object(), host.name, "vmk9", "vmotion", True, confirm=True)
+    with pytest.raises(hnm.HostNotFoundError):
+        hnm.set_vmk_service(object(), "nope-host", "vmk3", "vmotion", True)
+    assert mgr.calls == []
+
+
+def test_set_service_refuses_unreadable_map_both_directions(monkeypatch):
+    host, mgr = _svc_env(monkeypatch, {"vmk0": ["management"]})
+    host.configManager.virtualNicManager = types.SimpleNamespace(
+        info=None, SelectVnicForNicType=mgr.SelectVnicForNicType,
+        DeselectVnicForNicType=mgr.DeselectVnicForNicType,
+    )
+    for enabled in (True, False):
+        with pytest.raises(hnm.HostNetworkError, match="cannot be read"):
+            hnm.set_vmk_service(object(), host.name, "vmk3", "vmotion", enabled, confirm=True)
+    assert mgr.calls == []
+
+
+def test_set_service_absolute_mgmt_guard(monkeypatch):
+    host, mgr = _svc_env(monkeypatch, {"vmk0": ["management"], "vmk3": ["vmotion"]})
+    with pytest.raises(hnm.HostNetworkError, match="ONLY management-enabled"):
+        hnm.set_vmk_service(object(), host.name, "vmk0", "management", False, confirm=True)
+    assert mgr.calls == []
+
+
+def test_set_service_mgmt_disable_ok_with_second_mgmt_vmk(monkeypatch):
+    host, mgr = _svc_env(monkeypatch,
+                         {"vmk0": ["management"], "vmk3": ["management"]})
+    out = hnm.set_vmk_service(object(), host.name, "vmk3", "management", False, confirm=True)
+    assert out["action"] == "set"
+    assert mgr.calls == [("deselect", "management", "vmk3")]
+
+
+def test_set_service_noop_never_writes(monkeypatch):
+    host, mgr = _svc_env(monkeypatch, {"vmk0": ["management"], "vmk3": ["vmotion"]})
+    out = hnm.set_vmk_service(object(), host.name, "vmk3", "vmotion", True, confirm=True)
+    assert out["action"] == "noop"
+    out = hnm.set_vmk_service(object(), host.name, "vmk3", "vsan", False, confirm=True)
+    assert out["action"] == "noop"
+    assert mgr.calls == []
+
+
+def test_set_service_preview_never_writes(monkeypatch):
+    host, mgr = _svc_env(monkeypatch, {"vmk0": ["management"], "vmk3": []})
+    out = hnm.set_vmk_service(object(), host.name, "vmk3", "vmotion", True)
+    assert out["action"] == "preview"
+    assert out["would_set"]["current_services"] == []
+    assert mgr.calls == []
+
+
+def test_set_service_confirm_enable_and_disable_roundtrip(monkeypatch):
+    host, mgr = _svc_env(monkeypatch, {"vmk0": ["management"], "vmk3": []})
+    out = hnm.set_vmk_service(object(), host.name, "vmk3", "vmotion", True, confirm=True)
+    assert out["action"] == "set"
+    assert out["services_now"] == ["vmotion"]
+    out = hnm.set_vmk_service(object(), host.name, "vmk3", "vmotion", False, confirm=True)
+    assert out["action"] == "set"
+    assert out["services_now"] == []
+    assert mgr.calls == [("select", "vmotion", "vmk3"), ("deselect", "vmotion", "vmk3")]

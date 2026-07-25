@@ -212,6 +212,53 @@ def remove_host_vmk(
     )
 
 
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+@vmware_tool(risk_level="medium")
+@tool_errors("dict")
+def set_vmk_service(
+    host_name: str,
+    vmk: str,
+    service: str,
+    enabled: bool,
+    confirm: bool = False,
+    target: Optional[str] = None,
+) -> dict:
+    """[WRITE] Enable/disable a host service on an existing vmk - preview/confirm gated.
+
+    Completes the add_host_vmk story: adapters are created serviceless by
+    design, then tagged here (e.g. enable "vmotion" on a new vMotion vmk).
+    Idempotent - re-applying the current state returns a no-write noop.
+    Verify with list_host_vmks (the services field). Audited.
+
+    Valid services are the vSphere nicType names: management, vmotion, vsan,
+    vSphereProvisioning, faultToleranceLogging, vSphereReplication,
+    vSphereReplicationNFC, vSphereBackupNFC, ptp, and the nvme/vsan variants.
+    Note "vSphereProvisioning", not "provisioning".
+
+    FAIL CLOSED: refuses both directions when the host's service map cannot
+    be read. ABSOLUTE, no override: disabling management on the host's only
+    management-enabled vmk - the call rides the interface it would untag.
+
+    Args:
+        host_name: ESXi host the vmk lives on.
+        vmk: Device name to change (e.g. "vmk3").
+        service: Service/nicType name to enable or disable.
+        enabled: True selects the vmk for the service; False deselects.
+        confirm: False previews; True applies.
+        target: vCenter target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Preview dict (action="preview"), noop dict (action="noop") when the
+        state already matches, or result dict (action="set", services_now).
+        Errors return a dict with "error" + hint.
+    """
+    si = _get_connection(target)
+    return host_network_mgmt.set_vmk_service(
+        si, host_name=host_name, vmk=vmk, service=service,
+        enabled=enabled, confirm=confirm,
+    )
+
+
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 @tool_errors("dict")
