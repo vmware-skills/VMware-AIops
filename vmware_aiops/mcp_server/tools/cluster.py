@@ -164,3 +164,133 @@ def cluster_info(name: str, target: Optional[str] = None) -> dict:
     from vmware_aiops.ops.cluster_mgmt import get_cluster_info
     si = _get_connection(target)
     return get_cluster_info(si, name)
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+@vmware_tool(risk_level="low")
+@tool_errors("dict")
+def list_drs_rules(cluster: str, target: Optional[str] = None) -> dict:
+    """[READ] List a cluster's DRS rules: VM-VM affinity/anti-affinity and VM-Host.
+
+    Per rule: key, name, type (affinity / antiAffinity / vmHost), enabled,
+    mandatory, and the member VM names (VM-VM) or group names (VM-Host).
+    The verify pair for create/delete/set_drs_rule_enabled.
+
+    Args:
+        cluster: Exact cluster name.
+        target: vCenter target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Dict with cluster, count, and rules sorted by name. Errors return a
+        dict with "error" + hint.
+    """
+    from vmware_aiops.ops.cluster_mgmt import list_drs_rules as _list
+    si = _get_connection(target)
+    return _list(si, cluster)
+
+
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+@vmware_tool(risk_level="medium")
+@tool_errors("dict")
+def set_drs_rule_enabled(
+    cluster: str,
+    rule_name: str,
+    enabled: bool,
+    confirm: bool = False,
+    target: Optional[str] = None,
+) -> dict:
+    """[WRITE] Enable or disable an existing DRS rule - preview/confirm gated.
+
+    The day-2 toggle: anti-affinity rules often must be disabled while a
+    cluster is temporarily too small to satisfy them, then re-enabled when
+    hosts return. Idempotent - matching state returns a noop, no write.
+    Names are matched exactly; ambiguous names refuse. Audited.
+
+    Args:
+        cluster: Exact cluster name.
+        rule_name: Exact rule name (see list_drs_rules).
+        enabled: True enables the rule; False disables it.
+        confirm: False previews; True applies.
+        target: vCenter target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Preview dict (action="preview"), noop dict (action="noop"), or
+        result dict (action="set", rule_now). Errors return "error" + hint.
+    """
+    from vmware_aiops.ops.cluster_mgmt import set_drs_rule_enabled as _set
+    si = _get_connection(target)
+    return _set(si, cluster, rule_name=rule_name, enabled=enabled, confirm=confirm)
+
+
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
+@vmware_tool(risk_level="medium")
+@tool_errors("dict")
+def create_drs_rule(
+    cluster: str,
+    rule_name: str,
+    rule_type: str,
+    vm_names: list[str],
+    enabled: bool = True,
+    confirm: bool = False,
+    target: Optional[str] = None,
+) -> dict:
+    """[WRITE] Create a VM-VM DRS rule (affinity or anti-affinity) - preview/confirm gated.
+
+    rule_type "affinity" keeps the listed VMs together; "antiAffinity"
+    keeps them apart (e.g. redundant appliance pairs on separate hosts).
+    Requires >=2 distinct VMs, all members of the cluster. VM-Host rules
+    hang off cluster VM/host groups and are not created here. Verify with
+    list_drs_rules. Audited.
+
+    Args:
+        cluster: Exact cluster name.
+        rule_name: Name for the new rule; must be unique on the cluster.
+        rule_type: "affinity" or "antiAffinity".
+        vm_names: VM names the rule governs (>=2, all in the cluster).
+        enabled: Create the rule enabled (default) or disabled.
+        confirm: False previews; True creates.
+        target: vCenter target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Preview dict (action="preview", would_create) or result dict
+        (action="created", created incl. the assigned key). Errors return
+        a dict with "error" + hint.
+    """
+    from vmware_aiops.ops.cluster_mgmt import create_drs_rule as _create
+    si = _get_connection(target)
+    return _create(
+        si, cluster, rule_name=rule_name, rule_type=rule_type,
+        vm_names=vm_names, enabled=enabled, confirm=confirm,
+    )
+
+
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
+@vmware_tool(risk_level="high")
+@tool_errors("dict")
+def delete_drs_rule(
+    cluster: str,
+    rule_name: str,
+    confirm: bool = False,
+    target: Optional[str] = None,
+) -> dict:
+    """[WRITE] Delete a VM-VM DRS rule - confirm-gated, guarded.
+
+    REFUSES non-VM-VM rules: VM-Host rules can carry licensing/compliance
+    placement constraints (must-run-on licensed hosts) and hang off cluster
+    groups - manage those in the vSphere UI. The preview and result both
+    record the full rule definition so a mistaken delete can be recreated
+    from the audit trail. Audited.
+
+    Args:
+        cluster: Exact cluster name.
+        rule_name: Exact rule name (see list_drs_rules).
+        confirm: False previews; True deletes.
+        target: vCenter target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Preview dict (action="preview", would_delete) or result dict
+        (action="deleted", deleted). Errors return a dict with "error" + hint.
+    """
+    from vmware_aiops.ops.cluster_mgmt import delete_drs_rule as _delete
+    si = _get_connection(target)
+    return _delete(si, cluster, rule_name=rule_name, confirm=confirm)
