@@ -125,7 +125,7 @@ def start_scheduler(config_path: Path | None = None) -> None:
 
     # Write PID file
     PID_FILE.parent.mkdir(parents=True, exist_ok=True)
-    PID_FILE.write_text(str(os.getpid()))
+    PID_FILE.write_text(str(os.getpid()), encoding="utf-8")
 
     scheduler = BlockingScheduler()
     scheduler.add_job(

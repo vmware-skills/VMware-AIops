@@ -444,7 +444,7 @@ def create_plan(
 
     secure_mkdir(_PLANS_DIR)
     plan_path = _PLANS_DIR / f"{plan_id}.json"
-    plan_path.write_text(json.dumps(plan.to_dict(), indent=2, ensure_ascii=False))
+    plan_path.write_text(json.dumps(plan.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
     secure_chmod_file(plan_path)
     logger.info("Plan created: %s (%d steps)", plan_id, len(steps))
 
@@ -456,7 +456,7 @@ def load_plan(plan_id: str) -> dict | None:
     plan_path = _PLANS_DIR / f"{plan_id}.json"
     if not plan_path.exists():
         return None
-    return json.loads(plan_path.read_text())
+    return json.loads(plan_path.read_text(encoding="utf-8"))
 
 
 def save_plan(plan: dict) -> None:
@@ -464,7 +464,7 @@ def save_plan(plan: dict) -> None:
     from vmware_aiops._fsutil import secure_chmod_file
 
     plan_path = _PLANS_DIR / f"{plan['plan_id']}.json"
-    plan_path.write_text(json.dumps(plan, indent=2, ensure_ascii=False))
+    plan_path.write_text(json.dumps(plan, indent=2, ensure_ascii=False), encoding="utf-8")
     secure_chmod_file(plan_path)
 
 
@@ -490,7 +490,7 @@ def list_plans() -> dict:
     result: list[dict] = []
     for p in sorted(_PLANS_DIR.glob("plan-*.json")):
         try:
-            data = json.loads(p.read_text())
+            data = json.loads(p.read_text(encoding="utf-8"))
             result.append({
                 "plan_id": data["plan_id"],
                 "created_at": data["created_at"],

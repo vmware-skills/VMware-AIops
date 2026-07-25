@@ -96,7 +96,7 @@ def test_no_tool_module_passes_a_hardcoded_safe_error_label() -> None:
     tools_dir = _REPO / "vmware_aiops" / "mcp_server" / "tools"
     offenders = []
     for path in sorted(tools_dir.glob("*.py")):
-        tree = ast.parse(path.read_text())
+        tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if (
                 isinstance(node, ast.Call)
@@ -278,7 +278,7 @@ def test_find_triggered_alarm_destroys_container_exactly_once() -> None:
     ],
 )
 def test_urlopen_calls_have_timeout(rel_path: str) -> None:
-    src = (_REPO / rel_path).read_text()
+    src = (_REPO / rel_path).read_text(encoding="utf-8")
     tree = ast.parse(src)
     found = 0
     for node in ast.walk(tree):

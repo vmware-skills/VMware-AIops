@@ -87,7 +87,8 @@ def _stub_plans(monkeypatch, tmp_path: Path, n: int) -> None:
                     "status": "pending",
                     "summary": {"total_steps": 1, "vms_affected": ["vm-1"]},
                 }
-            )
+            ),
+            encoding="utf-8",
         )
     monkeypatch.setattr(planner, "_PLANS_DIR", tmp_path)
     monkeypatch.setattr(planner, "_cleanup_stale", lambda: None)
@@ -103,7 +104,7 @@ def _stub_ttl_store(monkeypatch, tmp_path: Path, vm_names: list[str]) -> None:
         for name in vm_names
     }
     store_file = tmp_path / "ttl.json"
-    store_file.write_text(json.dumps(store))
+    store_file.write_text(json.dumps(store), encoding="utf-8")
     monkeypatch.setattr(ttl, "_TTL_FILE", store_file)
 
 

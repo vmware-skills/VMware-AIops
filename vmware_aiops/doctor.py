@@ -66,7 +66,7 @@ def _check_targets() -> tuple[bool, str]:
         return False, "Config file missing — skipping target check"
     import yaml
 
-    with open(CONFIG_FILE) as f:
+    with open(CONFIG_FILE, encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
     targets = raw.get("targets", [])
     if not targets:
@@ -80,7 +80,7 @@ def _check_connectivity() -> tuple[bool, str]:
         return False, "Config file missing — skipping connectivity check"
     import yaml
 
-    with open(CONFIG_FILE) as f:
+    with open(CONFIG_FILE, encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
     targets = raw.get("targets", [])
     if not targets:
@@ -127,7 +127,7 @@ def _check_daemon() -> tuple[bool, str]:
     pid_file = CONFIG_DIR / "daemon.pid"
     if not pid_file.exists():
         return True, "Daemon not running (optional — needed for TTL auto-destroy)"
-    pid = pid_file.read_text().strip()
+    pid = pid_file.read_text(encoding="utf-8").strip()
     try:
         import os as _os
 
@@ -144,7 +144,7 @@ def _check_ttl_store() -> tuple[bool, str]:
     if not ttl_file.exists():
         return True, "TTL store empty (no VMs with TTL set)"
     try:
-        data = json.loads(ttl_file.read_text())
+        data = json.loads(ttl_file.read_text(encoding="utf-8"))
         count = len(data)
         return True, f"TTL store: {count} VM(s) registered"
     except json.JSONDecodeError:

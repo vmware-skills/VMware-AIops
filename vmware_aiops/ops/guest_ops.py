@@ -233,7 +233,7 @@ def guest_exec_with_output(
 
     try:
         guest_download(si, vm_name, tmp_out, local_tmp, username, password)
-        with open(local_tmp, "r", errors="replace") as f:
+        with open(local_tmp, "r", encoding="utf-8", errors="replace") as f:
             stdout = f.read()
     except Exception as e:
         logger.warning("Could not retrieve output file from guest: %s", e)

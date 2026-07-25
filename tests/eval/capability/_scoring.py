@@ -132,13 +132,13 @@ class ScoreBoard:
             ),
             "scores": merged,
         }
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def previous_scores(path: Path = SCORES_PATH) -> dict[str, Any]:
     """Load the last recorded run, or ``{}`` on a first run / unreadable file."""
     try:
-        return json.loads(path.read_text()).get("scores", {})
+        return json.loads(path.read_text(encoding="utf-8")).get("scores", {})
     except (OSError, ValueError):
         return {}
 

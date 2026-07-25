@@ -164,7 +164,7 @@ def test_cli_investigate_vm_delegates(tmp_path) -> None:
         assert "web-01" in term.output
         html = CliRunner().invoke(app, ["investigate", "vm", "web-01", "--html-path", str(out)])
         assert html.exit_code == 0, html.output
-    assert out.read_text().startswith("<!doctype html>")
+    assert out.read_text(encoding="utf-8").startswith("<!doctype html>")
 
 
 def test_cli_attention_delegates(tmp_path) -> None:
@@ -224,4 +224,4 @@ def test_cli_summary_terminal_and_html(tmp_path) -> None:
         html = CliRunner().invoke(app, ["summary", "--html-path", str(out)])
         assert html.exit_code == 0, html.output
     assert out.exists()
-    assert out.read_text().startswith("<!doctype html>")
+    assert out.read_text(encoding="utf-8").startswith("<!doctype html>")

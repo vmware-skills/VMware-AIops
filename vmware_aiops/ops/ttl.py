@@ -40,7 +40,7 @@ def _load_ttl_store() -> dict[str, dict]:
     if not _TTL_FILE.exists():
         return {}
     try:
-        return json.loads(_TTL_FILE.read_text())
+        return json.loads(_TTL_FILE.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as e:
         logger.warning("Failed to load TTL store: %s", e)
         return {}
@@ -51,7 +51,7 @@ def _save_ttl_store(store: dict[str, dict]) -> None:
     from vmware_aiops._fsutil import secure_chmod_file, secure_mkdir
 
     secure_mkdir(_TTL_FILE.parent)
-    _TTL_FILE.write_text(json.dumps(store, indent=2))
+    _TTL_FILE.write_text(json.dumps(store, indent=2), encoding="utf-8")
     secure_chmod_file(_TTL_FILE)
 
 
