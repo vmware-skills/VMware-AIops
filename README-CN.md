@@ -7,7 +7,7 @@
 
 [English](README.md) | 中文
 
-AI 驱动的 VMware vCenter/ESXi VM 生命周期管理与部署工具 — 55 个工具。
+AI 驱动的 VMware vCenter/ESXi VM 生命周期管理与部署工具 — 60 个工具。
 
 > **配套技能**负责其他领域：
 >
@@ -115,7 +115,7 @@ pip install --no-index --find-links dist vmware-aiops
 
 | 场景 | 推荐模式 | 原因 |
 |------|:-------:|------|
-| **本地/小模型**（Ollama、Qwen <32B） | **CLI** | 上下文占用 ~2K tokens vs MCP ~10K；小模型难以处理 55 个工具的 schema |
+| **本地/小模型**（Ollama、Qwen <32B） | **CLI** | 上下文占用 ~2K tokens vs MCP ~10K；小模型难以处理 60 个工具的 schema |
 | **Token 敏感场景** | **CLI** | SKILL.md + Bash = 最小开销 |
 | **云端大模型**（Claude、GPT-4o） | 均可 | MCP 提供结构化 JSON 输入输出 |
 | **自动化管道 / Agent 链式调用** | **MCP** | 类型安全参数，结构化输出，无需 Shell 解析 |

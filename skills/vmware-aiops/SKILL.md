@@ -27,7 +27,7 @@ compatibility: >
 
 > **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom. Source code is publicly auditable at [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops) under the MIT license.
 
-VMware family entry point — AI-powered VM lifecycle, deployment, and alarm management — 55 MCP tools.
+VMware family entry point — AI-powered VM lifecycle, deployment, and alarm management — 60 MCP tools.
 
 > **Start here**: install vmware-aiops first, then add modules as needed.
 > Run `vmware-aiops hub status` to see which family members are installed.
@@ -42,9 +42,9 @@ VMware family entry point — AI-powered VM lifecycle, deployment, and alarm man
 | **Deployment** | OVA, template, linked clone, batch clone/deploy | 8 |
 | **Guest Ops** | exec commands, upload/download files, provision | 5 |
 | **Plan/Apply** | multi-step planning with rollback | 4 |
-| **Cluster** | create, delete, HA/DRS config, add/remove hosts | 6 |
+| **Cluster** | create, delete, HA/DRS config, add/remove hosts, DRS VM-VM rules (list/create/delete/enable-disable) | 10 |
 | **Datastore** | browse files, scan for images | 2 |
-| **Network** | dvSwitch portgroup list/create, host VMkernel list/add/remove, DF-bit MTU-path ping | 6 |
+| **Network** | dvSwitch portgroup list/create, host VMkernel list/add/remove/tag-service, DF-bit MTU-path ping | 7 |
 | **Alarm Management** | list alarms, acknowledge, reset | 3 |
 | **Triage & Investigation** (read-only, delegates to vmware-monitor) | one-glance cluster health summary, object-centered VM/host/datastore drill-down bundles, cross-vCenter "what needs attention now?" | 5 |
 
@@ -182,7 +182,7 @@ Start here when the ask is "is anything on fire?" before diving into a specific 
 | Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
 | Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-## MCP Tools (55 — 17 read, 38 write)
+## MCP Tools (60 — 18 read, 42 write)
 
 | Category | Tools | R/W |
 |----------|-------|:---:|
@@ -194,10 +194,10 @@ Start here when the ask is "is anything on fire?" before diving into a specific 
 | Plan/Apply (4) | `vm_list_plans` | Read |
 | | `vm_create_plan`, `vm_apply_plan`, `vm_rollback_plan` | Write |
 | Datastore (2) | `browse_datastore`, `scan_datastore_images` | Read |
-| Network (6) | `list_dvs_portgroups`, `list_host_vmks`, `vmk_ping` | Read |
-| | `create_dvs_portgroup`, `add_host_vmk`, `remove_host_vmk` | Write |
-| Cluster (6) | `cluster_info` | Read |
-| | `cluster_create`, `cluster_delete`, `cluster_add_host`, `cluster_remove_host`, `cluster_configure` | Write |
+| Network (7) | `list_dvs_portgroups`, `list_host_vmks`, `vmk_ping` | Read |
+| | `create_dvs_portgroup`, `add_host_vmk`, `remove_host_vmk`, `set_vmk_service` | Write |
+| Cluster (10) | `cluster_info`, `list_drs_rules` | Read |
+| | `cluster_create`, `cluster_delete`, `cluster_add_host`, `cluster_remove_host`, `cluster_configure`, `set_drs_rule_enabled`, `create_drs_rule`, `delete_drs_rule` | Write |
 | Alarm Management (3) | `list_vcenter_alarms` | Read |
 | | `acknowledge_vcenter_alarm`, `reset_vcenter_alarm` | Write |
 | Cluster Triage (1) | `cluster_health_summary` (delegates to vmware-monitor) | Read |
@@ -205,9 +205,11 @@ Start here when the ask is "is anything on fire?" before diving into a specific 
 
 **List envelope**: the read list tools — `browse_datastore`, `list_vcenter_alarms`, `vm_list_plans`, `vm_list_snapshots`, `vm_list_ttl` — return `{items, returned, limit, total, truncated, hint}` rather than a bare array. Read the rows from `items` and check `truncated` before concluding a listing is complete; empty `items` with `truncated: false` means checked-and-none, not a failure. The write `batch_*` tools keep their bare list (complete by construction). Rationale, `total` semantics, error shape: `references/capabilities.md`.
 
-**Read/write split**: 17 tools are read-only (per `[READ]` docstring marker), 38 modify state. All write tools require explicit parameters and are audit-logged. Destructive operations (`vm_delete`, `vm_revert_snapshot`, `vm_delete_snapshot`, `vm_set_ttl` (schedules an unattended auto-delete), force power-off, cluster delete/remove-host, alarm reset, `remove_host_vmk`) require double confirmation at the CLI layer and support `--dry-run`.
+**Read/write split**: 18 tools are read-only (per `[READ]` docstring marker), 42 modify state. All write tools require explicit parameters and are audit-logged. Destructive operations (`vm_delete`, `vm_revert_snapshot`, `vm_delete_snapshot`, `vm_set_ttl` (schedules an unattended auto-delete), force power-off, cluster delete/remove-host, alarm reset, `remove_host_vmk`, `delete_drs_rule`) require double confirmation at the CLI layer and support `--dry-run`.
 
-**Network write gating**: `create_dvs_portgroup` and `add_host_vmk` are preview/confirm-gated — `confirm=False` (default) returns the exact spec that would be applied without writing. `remove_host_vmk` is **fail-closed**: it refuses when the vmk is selected for a host service (management/vMotion/vSAN), lives on a non-default netstack (NSX TEPs, dedicated vMotion stacks), carries a default gateway route, or when any of that cannot be verified — pass `force_unprotected=True` to override the non-absolute protections. The host's only management-enabled vmk is never removable (no override).
+**Network write gating**: `create_dvs_portgroup`, `add_host_vmk`, and `set_vmk_service` are preview/confirm-gated — `confirm=False` (default) returns the exact spec that would be applied without writing. `remove_host_vmk` is **fail-closed**: it refuses when the vmk is selected for a host service (management/vMotion/vSAN), lives on a non-default netstack (NSX TEPs, dedicated vMotion stacks), carries a default gateway route, or when any of that cannot be verified — pass `force_unprotected=True` to override the non-absolute protections. The host's only management-enabled vmk is never removable (no override). `set_vmk_service` is **fail-closed** too: it refuses both directions when the host's service map is unreadable, and refuses (no override) to untag `management` from the host's only management-enabled vmk — the call rides the interface it would untag.
+
+**DRS rule gating**: `set_drs_rule_enabled`, `create_drs_rule`, `delete_drs_rule` are preview/confirm-gated and idempotent (matching state returns a no-write noop). `create_drs_rule` handles VM-VM affinity/anti-affinity only (≥2 distinct VMs, all cluster members); VM-Host rules are read via `list_drs_rules` but managed in the vSphere UI. `delete_drs_rule` **refuses non-VM-VM rules** (they can carry licensing/compliance placement constraints) and records the full rule definition in both preview and result so a mistaken delete can be recreated from the audit trail.
 
 **Alarm reset blast radius**: vSphere has no per-alarm clear API. `reset_vcenter_alarm` uses `AlarmManager.ClearTriggeredAlarms`, which clears **all** triggered alarms matching the named alarm's entity type (host/VM/all) and current status (red/yellow) — not just the one named. The response's `scope` field states exactly what was cleared. The named alarm is looked up first, so a typo fails fast without clearing anything.
 
@@ -239,6 +241,10 @@ vmware-aiops deploy linked-clone --source <vm> --snapshot <snap> --name <new>
 # Cluster
 vmware-aiops cluster create <name> --ha --drs
 vmware-aiops cluster info <name>
+vmware-aiops cluster drs-rules <name>                                     # list DRS rules
+vmware-aiops cluster drs-rule-set <name> --rule <r> --enable|--disable [--dry-run]
+vmware-aiops cluster drs-rule-create <name> --rule <r> --type antiAffinity --vm <vm1> --vm <vm2> [--disabled] [--dry-run]
+vmware-aiops cluster drs-rule-delete <name> --rule <r> [--dry-run]        # VM-VM only; double confirm
 
 # Datastore
 vmware-aiops datastore browse <ds> --pattern "*.ova"

@@ -49,6 +49,10 @@ vmware-aiops cluster delete <name>
 vmware-aiops cluster add-host <cluster> --host <hostname>
 vmware-aiops cluster remove-host <cluster> --host <hostname>   # host must be in maintenance mode; moved to datacenter host folder as standalone
 vmware-aiops cluster configure <name> [--ha/--no-ha] [--drs/--no-drs] [--drs-behavior <behavior>]
+vmware-aiops cluster drs-rules <name>                                                # list VM-VM + VM-Host DRS rules
+vmware-aiops cluster drs-rule-set <name> --rule <name> --enable|--disable [--dry-run] # idempotent; double confirm
+vmware-aiops cluster drs-rule-create <name> --rule <name> --type affinity|antiAffinity --vm <vm1> --vm <vm2> [--disabled] [--dry-run]
+vmware-aiops cluster drs-rule-delete <name> --rule <name> [--dry-run]                 # VM-VM only; double confirm
 
 # Alarm Management
 vmware-aiops alarm list [--target <name>]

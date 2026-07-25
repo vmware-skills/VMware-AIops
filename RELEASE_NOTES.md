@@ -1,3 +1,37 @@
+## v1.8.10 — DRS VM-VM rules + vmk service tagging + UTF-8 I/O (55 → 60 tools)
+
+Three community contributions by @wright-bench (PRs #36, #37, #38), plus CLI
+parity for the DRS rule surface.
+
+- **DRS rule suite (PR #37)** — four MCP tools for VM-VM affinity/anti-affinity
+  rules, closing the day-2 gap `cluster_configure` left (cluster-wide DRS toggled,
+  individual rules had no surface):
+  - `list_drs_rules` [READ] — VM-VM and VM-Host rules (key, name, type, enabled,
+    mandatory, member VMs / group names). The verify pair for the writes.
+  - `set_drs_rule_enabled` [WRITE] — flip a rule's enabled flag; idempotent.
+  - `create_drs_rule` [WRITE] — VM-VM affinity/anti-affinity, ≥2 distinct VMs, all
+    validated as cluster members.
+  - `delete_drs_rule` [WRITE] — VM-VM only; **refuses** VM-Host and other rule
+    types (they can carry licensing/compliance placement constraints); preview and
+    result both record the full definition for recreate-from-audit.
+  - **CLI parity added**: `cluster drs-rules`, `cluster drs-rule-set`,
+    `cluster drs-rule-create`, `cluster drs-rule-delete` — `@guarded`, double-confirm
+    on writes, `--dry-run` on all three writes.
+- **`set_vmk_service` (PR #36)** — tag/untag a host service (vmotion, management,
+  vsan, vSphereProvisioning, …) on an existing vmk, completing `add_host_vmk`
+  (adapters are created serviceless by design). Idempotent, preview/confirm gated.
+  **Fail-closed**: refuses both directions when the service map is unreadable, and
+  refuses (no override) to untag `management` from the host's only
+  management-enabled vmk — the call rides the interface it would untag. Remains
+  MCP-only, consistent with the rest of the host-network suite.
+- **UTF-8 I/O pin (PR #38)** — `encoding="utf-8"` pinned on every text-mode
+  `read_text`/`write_text`/`open` across source and tests (46 sites). Fixes
+  `UnicodeDecodeError` on Windows/cp1252 checkouts where unpinned reads land on
+  files containing emoji/arrow bytes, and locale-encoded write round-trips.
+  Mechanical only — no logic touched.
+
+Tool count 55 → 60 (18 read, 42 write). Thanks again to @wright-bench.
+
 ## v1.8.9 — Network authoring: dvSwitch portgroups + host VMkernel adapters (49 → 55 tools)
 
 Six new MCP tools land the family's first network-authoring surface (community

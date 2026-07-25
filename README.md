@@ -7,7 +7,7 @@
 
 English | [中文](README-CN.md)
 
-AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 55 tools.
+AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 60 tools.
 
 > **Companion skills** handle everything else:
 >

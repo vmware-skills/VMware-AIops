@@ -224,3 +224,149 @@ def cluster_configure_cmd(
         target=_resolve_target(target), operation="configure_cluster",
         resource=name, parameters=params, result=result,
     )
+
+
+# ─── DRS affinity / anti-affinity rules ──────────────────────────────────────
+
+
+def _print_rule(rule: dict) -> None:
+    """Render one rule summary from list_drs_rules / *_drs_rule ops output."""
+    flags = "enabled" if rule.get("enabled") else "disabled"
+    if rule.get("mandatory"):
+        flags += ", mandatory"
+    console.print(
+        f"  [cyan]{rule['name']}[/] "
+        f"[dim]({rule['type']}, {flags}, key={rule['key']})[/]"
+    )
+    if "vms" in rule:
+        console.print(f"    vms: {', '.join(rule['vms']) or '(none)'}")
+    if "vm_group" in rule:
+        console.print(
+            f"    vm_group: {rule['vm_group']}  "
+            f"affine: {rule['affine_host_group'] or '-'}  "
+            f"anti: {rule['anti_affine_host_group'] or '-'}"
+        )
+
+
+@cluster_app.command("drs-rules")
+@cli_errors
+def cluster_drs_rules_cmd(
+    name: str,
+    target: TargetOption = None,
+    config: ConfigOption = None,
+) -> None:
+    """List a cluster's DRS rules (VM-VM affinity/anti-affinity and VM-Host)."""
+    from vmware_aiops.ops.cluster_mgmt import list_drs_rules
+
+    si, _ = _get_connection(target, config)
+    out = list_drs_rules(si, name)
+    console.print(f"\n[bold cyan]DRS rules on '{out['cluster']}' ({out['count']}):[/]")
+    for rule in out["rules"]:
+        _print_rule(rule)
+    if not out["rules"]:
+        console.print("  [dim](none)[/]")
+
+
+@cluster_app.command("drs-rule-set")
+@cli_errors
+@guarded(risk_level='medium')
+def cluster_drs_rule_set_cmd(
+    name: str,
+    rule_name: Annotated[str, typer.Option("--rule", help="Exact DRS rule name")],
+    enabled: Annotated[bool, typer.Option("--enable/--disable", help="Enable or disable the rule")],
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Enable or disable an existing DRS rule (idempotent)."""
+    from vmware_aiops.ops.cluster_mgmt import set_drs_rule_enabled
+
+    si, _ = _get_connection(target, config)
+    if dry_run:
+        out = set_drs_rule_enabled(si, name, rule_name=rule_name, enabled=enabled, confirm=False)
+        console.print(f"[magenta][DRY-RUN] {out['action']}: {out.get('hint', '')}[/]")
+        return
+    _double_confirm(
+        "启用/禁用 DRS 规则", f"{rule_name} → {'enable' if enabled else 'disable'}",
+        _resolve_target(target), resource_type="DRS rule",
+    )
+    out = set_drs_rule_enabled(si, name, rule_name=rule_name, enabled=enabled, confirm=True)
+    console.print(f"[green]{out['action']}[/]: {out.get('hint', rule_name)}")
+    if out.get("rule_now"):
+        _print_rule(out["rule_now"])
+    _audit.log(
+        target=_resolve_target(target), operation="set_drs_rule_enabled",
+        resource=f"{name}/{rule_name}", parameters={"enabled": enabled}, result=out["action"],
+    )
+
+
+@cluster_app.command("drs-rule-create")
+@cli_errors
+@guarded(risk_level='medium')
+def cluster_drs_rule_create_cmd(
+    name: str,
+    rule_name: Annotated[str, typer.Option("--rule", help="Name for the new rule (unique on the cluster)")],
+    rule_type: Annotated[str, typer.Option("--type", help="affinity | antiAffinity")],
+    vms: Annotated[list[str], typer.Option("--vm", help="VM name (repeat for each; >=2, all in the cluster)")],
+    disabled: Annotated[bool, typer.Option("--disabled", help="Create the rule disabled")] = False,
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Create a VM-VM DRS rule (affinity keeps VMs together, antiAffinity apart)."""
+    from vmware_aiops.ops.cluster_mgmt import create_drs_rule
+
+    si, _ = _get_connection(target, config)
+    if dry_run:
+        out = create_drs_rule(
+            si, name, rule_name=rule_name, rule_type=rule_type,
+            vm_names=vms, enabled=not disabled, confirm=False,
+        )
+        console.print(f"[magenta][DRY-RUN] {out['action']}: would create {out['would_create']}[/]")
+        return
+    _double_confirm(
+        "创建 DRS 规则", f"{rule_name} ({rule_type})",
+        _resolve_target(target), resource_type="DRS rule",
+    )
+    out = create_drs_rule(
+        si, name, rule_name=rule_name, rule_type=rule_type,
+        vm_names=vms, enabled=not disabled, confirm=True,
+    )
+    console.print(f"[green]{out['action']}[/]")
+    _print_rule(out["created"])
+    _audit.log(
+        target=_resolve_target(target), operation="create_drs_rule",
+        resource=f"{name}/{rule_name}",
+        parameters={"type": rule_type, "vms": vms, "enabled": not disabled},
+        result=out["action"],
+    )
+
+
+@cluster_app.command("drs-rule-delete")
+@cli_errors
+@guarded(risk_level='high')
+def cluster_drs_rule_delete_cmd(
+    name: str,
+    rule_name: Annotated[str, typer.Option("--rule", help="Exact DRS rule name (VM-VM only)")],
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Delete a VM-VM DRS rule (refuses VM-Host rules; definition recorded for recreate)."""
+    from vmware_aiops.ops.cluster_mgmt import delete_drs_rule
+
+    si, _ = _get_connection(target, config)
+    if dry_run:
+        out = delete_drs_rule(si, name, rule_name=rule_name, confirm=False)
+        console.print(f"[magenta][DRY-RUN] {out['action']}: would delete {out['would_delete']['rule']}[/]")
+        return
+    _double_confirm(
+        "删除 DRS 规则", rule_name, _resolve_target(target), resource_type="DRS rule",
+    )
+    out = delete_drs_rule(si, name, rule_name=rule_name, confirm=True)
+    console.print(f"[green]{out['action']}[/]: {rule_name}")
+    _audit.log(
+        target=_resolve_target(target), operation="delete_drs_rule",
+        resource=f"{name}/{rule_name}",
+        before_state=out["deleted"]["rule"], result=out["action"],
+    )

@@ -1195,7 +1195,7 @@ wheels = [
 
 [[package]]
 name = "vmware-aiops"
-version = "1.8.9"
+version = "1.8.10"
 source = { editable = "." }
 dependencies = [
     { name = "apscheduler" },

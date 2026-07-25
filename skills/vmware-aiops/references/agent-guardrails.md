@@ -14,7 +14,7 @@ vmware-monitor and vmware-aria against a production vSphere estate with Llama
 cross-skill rules are identical across this family; the parts below marked
 vmware-aiops are specific to this skill.
 
-vmware-aiops carries the family's largest write surface — 38 of its 55 MCP
+vmware-aiops carries the family's largest write surface — 42 of its 60 MCP
 tools change state, including `vm_delete`, cluster deletion, host VMkernel
 removal and guest command execution. Of every skill here, this is the one where a model's discipline
 should not be the only thing standing between a prompt and a destroyed VM.
@@ -120,7 +120,7 @@ checklist when evaluating any local model against these skills:
 | Adds generic recommendations unsupported by results | The "analysis discipline" rules. |
 | Drops requested fields or reorders results | State the required fields and ordering in the request itself, not only in the system prompt. |
 | Multi-tool workflows take 30–50s end to end | Prefer the aggregate tools — `cluster_health_summary`, `vm_investigation_bundle`, `host_investigation_bundle`, `datastore_investigation_bundle`, `cross_vcenter_attention` — which collapse a 3-4 call sequence into one round trip. |
-| Picks a write tool for a question that only reads | Route read questions to vmware-monitor. A model that can see 38 write tools will sometimes reach for one to "check" something. |
+| Picks a write tool for a question that only reads | Route read questions to vmware-monitor. A model that can see 42 write tools will sometimes reach for one to "check" something. |
 | Treats a long-running task's "still running" reply as a failure and re-issues the write | The `vm_task_status` rule above. A re-issued clone or delete is the worst outcome in this skill. |
 | Assumes an alarm reset cleared only the alarm it named | Report `scope` from the response. The clear is entity-type-wide by design. |
 

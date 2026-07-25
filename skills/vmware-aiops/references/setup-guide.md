@@ -163,4 +163,4 @@ For Claude Code / Cursor users who prefer structured tool calls, add to `~/.clau
 > PyPI on each launch and breaks behind corporate TLS proxies. The legacy
 > `vmware-aiops-mcp` entry point is also kept for backward compatibility.
 
-MCP exposes 55 tools across 10 categories. All accept optional `target` parameter.
+MCP exposes 60 tools across 10 categories. All accept optional `target` parameter.
