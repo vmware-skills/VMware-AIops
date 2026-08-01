@@ -10,3 +10,7 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "chore"
+    ignore:
+      # mcp 2.0 removed mcp.server.fastmcp (breaking); hold at <2.0 until server API migration
+      - dependency-name: "mcp"
+        update-types: ["version-update:semver-major"]
