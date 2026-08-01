@@ -13,20 +13,20 @@ AI 驱动的 VMware vCenter/ESXi VM 生命周期管理与部署工具 — 60 个
 >
 > | 技能 | 范围 | 安装 |
 > |------|------|------|
-> | **[vmware-monitor](https://github.com/zw008/VMware-Monitor)** | 只读：资源清单、健康检查、告警、事件、指标 | `uv tool install vmware-monitor` |
-> | **[vmware-storage](https://github.com/zw008/VMware-Storage)** | 数据存储、iSCSI、vSAN 管理 | `uv tool install vmware-storage` |
-> | **[vmware-vks](https://github.com/zw008/VMware-VKS)** | Tanzu 命名空间、TKC 集群生命周期 | `uv tool install vmware-vks` |
+> | **[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)** | 只读：资源清单、健康检查、告警、事件、指标 | `uv tool install vmware-monitor` |
+> | **[vmware-storage](https://github.com/vmware-skills/VMware-Storage)** | 数据存储、iSCSI、vSAN 管理 | `uv tool install vmware-storage` |
+> | **[vmware-vks](https://github.com/vmware-skills/VMware-VKS)** | Tanzu 命名空间、TKC 集群生命周期 | `uv tool install vmware-vks` |
 >
-> **只需要只读监控？** 使用 [VMware-Monitor](https://github.com/zw008/VMware-Monitor) — 代码库中零破坏性函数。
+> **只需要只读监控？** 使用 [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor) — 代码库中零破坏性函数。
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-vmware--aiops-orange)](https://clawhub.ai/skills/vmware-aiops)
 [![Skills.sh](https://img.shields.io/badge/Skills.sh-Install-blue)](https://skills.sh/zw008/VMware-AIops)
-[![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/zw008/VMware-AIops)
+[![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/vmware-skills/VMware-AIops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ## ⚡ 快速调查报告（只读）
 
-总览 → 调查 → 处置，一次对话完成。五个有主见的只读报告在**服务端聚合并关联**数据、返回高信号结果（绝不灌 raw inventory），让你在动手改之前先判断*该看哪里*。每个都支持 `--html` 生成**自包含离线 HTML 快照**（零外链；下钻细节用原生 `<details>` 折叠，零 JavaScript）。全部委托 [vmware-monitor](https://github.com/zw008/VMware-Monitor) 库、用 AIops 自己的 vCenter 连接。
+总览 → 调查 → 处置，一次对话完成。五个有主见的只读报告在**服务端聚合并关联**数据、返回高信号结果（绝不灌 raw inventory），让你在动手改之前先判断*该看哪里*。每个都支持 `--html` 生成**自包含离线 HTML 快照**（零外链；下钻细节用原生 `<details>` 折叠，零 JavaScript）。全部委托 [vmware-monitor](https://github.com/vmware-skills/VMware-Monitor) 库、用 AIops 自己的 vCenter 连接。
 
 | 问题 | 命令 | 关联什么 |
 |------|------|---------|
@@ -119,7 +119,7 @@ pip install --no-index --find-links dist vmware-aiops
 | **Token 敏感场景** | **CLI** | SKILL.md + Bash = 最小开销 |
 | **云端大模型**（Claude、GPT-4o） | 均可 | MCP 提供结构化 JSON 输入输出 |
 | **自动化管道 / Agent 链式调用** | **MCP** | 类型安全参数，结构化输出，无需 Shell 解析 |
-| **监控 / 存储 / K8s** | 配套技能 | 见 [vmware-monitor](https://github.com/zw008/VMware-Monitor)、[vmware-storage](https://github.com/zw008/VMware-Storage)、[vmware-vks](https://github.com/zw008/VMware-VKS) |
+| **监控 / 存储 / K8s** | 配套技能 | 见 [vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)、[vmware-storage](https://github.com/vmware-skills/VMware-Storage)、[vmware-vks](https://github.com/vmware-skills/VMware-VKS) |
 
 > **经验法则**：追求成本和兼容性选 CLI，追求结构化自动化选 MCP。
 
@@ -288,7 +288,7 @@ Plan 存储在 `~/.vmware-aiops/plans/`，成功后自动删除，超过 24 小�
 | SSL 自签名 | 仅用于 ESXi 自签名证书的隔离实验环境；生产环境应使用 CA 签名证书 |
 | Prompt 注入防护 | vSphere 事件消息和主机日志在输出前进行截断、控制字符清理和边界标记包裹 |
 | Webhook 数据范围 | **默认禁用**。启用后仅向用户自配置的 URL 发送告警摘要，payload 不含凭据、IP 或 PII |
-| 最小权限 | 推荐使用专用 vCenter 服务账户，仅授予所需最小权限。仅需监控时使用 [VMware-Monitor](https://github.com/zw008/VMware-Monitor) |
+| 最小权限 | 推荐使用专用 vCenter 服务账户，仅授予所需最小权限。仅需监控时使用 [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor) |
 | 任务等待 | 所有异步操作等待完成并报告结果 |
 
 ### vCenter vs ESXi 对比
@@ -304,7 +304,7 @@ Plan 存储在 `~/.vmware-aiops/plans/`，成功后自动删除，超过 24 小�
 | 快照 | ✅ | ✅ |
 | Guest 操作 | ✅ | ✅ |
 
-> 资源清单、告警、事件、传感器、主机服务、扫描已迁移至 [vmware-monitor](https://github.com/zw008/VMware-Monitor)。
+> 资源清单、告警、事件、传感器、主机服务、扫描已迁移至 [vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)。
 
 ---
 
@@ -379,7 +379,7 @@ node --version      # Gemini/Codex CLI 需要 Node.js 18+
 所有平台共用同一个 Python 后端：
 
 ```bash
-git clone https://github.com/zw008/VMware-AIops.git
+git clone https://github.com/vmware-skills/VMware-AIops.git
 cd VMware-AIops
 python3 -m venv .venv
 source .venv/bin/activate
@@ -421,8 +421,8 @@ chmod 600 ~/.vmware-aiops/.env
 - **始终**通过 `config.yaml` 配置连接 — 凭据自动从 `.env` 加载
 - **TLS**：默认启用。仅在使用自签名证书的隔离实验环境中才禁用
 - **Webhook**：仅向您自己配置的 URL 发送通知，默认不向第三方服务发送数据
-- **代码审查**：建议在生产部署前审查[源代码](https://github.com/zw008/VMware-AIops)和提交历史
-- **生产环境安全**：生产环境建议使用只读的 [VMware-Monitor](https://github.com/zw008/VMware-Monitor)。AI Agent 可能误解上下文并执行非预期的破坏性操作 — 已有真实案例表明，缺乏隔离的 AI 驱动基础设施工具可能删除生产数据库和整个环境。VMware-Monitor 在代码级别消除此风险：代码库中不存在任何破坏性函数
+- **代码审查**：建议在生产部署前审查[源代码](https://github.com/vmware-skills/VMware-AIops)和提交历史
+- **生产环境安全**：生产环境建议使用只读的 [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor)。AI Agent 可能误解上下文并执行非预期的破坏性操作 — 已有真实案例表明，缺乏隔离的 AI 驱动基础设施工具可能删除生产数据库和整个环境。VMware-Monitor 在代码级别消除此风险：代码库中不存在任何破坏性函数
 
 ### 第 3 步：连接 AI 工具
 
@@ -435,7 +435,7 @@ npx skills add zw008/VMware-AIops
 clawhub install vmware-aiops
 
 # 方式二：手工安装 skill
-git clone https://github.com/zw008/VMware-AIops.git
+git clone https://github.com/vmware-skills/VMware-AIops.git
 cd VMware-AIops
 mkdir -p ~/.claude/skills/vmware-aiops
 cp -r skills/vmware-aiops/. ~/.claude/skills/vmware-aiops/
@@ -447,7 +447,7 @@ cp -r skills/vmware-aiops/. ~/.claude/skills/vmware-aiops/
 claude mcp add vmware-aiops -- vmware-aiops mcp
 ```
 
-> 生产环境建议改用只读的 [VMware-Monitor](https://github.com/zw008/VMware-Monitor)（`npx skills add zw008/VMware-Monitor`），代码级零破坏性。
+> 生产环境建议改用只读的 [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor)（`npx skills add zw008/VMware-Monitor`），代码级零破坏性。
 
 #### Gemini CLI
 
@@ -721,15 +721,15 @@ VMware-AIops/
 
 | Skill | 范围 | 工具数 | 安装 |
 |-------|------|:-----:|------|
-| **[vmware-aiops](https://github.com/zw008/VMware-AIops)** | VM 生命周期、部署、Guest Ops、集群、数据存储浏览、健康速览 | 49 | `uv tool install vmware-aiops` |
-| **[vmware-monitor](https://github.com/zw008/VMware-Monitor)** | 只读监控、告警、事件、对象调查 bundle | 27 | `uv tool install vmware-monitor` |
-| **[vmware-storage](https://github.com/zw008/VMware-Storage)** | 数据存储、iSCSI、vSAN | 11 | `uv tool install vmware-storage` |
-| **[vmware-vks](https://github.com/zw008/VMware-VKS)** | Tanzu 命名空间、TKC 集群生命周期 | 20 | `uv tool install vmware-vks` |
-| **[vmware-nsx](https://github.com/zw008/VMware-NSX)** | NSX 网络：Segment、Gateway、NAT、路由、IPAM | 33 | `uv tool install vmware-nsx-mgmt` |
-| **[vmware-nsx-security](https://github.com/zw008/VMware-NSX-Security)** | DFW 策略/规则、安全组、Traceflow、IDS/IPS | 21 | `uv tool install vmware-nsx-security` |
-| **[vmware-aria](https://github.com/zw008/VMware-Aria)** | Aria Operations 指标、告警、容量、异常检测 | 28 | `uv tool install vmware-aria` |
-| **[vmware-avi](https://github.com/zw008/VMware-AVI)** | AVI (NSX ALB) 负载均衡、AKO Kubernetes 操作 | 28 | `uv tool install vmware-avi` |
-| **[vmware-harden](https://github.com/zw008/VMware-Harden)** | 合规基线（CIS / vSphere SCG / 等保 / PCI-DSS）、Drift 检测 | 6 | `uv tool install vmware-harden` |
+| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** | VM 生命周期、部署、Guest Ops、集群、数据存储浏览、健康速览 | 49 | `uv tool install vmware-aiops` |
+| **[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)** | 只读监控、告警、事件、对象调查 bundle | 27 | `uv tool install vmware-monitor` |
+| **[vmware-storage](https://github.com/vmware-skills/VMware-Storage)** | 数据存储、iSCSI、vSAN | 11 | `uv tool install vmware-storage` |
+| **[vmware-vks](https://github.com/vmware-skills/VMware-VKS)** | Tanzu 命名空间、TKC 集群生命周期 | 20 | `uv tool install vmware-vks` |
+| **[vmware-nsx](https://github.com/vmware-skills/VMware-NSX)** | NSX 网络：Segment、Gateway、NAT、路由、IPAM | 33 | `uv tool install vmware-nsx-mgmt` |
+| **[vmware-nsx-security](https://github.com/vmware-skills/VMware-NSX-Security)** | DFW 策略/规则、安全组、Traceflow、IDS/IPS | 21 | `uv tool install vmware-nsx-security` |
+| **[vmware-aria](https://github.com/vmware-skills/VMware-Aria)** | Aria Operations 指标、告警、容量、异常检测 | 28 | `uv tool install vmware-aria` |
+| **[vmware-avi](https://github.com/vmware-skills/VMware-AVI)** | AVI (NSX ALB) 负载均衡、AKO Kubernetes 操作 | 28 | `uv tool install vmware-avi` |
+| **[vmware-harden](https://github.com/vmware-skills/VMware-Harden)** | 合规基线（CIS / vSphere SCG / 等保 / PCI-DSS）、Drift 检测 | 6 | `uv tool install vmware-harden` |
 
 ---
 

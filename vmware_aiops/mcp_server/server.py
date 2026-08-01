@@ -37,7 +37,7 @@ Security considerations
 * **Prompt injection defense**: Datastore file names/paths are sanitized
   via ``_sanitize()`` to strip control characters.
 
-Source: https://github.com/zw008/VMware-AIops
+Source: https://github.com/vmware-skills/VMware-AIops
 License: MIT
 """
 

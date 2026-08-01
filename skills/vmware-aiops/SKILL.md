@@ -12,7 +12,7 @@ installer:
 argument-hint: "[vm-name or describe your task]"
 allowed-tools:
   - Bash
-metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml","~/.vmware-aiops/.env"]},"optional":{"env":["VMWARE_TARGET_PASSWORD","VMWARE_<TARGET>_USERNAME","SLACK_WEBHOOK_URL","DISCORD_WEBHOOK_URL","VMWARE_AUDIT_APPROVED_BY"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/zw008/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
+metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml","~/.vmware-aiops/.env"]},"optional":{"env":["VMWARE_TARGET_PASSWORD","VMWARE_<TARGET>_USERNAME","SLACK_WEBHOOK_URL","DISCORD_WEBHOOK_URL","VMWARE_AUDIT_APPROVED_BY"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/vmware-skills/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
 compatibility: >
   vmware-policy auto-installed as Python dependency (provides @vmware_tool decorator and audit logging). All write operations audited to ~/.vmware/audit.db.
   Credentials: Each vCenter/ESXi target requires a per-target password env var in ~/.vmware-aiops/.env following the pattern VMWARE_<TARGET_NAME_UPPER>_PASSWORD. Passwords are never logged or echoed.
@@ -25,13 +25,13 @@ compatibility: >
 
 # VMware AIops
 
-> **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom. Source code is publicly auditable at [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops) under the MIT license.
+> **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom. Source code is publicly auditable at [github.com/vmware-skills/VMware-AIops](https://github.com/vmware-skills/VMware-AIops) under the MIT license.
 
 VMware family entry point — AI-powered VM lifecycle, deployment, and alarm management — 60 MCP tools.
 
 > **Start here**: install vmware-aiops first, then add modules as needed.
 > Run `vmware-aiops hub status` to see which family members are installed.
-> **Family**: [vmware-monitor](https://github.com/zw008/VMware-Monitor) (inventory/health), [vmware-storage](https://github.com/zw008/VMware-Storage) (iSCSI/vSAN), [vmware-vks](https://github.com/zw008/VMware-VKS) (Tanzu Kubernetes), [vmware-nsx](https://github.com/zw008/VMware-NSX) (NSX networking), [vmware-nsx-security](https://github.com/zw008/VMware-NSX-Security) (DFW/firewall), [vmware-aria](https://github.com/zw008/VMware-Aria) (metrics/alerts/capacity), [vmware-avi](https://github.com/zw008/VMware-AVI) (AVI/ALB/AKO), [vmware-harden](https://github.com/zw008/VMware-Harden) (compliance baselines).
+> **Family**: [vmware-monitor](https://github.com/vmware-skills/VMware-Monitor) (inventory/health), [vmware-storage](https://github.com/vmware-skills/VMware-Storage) (iSCSI/vSAN), [vmware-vks](https://github.com/vmware-skills/VMware-VKS) (Tanzu Kubernetes), [vmware-nsx](https://github.com/vmware-skills/VMware-NSX) (NSX networking), [vmware-nsx-security](https://github.com/vmware-skills/VMware-NSX-Security) (DFW/firewall), [vmware-aria](https://github.com/vmware-skills/VMware-Aria) (metrics/alerts/capacity), [vmware-avi](https://github.com/vmware-skills/VMware-AVI) (AVI/ALB/AKO), [vmware-harden](https://github.com/vmware-skills/VMware-Harden) (compliance baselines).
 > | [vmware-pilot](../vmware-pilot/SKILL.md) (workflow orchestration) | [vmware-policy](../vmware-policy/SKILL.md) (audit/policy)
 
 ## What This Skill Does
@@ -311,4 +311,4 @@ vmware-policy is automatically installed as a dependency — no manual setup nee
 
 ## License
 
-MIT — [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops)
+MIT — [github.com/vmware-skills/VMware-AIops](https://github.com/vmware-skills/VMware-AIops)

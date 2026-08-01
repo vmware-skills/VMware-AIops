@@ -2,7 +2,7 @@
 
 ## Installation
 
-All install methods fetch from the same source: [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops) (MIT licensed). We recommend reviewing the source code before installing.
+All install methods fetch from the same source: [github.com/vmware-skills/VMware-AIops](https://github.com/vmware-skills/VMware-AIops) (MIT licensed). We recommend reviewing the source code before installing.
 
 ```bash
 # Via PyPI (recommended for version pinning)
@@ -34,7 +34,7 @@ claude mcp add vmware-aiops -- vmware-aiops mcp
 ## Configuration
 
 ```bash
-# 1. Install from PyPI (source: github.com/zw008/VMware-AIops)
+# 1. Install from PyPI (source: github.com/vmware-skills/VMware-AIops)
 uv tool install vmware-aiops
 
 # 2. Verify installation source
@@ -69,7 +69,7 @@ The `vmware-aiops` package installs a Python CLI binary and its dependencies (py
 ## Development Install
 
 ```bash
-git clone https://github.com/zw008/VMware-AIops.git
+git clone https://github.com/vmware-skills/VMware-AIops.git
 cd VMware-AIops
 uv venv && source .venv/bin/activate
 uv pip install -e .
@@ -94,7 +94,7 @@ whitespace are handled correctly).
 
 > **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom.
 
-- **Source Code**: Fully open source at [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops) (MIT). The `uv` installer fetches the `vmware-aiops` package from PyPI, which is built from this GitHub repository. We recommend reviewing the source code and commit history before deploying in production.
+- **Source Code**: Fully open source at [github.com/vmware-skills/VMware-AIops](https://github.com/vmware-skills/VMware-AIops) (MIT). The `uv` installer fetches the `vmware-aiops` package from PyPI, which is built from this GitHub repository. We recommend reviewing the source code and commit history before deploying in production.
 - **TLS Verification**: Enabled by default. The `disableSslCertValidation` option exists solely for ESXi hosts using self-signed certificates in isolated lab/home environments. In production, always use CA-signed certificates with full TLS verification.
 - **Credentials & Config**: This skill requires the following secrets, all stored in `~/.vmware-aiops/.env` (`chmod 600`, loaded via `python-dotenv`):
   - `VMWARE_<TARGET>_PASSWORD` — per-target password where `<TARGET>` is the uppercased target name from `config.yaml` (hyphens become underscores). Example: target named `vcenter-prod` uses `VMWARE_VCENTER_PROD_PASSWORD`.
@@ -103,7 +103,7 @@ whitespace are handled correctly).
   The config file `~/.vmware-aiops/config.yaml` stores only target hostnames, ports, and usernames — it does **not** contain passwords or tokens. The env var `VMWARE_AIOPS_CONFIG` points to this YAML file.
 - **Webhook Data Scope**: Webhook notifications are **disabled by default**. When enabled, they send infrastructure health summaries (alarm counts, event types, host status) to **user-configured URLs only** (Slack, Discord, or any HTTP endpoint you control). No data is sent to third-party services. Webhook payloads contain no credentials, IPs, or personally identifiable information — only aggregated alert metadata.
 - **Prompt Injection Protection**: All vSphere-sourced content (event messages, host logs) is truncated, stripped of control characters, and wrapped in boundary markers (`[VSPHERE_EVENT]`/`[VSPHERE_HOST_LOG]`) before output to prevent prompt injection when consumed by LLM agents.
-- **Least Privilege**: Use a dedicated vCenter service account with minimal permissions. For monitoring-only use cases, prefer the read-only [VMware-Monitor](https://github.com/zw008/VMware-Monitor) skill which has zero destructive code paths.
+- **Least Privilege**: Use a dedicated vCenter service account with minimal permissions. For monitoring-only use cases, prefer the read-only [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor) skill which has zero destructive code paths.
 
 To run the agent read-only, give it a read-only vCenter/NSX service account (RBAC) — enforced at the platform.
 

@@ -10,7 +10,7 @@ guardrails below are adapted, with thanks, from the working configuration
 [@juanpf-ha](https://github.com/juanpf-ha) developed while running
 vmware-monitor and vmware-aria against a production vSphere estate with Llama
 3.3 70B FP8 on an on-prem H100
-([VMware-AIops#31](https://github.com/zw008/VMware-AIops/issues/31)). The
+([VMware-AIops#31](https://github.com/vmware-skills/VMware-AIops/issues/31)). The
 cross-skill rules are identical across this family; the parts below marked
 vmware-aiops are specific to this skill.
 
@@ -130,4 +130,4 @@ Local-model compatibility is an explicit design constraint for this family, and
 the evidence base is small. If you evaluate a model against this skill —
 Qwen, Mistral, Granite, or anything else — a report of what worked and what did
 not is genuinely useful:
-[github.com/zw008/VMware-AIops/issues](https://github.com/zw008/VMware-AIops/issues).
+[github.com/vmware-skills/VMware-AIops/issues](https://github.com/vmware-skills/VMware-AIops/issues).

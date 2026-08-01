@@ -16,14 +16,14 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 - L1/L2 tools are always safe for agents to call without confirmation.
 - **List envelope**: the read list tools (`browse_datastore`, `list_vcenter_alarms`, `vm_list_plans`, `vm_list_snapshots`, `vm_list_ttl`) return `{items, returned, limit, total, truncated, hint}` instead of a bare array, so an agent can tell a complete answer from a first page rather than inferring it (issue #31). All five enumerate their collection in full before any limit is applied, so `total` is always the real count; only `list_vcenter_alarms` takes a `limit` and can therefore report `truncated: true`. The write `batch_*` tools deliberately keep a bare list — each row is a per-item result of work already done, complete by construction. Errors from these read tools are `{error, hint}` (a dict, not a one-element list).
 - L3+ tools always pass through the `@vmware_tool` decorator: connection check → policy check → audit log → optional double-confirm.
-- See [vmware-pilot](https://github.com/zw008/VMware-Pilot) for cross-skill L4 orchestration and the Dispatcher/Subagent pattern.
+- See [vmware-pilot](https://github.com/vmware-skills/VMware-Pilot) for cross-skill L4 orchestration and the Dispatcher/Subagent pattern.
 
 ## Triage & Object Investigation (read-only)
 
 Five opinionated read-only reports that **aggregate and correlate server-side** and
 return high-signal results — never raw inventory. They exist so the agent can decide
 *where to look* before actuating anything. All five delegate to the
-[vmware-monitor](https://github.com/zw008/VMware-Monitor) library using AIops' own
+[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor) library using AIops' own
 vCenter connection, so **`vmware-monitor` must be installed**; without it these tools
 are unavailable. All are point-in-time (no trending). Each has a `--html` CLI form
 that writes a self-contained, timestamped offline snapshot (no external references,
@@ -166,11 +166,11 @@ Plans are stored in `~/.vmware-aiops/plans/`, deleted on success, auto-cleaned a
 | Browse Files | ✅ | ✅ | List files/folders in any datastore path |
 | Scan Images | ✅ | ✅ | Discover ISO, OVA, OVF, VMDK across all datastores |
 
-> For datastore management, iSCSI, and vSAN, use [vmware-storage](https://github.com/zw008/VMware-Storage). For Tanzu Kubernetes, use [vmware-vks](https://github.com/zw008/VMware-VKS).
+> For datastore management, iSCSI, and vSAN, use [vmware-storage](https://github.com/vmware-skills/VMware-Storage). For Tanzu Kubernetes, use [vmware-vks](https://github.com/vmware-skills/VMware-VKS).
 
 ## Network (dvSwitch portgroups + host VMkernel)
 
-MCP-only (no CLI subcommand). Seven tools for distributed-switch portgroup and host VMkernel authoring, plus an MTU-path diagnostic. Writes are preview/confirm gated; `remove_host_vmk` and `set_vmk_service` are fail-closed. For NSX overlay segments/gateways/NAT, use [vmware-nsx](https://github.com/zw008/VMware-NSX) — this surface is the underlay (VLAN-backed DVS portgroups, host kernel interfaces).
+MCP-only (no CLI subcommand). Seven tools for distributed-switch portgroup and host VMkernel authoring, plus an MTU-path diagnostic. Writes are preview/confirm gated; `remove_host_vmk` and `set_vmk_service` are fail-closed. For NSX overlay segments/gateways/NAT, use [vmware-nsx](https://github.com/vmware-skills/VMware-NSX) — this surface is the underlay (VLAN-backed DVS portgroups, host kernel interfaces).
 
 | Tool | R/W | Risk | Operation |
 |------|:---:|:----:|-----------|
