@@ -1,3 +1,9 @@
+## v1.8.11 — moved to vmware-skills org + MCP Registry namespace io.github.vmware-skills/vmware-aiops
+
+Repo transferred from github.com/zw008 to github.com/vmware-skills (redirects preserve old links).
+MCP Registry server renamed to `io.github.vmware-skills/*`; the old `io.github.zw008/*` entry is deprecated.
+All in-repo links updated. No functional code change on this line beyond the org move.
+
 ## v1.8.10 — DRS VM-VM rules + vmk service tagging + UTF-8 I/O (55 → 60 tools)
 
 Three community contributions by @wright-bench (PRs #36, #37, #38), plus CLI

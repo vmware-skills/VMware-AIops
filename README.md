@@ -1,4 +1,4 @@
-<!-- mcp-name: io.github.zw008/vmware-aiops -->
+<!-- mcp-name: io.github.vmware-skills/vmware-aiops -->
 # VMware AIops
 
 > **Author**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
