@@ -1,4 +1,4 @@
-<!-- mcp-name: io.github.zw008/vmware-aiops -->
+<!-- mcp-name: io.github.vmware-skills/vmware-aiops -->
 # VMware AIops
 
 > **作者**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
@@ -20,7 +20,7 @@ AI 驱动的 VMware vCenter/ESXi VM 生命周期管理与部署工具 — 60 个
 > **只需要只读监控？** 使用 [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor) — 代码库中零破坏性函数。
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-vmware--aiops-orange)](https://clawhub.ai/skills/vmware-aiops)
-[![Skills.sh](https://img.shields.io/badge/Skills.sh-Install-blue)](https://skills.sh/zw008/VMware-AIops)
+[![Skills.sh](https://img.shields.io/badge/Skills.sh-Install-blue)](https://skills.sh/vmware-skills/VMware-AIops)
 [![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/vmware-skills/VMware-AIops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -50,7 +50,7 @@ MCP 下对应工具为 `cluster_health_summary`、`cross_vcenter_attention`、`v
 
 ```bash
 # 通过 Skills.sh 安装
-npx skills add zw008/VMware-AIops
+npx skills add vmware-skills/VMware-AIops
 
 # 通过 ClawHub 安装
 clawhub install vmware-aiops
@@ -430,7 +430,7 @@ chmod 600 ~/.vmware-aiops/.env
 
 ```bash
 # 方式一：由安装器放置 skill（推荐）
-npx skills add zw008/VMware-AIops
+npx skills add vmware-skills/VMware-AIops
 # 或
 clawhub install vmware-aiops
 
@@ -447,7 +447,7 @@ cp -r skills/vmware-aiops/. ~/.claude/skills/vmware-aiops/
 claude mcp add vmware-aiops -- vmware-aiops mcp
 ```
 
-> 生产环境建议改用只读的 [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor)（`npx skills add zw008/VMware-Monitor`），代码级零破坏性。
+> 生产环境建议改用只读的 [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor)（`npx skills add vmware-skills/VMware-Monitor`），代码级零破坏性。
 
 #### Gemini CLI
 
@@ -559,10 +559,6 @@ vmware-aiops-mcp
 
 </details>
 
-**通过 Smithery 安装**：
-```bash
-npx -y @smithery/cli install @zw008/VMware-AIops --client claude
-```
 
 ---
 

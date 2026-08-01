@@ -20,7 +20,7 @@ AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 60 tools.
 > **Need read-only monitoring only?** Use [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor) — zero destructive code in the codebase.
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-vmware--aiops-orange)](https://clawhub.ai/skills/vmware-aiops)
-[![Skills.sh](https://img.shields.io/badge/Skills.sh-Install-blue)](https://skills.sh/zw008/VMware-AIops)
+[![Skills.sh](https://img.shields.io/badge/Skills.sh-Install-blue)](https://skills.sh/vmware-skills/VMware-AIops)
 [![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/vmware-skills/VMware-AIops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -50,7 +50,7 @@ Works with Claude Code, Cursor, Codex, Gemini CLI, Trae, and 30+ AI agents:
 
 ```bash
 # Via Skills.sh
-npx skills add zw008/VMware-AIops
+npx skills add vmware-skills/VMware-AIops
 
 # Via ClawHub
 clawhub install vmware-aiops
@@ -498,7 +498,7 @@ Choose one (or more) of the following:
 Either installer places the skill in Claude Code's skills directory for you:
 
 ```bash
-npx skills add zw008/VMware-AIops
+npx skills add vmware-skills/VMware-AIops
 # or
 clawhub install vmware-aiops
 ```
@@ -660,7 +660,7 @@ cp skills/vmware-aiops/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
 
 ---
 
-#### Option H: MCP Server (Smithery / Glama / Claude Desktop)
+#### Option H: MCP Server (Glama / Claude Desktop)
 
 The MCP server exposes VMware operations as tools via the [Model Context Protocol](https://modelcontextprotocol.io). Works with any MCP-compatible client (Claude Desktop, Cursor, etc.).
 
@@ -705,10 +705,6 @@ vmware-aiops-mcp
 
 </details>
 
-**Install via Smithery**:
-```bash
-npx -y @smithery/cli install @zw008/VMware-AIops --client claude
-```
 
 ---
 
@@ -732,7 +728,7 @@ Already installed? Re-run the install command for your channel to get the latest
 | Install Channel | Update Command |
 |----------------|----------------|
 | ClawHub | `clawhub install vmware-aiops` |
-| Skills.sh | `npx skills add zw008/VMware-AIops` |
+| Skills.sh | `npx skills add vmware-skills/VMware-AIops` |
 | Git clone | `cd VMware-AIops && git pull origin main && uv pip install -e .` |
 | uv | `uv tool install vmware-aiops --force` |
 
