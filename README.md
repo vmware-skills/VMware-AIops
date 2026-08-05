@@ -1,6 +1,8 @@
 <!-- mcp-name: io.github.vmware-skills/vmware-aiops -->
 # VMware AIops
 
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.vmware-skills%2Fvmware-aiops.svg)](https://mcptoplist.com/server/io.github.vmware-skills%2Fvmware-aiops)
+
 > **Author**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
 > This is a community-driven project by a VMware engineer, not an official VMware product.
 > For official VMware developer tools see [developer.broadcom.com](https://developer.broadcom.com).
