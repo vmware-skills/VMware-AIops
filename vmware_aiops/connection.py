@@ -11,7 +11,6 @@ import ssl
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
-from pyVmomi.VmomiSupport import VmomiJSONEncoder  # noqa: F401
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
