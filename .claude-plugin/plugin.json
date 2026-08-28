@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "vmware-aiops",
+  "displayName": "VMware AIops",
+  "version": "1.8.11",
+  "description": "AI-powered VMware vCenter/ESXi VM lifecycle and deployment with 31 MCP tools.",
+  "author": {
+    "name": "Wei Zhou",
+    "email": "zhouwei008@gmail.com",
+    "url": "https://github.com/vmware-skills"
+  },
+  "homepage": "https://github.com/vmware-skills/VMware-AIops",
+  "repository": "https://github.com/vmware-skills/VMware-AIops",
+  "license": "MIT",
+  "keywords": [
+    "aiops",
+    "mcp",
+    "vmware",
+    "vsphere"
+  ]
+}

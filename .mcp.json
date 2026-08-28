@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "vmware-aiops": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "vmware-aiops==1.8.11",
+        "vmware-aiops-mcp"
+      ]
+    }
+  }
+}
