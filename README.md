@@ -53,7 +53,7 @@ Works with Claude Code, Cursor, Codex, Gemini CLI, Trae, and 30+ AI agents:
 npx skills add vmware-skills/VMware-AIops
 
 # Via ClawHub
-clawhub install vmware-aiops
+clawhub install @zw008/vmware-aiops
 ```
 
 ### PyPI Install (No GitHub Access Required)
@@ -500,7 +500,7 @@ Either installer places the skill in Claude Code's skills directory for you:
 ```bash
 npx skills add vmware-skills/VMware-AIops
 # or
-clawhub install vmware-aiops
+clawhub install @zw008/vmware-aiops
 ```
 
 **Method 2: Manual skill install**
@@ -727,7 +727,7 @@ Already installed? Re-run the install command for your channel to get the latest
 
 | Install Channel | Update Command |
 |----------------|----------------|
-| ClawHub | `clawhub install vmware-aiops` |
+| ClawHub | `clawhub install @zw008/vmware-aiops` |
 | Skills.sh | `npx skills add vmware-skills/VMware-AIops` |
 | Git clone | `cd VMware-AIops && git pull origin main && uv pip install -e .` |
 | uv | `uv tool install vmware-aiops --force` |

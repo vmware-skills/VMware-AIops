@@ -9,10 +9,10 @@ All install methods fetch from the same source: [github.com/vmware-skills/VMware
 uv tool install vmware-aiops==1.2.3
 
 # Via Skills.sh (fetches from GitHub)
-npx skills add zw008/VMware-AIops
+npx skills add vmware-skills/VMware-AIops
 
 # Via ClawHub (fetches from ClawHub registry snapshot of GitHub)
-clawhub install vmware-aiops
+clawhub install @zw008/vmware-aiops
 ```
 
 ### Claude Code

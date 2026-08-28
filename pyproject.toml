@@ -26,6 +26,13 @@ dependencies = [
     "vmware-monitor>=1.8.0,<2.0",
 ]
 
+
+[project.urls]
+Homepage = "https://github.com/vmware-skills/VMware-AIops"
+Repository = "https://github.com/vmware-skills/VMware-AIops"
+Issues = "https://github.com/vmware-skills/VMware-AIops/issues"
+Changelog = "https://github.com/vmware-skills/VMware-AIops/blob/main/RELEASE_NOTES.md"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0,<10.0",
