@@ -20,6 +20,7 @@ from typing import Any, Callable, Optional
 from mcp.server.fastmcp import FastMCP
 from vmware_policy import report_tool_failure, sanitize
 
+from vmware_aiops import __version__
 from vmware_aiops.config import ConfigError, load_config
 from vmware_aiops.connection import ConnectionManager
 from vmware_aiops.ops.cluster_mgmt import ClusterError, ClusterNotFoundError
@@ -169,6 +170,11 @@ mcp = FastMCP(
         "For Tanzu Kubernetes, use vmware-vks."
     ),
 )
+
+# FastMCP takes no version argument and leaves the lowlevel server's at
+# None, which makes `initialize` answer with the MCP SDK's version rather
+# than ours. Set it so a client can tell which release it is talking to.
+mcp._mcp_server.version = __version__
 
 # ---------------------------------------------------------------------------
 # Connection helper
