@@ -3,7 +3,7 @@
   "name": "vmware-aiops",
   "displayName": "VMware AIops",
   "version": "1.8.11",
-  "description": "AI-powered VMware vCenter/ESXi VM lifecycle and deployment with 31 MCP tools.",
+  "description": "AI-powered VMware vCenter/ESXi VM lifecycle and deployment with 60 MCP tools.",
   "author": {
     "name": "Wei Zhou",
     "email": "zhouwei008@gmail.com",
