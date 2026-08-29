@@ -52,6 +52,9 @@ ENTITY_WORDS = {
     # reachable only if a description says where to get one. Inventing a producer
     # here would make the eval green without making the surface navigable.
     "entity": ("entity",),
+    # DRS affinity/anti-affinity rules. list_drs_rules enumerates them, so a
+    # rule_name is obtainable from this surface.
+    "rule": ("rule", "rules"),
 }
 
 #: Skill-specific parameters that end in an entity suffix but are supplied by the
@@ -68,6 +71,16 @@ NOT_AN_ENTITY = frozenset(
         # up. The creation-verb rule misses it because the stem is "new", not the
         # entity, so it has to be named explicitly.
         "new_name",
+        # The VLAN to configure on a new portgroup. A number the operator
+        # decides from their network plan, not an object discovered from vSphere.
+        "vlan_id",
+        # Which dvSwitch to create a portgroup on. This surface has no tool that
+        # enumerates dvSwitches — list_dvs_portgroups reports the parent switch
+        # of each portgroup, which is not the same as being able to list them.
+        # Excluded rather than mapped: pointing it at a producer that does not
+        # exist would turn the eval green without making the surface navigable,
+        # which is the failure this vocabulary is meant to expose.
+        "dvs_name",
     }
 )
 def get_server(module):

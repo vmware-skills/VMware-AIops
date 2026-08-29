@@ -28,9 +28,10 @@ import re
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
-from vmware_policy import paginated, sanitize
+from vmware_policy import sanitize
 
 from vmware_aiops.connection import get_verify_ssl
+from vmware_aiops.ops._paging import paginated_window
 from vmware_aiops.ops.inventory import _collect, find_host_by_name
 
 if TYPE_CHECKING:
@@ -180,10 +181,8 @@ def list_host_vmks(
     window = out[offset : offset + limit] if limit > 0 else out[offset:]
     # See list_dvs_portgroups: the family envelope, with `vmks` kept as a
     # deprecated alias.
-    result = paginated(window, limit=limit if limit > 0 else None, total=total)
+    result = paginated_window(window, total=total, limit=limit, offset=offset)
     result["vmks"] = result["items"]
-    if offset:
-        result["offset"] = offset
     return result
 
 

@@ -13,8 +13,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
-from vmware_policy import paginated, sanitize
+from vmware_policy import sanitize
 
+from vmware_aiops.ops._paging import paginated_window
 from vmware_aiops.ops.inventory import _collect
 from vmware_aiops.ops.vm_lifecycle import _wait_for_task
 
@@ -140,10 +141,8 @@ def list_dvs_portgroups(
     # no `truncated`/`hint`, which is precisely what issue #31 showed a model
     # cannot infer for itself. `portgroups` is kept as a deprecated alias so
     # nothing that reads it breaks.
-    result = paginated(window, limit=limit if limit > 0 else None, total=total)
+    result = paginated_window(window, total=total, limit=limit, offset=offset)
     result["portgroups"] = result["items"]
-    if offset:
-        result["offset"] = offset
     return result
 
 

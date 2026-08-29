@@ -80,3 +80,54 @@ def test_the_envelope_contract_is_read_from_policy_not_re_declared():
     assert set(ENVELOPE_KEYS) == {
         "items", "returned", "limit", "total", "truncated", "hint",
     }
+
+
+class TestOffsetPaging:
+    """Caught in review of the change above, not by its own tests.
+
+    `paginated()` derives truncation from `returned < total`, which is right
+    when a page starts at zero and wrong the moment `offset` is involved: the
+    final page of five items reached with offset=4 returns one row, and
+    `1 < 5` made it claim more data was being withheld — with a hint advising
+    "raise limit", which cannot help someone already at the end.
+
+    The old hand-rolled shape was vague here too. This is the first version that
+    has to be exact, because `truncated` is a flag an agent acts on rather than
+    prose it reads.
+    """
+
+    def _rows(self, n):
+        return [
+            {
+                "name": f"pg-{i}", "dvs": "dvs", "binding": "earlyBinding",
+                "vlan": "none", "num_ports": 8, "uplink": False,
+            }
+            for i in range(n)
+        ]
+
+    def _list(self, monkeypatch, n, **kw):
+        rows = self._rows(n)
+        monkeypatch.setattr(
+            network_mgmt, "_collect",
+            lambda si, t, p: [(object(), {
+                "name": r["name"], "config.type": "earlyBinding",
+                "config.numPorts": 8, "config.uplink": False,
+                "config.defaultPortConfig": None,
+            }) for r in rows],
+        )
+        monkeypatch.setattr(network_mgmt, "_dvs_names", lambda si: {}, raising=False)
+        return network_mgmt.list_dvs_portgroups(object(), **kw)
+
+    def test_the_last_page_is_not_reported_as_truncated(self, monkeypatch):
+        r = self._list(monkeypatch, 5, limit=100, offset=4)
+        assert r["returned"] == 1 and r["total"] == 5
+        assert r["truncated"] is False, "claimed more data at the end of the list"
+        assert r["hint"] is None
+
+    def test_a_middle_page_is_still_truncated(self, monkeypatch):
+        r = self._list(monkeypatch, 5, limit=2, offset=1)
+        assert r["returned"] == 2 and r["truncated"] is True
+        assert r["hint"]
+
+    def test_the_offset_is_reported_so_the_page_can_be_placed(self, monkeypatch):
+        assert self._list(monkeypatch, 5, limit=2, offset=1)["offset"] == 1

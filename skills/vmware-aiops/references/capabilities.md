@@ -233,7 +233,7 @@ MCP-only (no CLI subcommand). Seven tools for distributed-switch portgroup and h
 | Audit Trail | All operations logged to `~/.vmware/audit.db` (SQLite WAL, via vmware-policy) with before/after state |
 | Input Validation | VM name length/format, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated before execution |
 | Password Protection | `.env` file loading, never in command line or shell history; file permission check at startup |
-| SSL Self-signed Support | `verify_ssl` — **only** for ESXi hosts with self-signed certificates in isolated lab/home environments. Production environments should use CA-signed certificates with full TLS verification enabled. |
+| SSL Self-signed Support | `verify_ssl: false` — **only** for ESXi hosts with self-signed certificates in isolated lab/home environments. Production environments should use CA-signed certificates with full TLS verification enabled. |
 | Task Waiting | All async operations wait for completion and report result |
 | State Validation | Pre-operation checks (VM exists, power state correct) |
 

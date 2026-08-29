@@ -19,7 +19,7 @@ compatibility: >
   Destructive operations: All write tools require explicit parameters, pass through @vmware_tool decorator (pre-check + audit + sanitize), and CLI destructive commands require double confirmation + support --dry-run.
   Guest operations: Require explicit vm_name, cmd (full path), args, user parameters — no implicit or background execution.
   Webhooks: Disabled by default. When enabled, send only aggregated alert metadata (alarm counts, event types) to user-configured URLs. No credentials, IPs, or PII in payloads.
-  SSL bypass: verify_ssl is off by default; exists only for self-signed certs in isolated lab environments.
+  TLS verification is on by default (verify_ssl: true); set verify_ssl: false only for self-signed certs in isolated lab environments.
   Transitive dependencies: Only vmware-policy (audit/policy). No post-install scripts or background services.
 ---
 

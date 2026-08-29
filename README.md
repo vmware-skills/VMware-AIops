@@ -324,7 +324,7 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | **Audit Trail** | All operations logged to `~/.vmware-aiops/audit.log` (JSONL) with before/after state |
 | **Input Validation** | VM name, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated |
 | **Password Protection** | `.env` file loading with permission check; never in shell history |
-| **SSL Self-signed Support** | `verify_ssl` — only for ESXi with self-signed certs in isolated labs; production should use CA-signed certificates |
+| **SSL Self-signed Support** | `verify_ssl: false` — only for ESXi with self-signed certs in isolated labs; production should use CA-signed certificates |
 | **Prompt Injection Protection** | vSphere event messages and host logs are truncated, stripped of control characters, and wrapped in boundary markers before output |
 | **Webhook Data Scope** | Sends notifications to user-configured URLs only — no third-party services by default |
 | **Task Waiting** | All async operations wait for completion and report result |
@@ -972,7 +972,7 @@ See `config.example.yaml` for all options.
 | targets | host | — | vCenter/ESXi hostname or IP |
 | targets | type | vcenter | `vcenter` or `esxi` |
 | targets | port | 443 | Connection port |
-| targets | verify_ssl | false | SSL certificate verification |
+| targets | verify_ssl | true | Verify the target's TLS certificate (set false only for self-signed lab hosts) |
 | scanner | interval_minutes | 15 | Scan frequency |
 | scanner | severity_threshold | warning | Min severity: critical/warning/info |
 | scanner | lookback_hours | 1 | How far back to scan |

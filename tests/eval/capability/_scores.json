@@ -24,16 +24,16 @@
           "vm_create_snapshot",
           "vm_task_status"
         ],
-        "reachable_on_surface": 50,
+        "reachable_on_surface": 52,
         "reachable_only_via_description": 2,
-        "required_entity_params": 52,
-        "required_params_classified": "52/97",
+        "required_entity_params": 54,
+        "required_params_classified": "54/97",
         "tool_count": 60
       },
-      "maximum": 52,
+      "maximum": 54,
       "pct": 100.0,
       "unit": "required entity params",
-      "value": 52
+      "value": 54
     },
     "entity_reachability_read_only": {
       "detail": {
@@ -145,7 +145,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:80"
+            "where": "host_network_mgmt.py:81"
           },
           {
             "message": "Host '{}' not found",
@@ -153,7 +153,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:72"
+            "where": "host_network_mgmt.py:73"
           },
           {
             "message": "'{}' not found on '{}'. Present: {}",
@@ -161,7 +161,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:279"
+            "where": "host_network_mgmt.py:278"
           },
           {
             "message": "Unknown service '{}'. Valid services: {}",
@@ -169,7 +169,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:390"
+            "where": "host_network_mgmt.py:389"
           },
           {
             "message": "'{}' not found on '{}'. Present: {}",
@@ -177,7 +177,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:397"
+            "where": "host_network_mgmt.py:396"
           },
           {
             "message": "SOAP fault: {}",
@@ -185,7 +185,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:519"
+            "where": "host_network_mgmt.py:518"
           },
           {
             "message": "SOAP HTTP {}: {}",
@@ -193,7 +193,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:521"
+            "where": "host_network_mgmt.py:520"
           }
         ],
         "per_dimension_pct": {
