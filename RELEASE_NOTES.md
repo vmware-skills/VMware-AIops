@@ -1,3 +1,26 @@
+## v1.8.13 — list tools that agents could not read, and a documented key the code ignores
+
+- **Three list tools answered in a shape the family contract does not use.**
+  `list_dvs_portgroups` returned `{total, returned, portgroups}`,
+  `list_host_vmks` returned `{total, returned, vmks}`, and
+  `scan_datastore_images` returned `{images, last_scan}` with no count at all.
+  Each is self-consistent; each is wrong, because an agent that has learned this
+  family reads `items` and gets nothing. The absent keys are the ones that
+  carry meaning: `truncated` and `hint` exist because of issue #31, where a
+  model handed a bare list "incorrectly states that no data was returned". All
+  three now return the envelope, with the old keys kept as deprecated aliases so
+  nothing that reads them breaks.
+- **Offset paging claimed there was more at the end of the list.** Truncation
+  was derived from `returned < total`, which is wrong once `offset` is
+  involved — the last page of five rows fetched with `offset=4` returns one and
+  reported `truncated: true`, advising the caller to raise a limit that cannot
+  help them. Both offset-supporting tools now share one helper.
+- **The SSL config key in every doc was one the code has never read.** Docs said
+  `disableSslCertValidation: true`; `config.py` reads `verify_ssl`. Following the
+  instruction produced a config that is ignored.
+
+Found by running against a real vCenter rather than a mock.
+
 ## v1.8.12 — two wrong numbers: the server's own version, and the advertised tool count
 
 Both defects were invisible to the test suites and both were user-facing.
