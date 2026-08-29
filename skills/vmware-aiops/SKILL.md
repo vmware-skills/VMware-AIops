@@ -19,7 +19,7 @@ compatibility: >
   Destructive operations: All write tools require explicit parameters, pass through @vmware_tool decorator (pre-check + audit + sanitize), and CLI destructive commands require double confirmation + support --dry-run.
   Guest operations: Require explicit vm_name, cmd (full path), args, user parameters — no implicit or background execution.
   Webhooks: Disabled by default. When enabled, send only aggregated alert metadata (alarm counts, event types) to user-configured URLs. No credentials, IPs, or PII in payloads.
-  SSL bypass: disableSslCertValidation is off by default; exists only for self-signed certs in isolated lab environments.
+  SSL bypass: verify_ssl is off by default; exists only for self-signed certs in isolated lab environments.
   Transitive dependencies: Only vmware-policy (audit/policy). No post-install scripts or background services.
 ---
 
@@ -283,7 +283,7 @@ Run `vmware-aiops plan list` to see failed plan status. Ask user if they want to
 
 ### Connection refused / SSL error
 1. Verify target is reachable: `vmware-aiops doctor`
-2. For self-signed certs: set `disableSslCertValidation: true` in config.yaml (lab environments only)
+2. For self-signed certs: set `verify_ssl: false` in config.yaml (lab environments only)
 
 ## Setup
 

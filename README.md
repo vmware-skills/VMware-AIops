@@ -324,7 +324,7 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | **Audit Trail** | All operations logged to `~/.vmware-aiops/audit.log` (JSONL) with before/after state |
 | **Input Validation** | VM name, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated |
 | **Password Protection** | `.env` file loading with permission check; never in shell history |
-| **SSL Self-signed Support** | `disableSslCertValidation` — only for ESXi with self-signed certs in isolated labs; production should use CA-signed certificates |
+| **SSL Self-signed Support** | `verify_ssl` — only for ESXi with self-signed certs in isolated labs; production should use CA-signed certificates |
 | **Prompt Injection Protection** | vSphere event messages and host logs are truncated, stripped of control characters, and wrapped in boundary markers before output |
 | **Webhook Data Scope** | Sends notifications to user-configured URLs only — no third-party services by default |
 | **Task Waiting** | All async operations wait for completion and report result |
@@ -363,7 +363,7 @@ Run `vmware-aiops plan list` to see failed plan status. Ask user if they want to
 
 ### Connection refused / SSL error
 1. Verify target is reachable: `vmware-aiops doctor`
-2. For self-signed certs: set `disableSslCertValidation: true` in config.yaml (lab environments only)
+2. For self-signed certs: set `verify_ssl: false` in config.yaml (lab environments only)
 
 ---
 

@@ -324,7 +324,7 @@ vSphere 中 VM 名称区分大小写。请使用 `vmware-monitor inventory vms` 
 
 ### 连接被拒 / SSL 错误
 1. 验证目标可达：`vmware-aiops doctor`
-2. 自签名证书：在 config.yaml 中设置 `disableSslCertValidation: true`（仅限实验环境）
+2. 自签名证书：在 config.yaml 中设置 `verify_ssl: false`（仅限实验环境）
 
 ---
 
