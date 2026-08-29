@@ -399,14 +399,26 @@ def test_list_reports_unknown_services_as_none(env, monkeypatch):
 
 
 def test_list_paging_window_and_total(env, monkeypatch):
+    """Paging semantics, now expressed in the family envelope.
+
+    The truncation signal moved: this used to assert `"hint" not in everything`,
+    because the hand-rolled shape omitted the key when the page was complete.
+    The envelope always carries all six keys and says `truncated: False`,
+    `hint: None` instead — deliberately, since an absent key is exactly what a
+    model fills in with invention (see vmware_policy.envelope). The paging
+    behaviour this test protects is unchanged.
+    """
     monkeypatch.setattr(hnm, "_collect", _fake_collect_one_host(env.host))
     first = list_host_vmks(env.si, limit=1)
     assert first["total"] == 2 and first["returned"] == 1
-    assert "hint" in first
+    assert first["truncated"] is True and first["hint"]
     second = list_host_vmks(env.si, limit=1, offset=1)
-    assert second["vmks"][0]["device"] != first["vmks"][0]["device"]
+    assert second["items"][0]["device"] != first["items"][0]["device"]
     everything = list_host_vmks(env.si)
-    assert everything["returned"] == 2 and "hint" not in everything
+    assert everything["returned"] == 2
+    assert everything["truncated"] is False and everything["hint"] is None
+    # the deprecated alias still mirrors items, so existing readers keep working
+    assert everything["vmks"] == everything["items"]
 
 
 # --- sanitization of host-supplied text --------------------------------------------

@@ -35,8 +35,9 @@ def list_dvs_portgroups(
         target: vCenter target name from config.yaml; omit to use the default target.
 
     Returns:
-        Dict with total, returned, and portgroups list. Errors return a
-        dict with "error" + hint.
+        The family list envelope {items, returned, limit, total, truncated,
+        hint}; each item is one portgroup. `portgroups` is kept as a deprecated
+        alias for `items`. Errors return a dict with "error" + hint.
     """
     si = _get_connection(target)
     return network_mgmt.list_dvs_portgroups(
@@ -115,8 +116,10 @@ def list_host_vmks(
         target: vCenter target name from config.yaml; omit to use the default target.
 
     Returns:
-        Dict with total, returned, and vmks list (services is null when a
-        host's service map could not be read). Errors return "error" + hint.
+        The family list envelope {items, returned, limit, total, truncated,
+        hint}; each item is one VMkernel adapter (services is null when a
+        host's service map could not be read). `vmks` is kept as a deprecated
+        alias for `items`. Errors return "error" + hint.
     """
     si = _get_connection(target)
     return host_network_mgmt.list_host_vmks(

@@ -161,7 +161,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:277"
+            "where": "host_network_mgmt.py:279"
           },
           {
             "message": "Unknown service '{}'. Valid services: {}",
@@ -169,7 +169,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:388"
+            "where": "host_network_mgmt.py:390"
           },
           {
             "message": "'{}' not found on '{}'. Present: {}",
@@ -177,7 +177,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:395"
+            "where": "host_network_mgmt.py:397"
           },
           {
             "message": "SOAP fault: {}",
@@ -185,7 +185,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:517"
+            "where": "host_network_mgmt.py:519"
           },
           {
             "message": "SOAP HTTP {}: {}",
@@ -193,7 +193,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:519"
+            "where": "host_network_mgmt.py:521"
           }
         ],
         "per_dimension_pct": {
@@ -217,15 +217,15 @@
           "vm_create": 368,
           "vmk_ping": 425
         },
-        "manifest_tokens": 14282,
-        "mean_tokens_per_tool": 238.0,
+        "manifest_tokens": 14357,
+        "mean_tokens_per_tool": 239.3,
         "reference_context": 16384,
         "tool_count": 60
       },
       "maximum": 16384,
-      "pct": 12.8,
+      "pct": 12.4,
       "unit": "tokens",
-      "value": 2102
+      "value": 2027
     },
     "parameter_documentation_coverage": {
       "detail": {

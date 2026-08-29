@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
-from vmware_policy import sanitize
+from vmware_policy import paginated, sanitize
 
 from vmware_aiops.ops.inventory import _collect
 from vmware_aiops.ops.vm_lifecycle import _wait_for_task
@@ -134,10 +134,16 @@ def list_dvs_portgroups(
         })
     total = len(out)
     window = out[offset : offset + limit] if limit > 0 else out[offset:]
-    result = {"total": total, "returned": len(window), "portgroups": window}
-    if offset or len(window) < total:
+    # The family envelope, not a hand-rolled near-miss. The previous shape —
+    # {total, returned, portgroups} — was self-consistent and still wrong: an
+    # agent that knows this family reads `items` and got nothing, and there was
+    # no `truncated`/`hint`, which is precisely what issue #31 showed a model
+    # cannot infer for itself. `portgroups` is kept as a deprecated alias so
+    # nothing that reads it breaks.
+    result = paginated(window, limit=limit if limit > 0 else None, total=total)
+    result["portgroups"] = result["items"]
+    if offset:
         result["offset"] = offset
-        result["hint"] = "Use limit/offset to page through the remainder."
     return result
 
 
