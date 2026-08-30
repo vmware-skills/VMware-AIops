@@ -1,3 +1,54 @@
+## v1.8.15 — the schema an agent reads now carries the descriptions
+
+Parameter descriptions reach the JSON schema for the first time. An MCP client
+sees the schema, not the docstring, and this repo's coverage of `description`
+and `additionalProperties` was 0% — while nearly every parameter was already
+described in an `Args:` block no client ever receives.
+
+Measured on a real VCF 9.1 estate, the gap produced a silent failure with no
+error at any stage: a parameter name guessed wrong is discarded and the tool
+returns the full unfiltered result; a value guessed wrong (`power_state=
+"running"`) returns 0 rows where there were 11.
+
+vmware-policy 1.10.0's `describe_tool_parameters` copies what is already
+written, so the docstring is now load-bearing and the two cannot drift apart. It
+removes the `Args:` block from the description once copied — both travel in
+every `tools/list` response, so leaving it bills the same sentences twice
+against the manifest's token budget. `additionalProperties` is closed: an open
+schema is room for a model to invent arguments that are then silently
+discarded, which is the other half of the same failure.
+
+**The `vmware-policy` floor moves to >=1.10.0.** Older releases have no
+`describe_tool_parameters`, and resolving one gives an ImportError at server
+start rather than a missing feature.
+
+Also in this release: three MCP annotations that were lying, and errors that
+were invisible at the protocol level.
+
+`vm_guest_download` claimed `readOnlyHint: true` while overwriting an arbitrary
+caller-supplied local path — and `readOnlyHint` is what a client consults to
+decide whether a call needs confirmation, so the annotation was a safety control
+that silently did not apply. It is now a write, and it refuses an occupied
+destination unless `overwrite=true`, refuses directories, and refuses symlinks
+even with `overwrite=true`, because consenting to replace a path is not
+consenting to replace what it points at. `vm_set_ttl` claimed
+`destructive: false` while scheduling an unattended auto-delete.
+`vm_create_snapshot` claimed `idempotent: true` while calling
+`CreateSnapshot_Task` unconditionally — that is the field a client reads before
+*retrying*, and this family retries transient failures once, so a timeout on a
+snapshot that had in fact succeeded would be retried into a second delta-disk
+chain.
+
+Correcting the first one disarmed a second control by itself: the guarded-CLI
+test derives its write set from `readOnlyHint`, so `vm guest-download` had been
+the one file-writing command with no `@guarded`. It has one now.
+
+And exceptions were caught inside tools and returned as ordinary values, so
+`isError` was always false: over stdio a client could not tell "the target does
+not exist" from "succeeded". The frame is now marked, with the authored
+teaching message intact — verified in a live JSON-RPC session showing a failing
+call and a succeeding one in the same transcript.
+
 ## v1.8.14 — a host nobody could reach is not a host with no adapters
 
 Found against a real VCF 9.1 estate where four of eight ESXi hosts were
