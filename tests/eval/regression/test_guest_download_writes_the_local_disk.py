@@ -34,7 +34,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from vmware_aiops.mcp_server._shared import _safe_error
+from vmware_aiops.mcp_server._shared import AUTHORED_MESSAGE_CAP, _safe_error
 from vmware_aiops.mcp_server.server import mcp
 from vmware_aiops.ops import guest_ops
 
@@ -219,7 +219,7 @@ def test_the_refusal_keeps_its_remedy_through_sanitize(
 ) -> None:
     """A message that outgrows the cap loses whichever end is last.
 
-    ``_safe_error`` runs ``sanitize(str(exc), 300)``, and the destination is
+    ``_safe_error`` caps authored text at ``AUTHORED_MESSAGE_CAP``, and the destination is
     caller-supplied and unbounded — so the remedy goes before the path, not
     after it. Same shape as the connection-failure tests in
     ``test_safe_error_passthrough``.
@@ -239,5 +239,5 @@ def test_the_refusal_keeps_its_remedy_through_sanitize(
 
     assert len(str(dest)) > 300, "the path must be long enough to crowd the message"
     out = _safe_error(caught.value, "vm_guest_download")
-    assert len(out) <= 300, "sanitize truncates at 300"
+    assert len(out) <= AUTHORED_MESSAGE_CAP, "sanitize truncates authored text"
     assert remedy in out, "the remedy was truncated away"

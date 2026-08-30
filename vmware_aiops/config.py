@@ -172,10 +172,14 @@ class TargetConfig:
         pw = os.environ.get(env_key, "")
         if not pw:
             raise ConfigError(
-                f"Password not found for target '{self.name}'. "
-                f"Set environment variable {env_key}, or add "
-                f"{env_key}=<password> to {ENV_FILE} (chmod 600). "
-                f"Run 'vmware-aiops init' to do both, then 'vmware-aiops doctor' to verify."
+                # Remedy before path, for the reason given in load_config:
+                # this reaches an agent through sanitize(str(exc), 300) and the
+                # unbounded part is the path, so anything after it is what a
+                # long home directory removes.
+                f"Password not found for target '{self.name}'. Run "
+                f"'vmware-aiops init' to set it, then 'vmware-aiops doctor' to "
+                f"verify. Or set {env_key} in the environment, or add "
+                f"{env_key}=<password> to the .env file (chmod 600): {ENV_FILE}"
             )
         return _decode_secret(pw)
 
@@ -266,10 +270,16 @@ def load_config(config_path: Path | None = None) -> AppConfig:
     """Load config from YAML file, with env var overrides for passwords."""
     path = resolve_config_path(config_path)
     if not path.exists():
+        # Remedy first, path once, at the end — and that ordering is
+        # load-bearing. The MCP layer renders this through
+        # sanitize(str(exc), 300); the path is unbounded and interpolating it
+        # twice paid for it twice, so on a long home directory the tail — the
+        # part telling you what to do — was the part that got cut. The family's
+        # Windows test host (C:\Users\Administrator) is longer than the
+        # developer's, which is exactly the population that lost it (形态 #3).
         raise FileNotFoundError(
-            f"Config file not found: {path}\n"
-            f"Run 'vmware-aiops init' to create it, or copy config.example.yaml "
-            f"to {path} and edit it."
+            f"Config file not found. Run 'vmware-aiops init' to create it, or "
+            f"copy config.example.yaml into place and edit it. Expected at: {path}"
         )
 
     with open(path, encoding="utf-8") as f:

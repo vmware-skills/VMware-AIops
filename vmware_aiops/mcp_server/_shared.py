@@ -37,6 +37,14 @@ logger = logging.getLogger(__name__)
 _DOCTOR_HINT = "Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
+#: Cap for messages this skill authored. 500 is sanitize's own default; it was
+#: 300, and 300 applied to *exactly* the authored messages cut the closing
+#: remedy off the longest and most useful of them on any host whose home
+#: directory is longer than a developer's. Named so the tests assert against it
+#: rather than repeating the number (形态 #6).
+AUTHORED_MESSAGE_CAP = 500
+
+
 def _safe_error(exc: Exception, tool: str) -> str:
     """Return an agent-safe error string; log full detail server-side only.
 
@@ -102,7 +110,20 @@ def _safe_error(exc: Exception, tool: str) -> str:
         NetworkError,
     )
     if isinstance(exc, _passthrough):
-        return sanitize(str(exc), 300)
+        # 500 is sanitize's own default, not 300. The list above is precisely
+        # "text this skill authored", and a 300-char cap applied to exactly
+        # those messages cut the closing remedy off the longest and most useful
+        # ones — the missing-password error loses the `.env` path, and the
+        # config-not-found error loses the `init` instruction, on any host whose
+        # home directory is longer than a developer's. The family's Windows test
+        # host is one (形态 #3, found four times in one day across four repos).
+        #
+        # Unplanned exceptions are not affected: they never reach here, they are
+        # reduced to a bare type name below. So the cap only ever governed
+        # authored text, which is the one thing it should not have been cutting.
+        # It stays bounded rather than removed because authored messages do
+        # interpolate inventory names.
+        return sanitize(str(exc), AUTHORED_MESSAGE_CAP)
     return f"{type(exc).__name__}: operation failed."
 
 

@@ -169,8 +169,18 @@ def test_unplanned_exceptions_are_still_reduced():
 
 
 def test_message_is_still_truncated():
-    """Length capping is the other half of the guard."""
-    assert len(_safe_error(VMNotFoundError("x" * 900), "t")) <= 300
+    """Length capping is the other half of the guard.
+
+    Asserted against the constant, not a repeated literal. The cap moved 300 ->
+    500 because 300 governed *only* authored text — an unplanned exception is
+    reduced to a bare type name and never reaches it — and was cutting the
+    closing remedy off the longest of those messages. The principle it encodes
+    is unchanged: an authored message is bounded, because it interpolates
+    inventory names.
+    """
+    from vmware_aiops.mcp_server._shared import AUTHORED_MESSAGE_CAP
+
+    assert len(_safe_error(VMNotFoundError("x" * 900), "t")) <= AUTHORED_MESSAGE_CAP
 
 
 # ── the diagnostic bare OSError used to carry, put back deliberately ─────────

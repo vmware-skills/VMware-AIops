@@ -233,7 +233,17 @@ def test_a_confirm_gated_write_previews_and_then_writes(monkeypatch) -> None:
 
     monkeypatch.setattr(network_mgmt, "_get_objects", lambda si, types_: [FakeDVS()])
     monkeypatch.setattr(network_mgmt, "_wait_for_task", lambda t: None)
+    # Patched where it is *used*, not only where it is defined. `tools.network`
+    # binds the name with `from ... import` at import time, so setting the
+    # attribute on `_shared` alone only works while that module happens to be
+    # unimported — which made this test pass alone and fail in a full run, in
+    # whichever order collection happened to choose.
     monkeypatch.setattr(_shared, "_get_connection", lambda target=None: object())
+    from vmware_aiops.mcp_server.tools import network as _network_tools
+
+    monkeypatch.setattr(
+        _network_tools, "_get_connection", lambda target=None: object(), raising=False
+    )
     assert vim  # the fake stands in for a real switch; import pins the dependency
     assert types
 
