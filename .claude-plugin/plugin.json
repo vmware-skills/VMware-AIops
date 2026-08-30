@@ -2,7 +2,7 @@
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "vmware-aiops",
   "displayName": "VMware AIops",
-  "version": "1.8.13",
+  "version": "1.8.14",
   "description": "AI-powered VMware vCenter/ESXi VM lifecycle and deployment with 60 MCP tools.",
   "author": {
     "name": "Wei Zhou",

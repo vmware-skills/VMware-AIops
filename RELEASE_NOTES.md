@@ -1,3 +1,44 @@
+## v1.8.14 — a host nobody could reach is not a host with no adapters
+
+Found against a real VCF 9.1 estate where four of eight ESXi hosts were
+`notResponding`. vCenter keeps answering for such a host out of its own cache,
+with no error and no marker, so a read "succeeds" and looks authoritative.
+
+**`list_host_vmks` dropped unreachable hosts and still said the list was
+complete.** Asked for one, it raised a bare `AttributeError`; enumerating all
+of them, it skipped the four silently and reported `truncated: false` — the
+envelope positively certifying a list that was missing half the estate. Unread
+hosts now appear as rows with `reachable: false`, null facts and the
+`connectionState` in the note, and the envelope carries `hosts_unreachable`.
+Three sibling write tools carried the identical bare dereference and were found
+by grepping for the shape rather than waiting for them to be reported; they now
+raise a teaching error, because reading the adapter list in order to *change*
+it is a different question from listing it. The read and the writes deliberately
+answer differently, and the reasoning is in the docstrings.
+
+The distinction that makes it work: PropertyCollector *omits* a property it
+could not read, so an absent `config.network.vnic` means "not read" while `[]`
+means "read, and empty". `p.get(...) or []` collapsed the two, which is exactly
+how four hosts disappeared.
+
+**`doctor` cleared an estate it had not checked**, authenticating only the
+default target — so five targets with three wrong passwords came back "All
+checks passed", and the failure that followed told the user to run the doctor
+that had just cleared them.
+
+**The CLI, the doctor and the MCP server opened different config files.** With
+`VMWARE_AIOPS_CONFIG` set, the server read that file while `load_config()` read
+the default: the agent and the human on different vCenters, with the doctor
+reporting on the human's. The precedence now lives in one `resolve_config_path`.
+
+**`server.json` never started the MCP server** — it carried only the package
+identifier, so a registry client composed `uvx vmware-aiops`, which runs the CLI
+and exits.
+
+The floor on `vmware-monitor` moves to 1.8.13. The cluster-health triage this
+skill exposes is delegated to that package, and on anything older it reports
+unreachable hosts as healthy ones.
+
 ## v1.8.13 — list tools that agents could not read, and a documented key the code ignores
 
 - **Three list tools answered in a shape the family contract does not use.**
