@@ -20,7 +20,7 @@ from vmware_policy import paginated
 
 
 def paginated_window(
-    window: list[dict], *, total: int, limit: int, offset: int
+    window: list[dict], *, total: int, limit: int, offset: int, **extra: Any
 ) -> dict[str, Any]:
     """Wrap one already-sliced page in the family envelope.
 
@@ -29,13 +29,18 @@ def paginated_window(
         total: The full collection size, before slicing.
         limit: The limit that produced the page; ``0`` or less means unlimited.
         offset: How many rows were skipped to reach it.
+        **extra: Extra top-level keys, forwarded to ``paginated`` — which
+            refuses any that would shadow the envelope's own six. That refusal
+            is the point: a caller with something to say about completeness
+            (e.g. hosts it could not read) must say it under its own key rather
+            than repurposing ``hint``, whose family meaning is fixed.
 
     Returns:
         The envelope, with ``truncated`` and ``hint`` computed against the
         caller's position in the collection rather than against the page size.
         ``offset`` is added when non-zero so a page can be placed.
     """
-    result = paginated(window, limit=limit if limit > 0 else None, total=total)
+    result = paginated(window, limit=limit if limit > 0 else None, total=total, **extra)
     consumed = offset + result["returned"]
     result["truncated"] = consumed < total
     if not result["truncated"]:

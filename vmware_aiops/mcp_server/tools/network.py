@@ -109,6 +109,16 @@ def list_host_vmks(
     netstack, and which host services it is selected for (management,
     vmotion, vsan, ...). The verify pair for add_host_vmk/remove_host_vmk.
 
+    Gotcha - this list is not automatically a complete estate inventory.
+    vCenter answers property reads for a host it has lost contact with out of
+    its own cache, so hosts it never reached appear here as rows with
+    `reachable: false`, `device: null` and a `note` naming the connectionState,
+    rather than being dropped. Check `hosts_unreachable` (and the
+    `unreachable_note` present only when it is non-zero) before reporting the
+    result as the full picture, and do not read a null field on such a row as a
+    measurement - it means nobody looked. Adapters shown for an unreachable
+    host are vCenter's last cached view.
+
     Args:
         host_name: ESXi host name; omit to list across all hosts.
         limit: Max vmks to return (default 100).
@@ -117,9 +127,13 @@ def list_host_vmks(
 
     Returns:
         The family list envelope {items, returned, limit, total, truncated,
-        hint}; each item is one VMkernel adapter (services is null when a
-        host's service map could not be read). `vmks` is kept as a deprecated
-        alias for `items`. Errors return "error" + hint.
+        hint} plus `hosts_unreachable` (int) and, when that is non-zero,
+        `unreachable_note` (str). Each item is one VMkernel adapter, or one
+        unread host when `reachable` is false; `services` is null when a host's
+        service map could not be read. `truncated` stays a paging fact - an
+        incomplete estate is reported by `hosts_unreachable`, not by it.
+        `vmks` is kept as a deprecated alias for `items`. Errors return
+        "error" + hint.
     """
     si = _get_connection(target)
     return host_network_mgmt.list_host_vmks(

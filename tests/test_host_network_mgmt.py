@@ -152,9 +152,21 @@ def test_remove_preview_then_confirm(env):
 
 def _fake_collect_one_host(host):
     """Mimic inventory._collect over [HostSystem]: one (obj, props) tuple with
-    the batched name + vnic list list_host_vmks now requests."""
+    the batched name + connection state + vnic list list_host_vmks now requests.
+
+    ``runtime.connectionState`` is part of the fake because the tool now asks
+    for it and treats anything but "connected" — an unreadable state included —
+    as a host it did not measure. See
+    tests/eval/regression/test_unreachable_host_vmks.py."""
     return lambda si, obj_type, paths: [
-        (host, {"name": host.name, "config.network.vnic": host.config.network.vnic})
+        (
+            host,
+            {
+                "name": host.name,
+                "runtime.connectionState": "connected",
+                "config.network.vnic": host.config.network.vnic,
+            },
+        )
     ]
 
 
