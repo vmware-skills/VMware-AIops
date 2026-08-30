@@ -102,7 +102,20 @@ def _check_connectivity() -> tuple[bool, str]:
 
 
 def _check_auth() -> tuple[bool, str]:
-    """Try to authenticate to the first configured target."""
+    """Log into EVERY configured target, not just the default one.
+
+    Until 2026-08-30 this authenticated ``config.default_target`` and stopped.
+    A tester configured five targets, put the wrong password on three of them,
+    and got "All checks passed" — then failed on the next call, whose error
+    message told them to run the doctor that had just cleared them. Three
+    sibling skills already iterated; this one did not (CLAUDE.md 形态 #7, a
+    pattern fixed in one repo and left standing in the rest).
+
+    One row, like the connectivity check above it, but naming every target and
+    failing if any of them does. Each target is attempted even after an earlier
+    one fails: aborting on the first would report one problem and leave the
+    operator to find the others one call at a time.
+    """
     if not CONFIG_FILE.exists():
         return False, "Config file missing — skipping auth check"
     try:
@@ -110,18 +123,36 @@ def _check_auth() -> tuple[bool, str]:
         from vmware_aiops.connection import ConnectionManager
 
         config = load_config()
-        if not config.targets:
-            return False, "No targets configured"
-        conn_mgr = ConnectionManager(config)
-        target = config.default_target
-        conn_mgr.connect(target.name)
-        conn_mgr.disconnect_all()
-        return True, f"Authentication OK for target '{target.name}'"
     except KeyError as e:
         return False, f"Missing password env var: {e}"
     except Exception as e:
-        return False, f"Auth failed: {e}"
+        return False, f"Config load failed: {e}"
 
+    if not config.targets:
+        return False, "No targets configured"
+
+    conn_mgr = ConnectionManager(config)
+    parts: list[str] = []
+    all_ok = True
+    try:
+        for target in config.targets:
+            try:
+                conn_mgr.connect(target.name)
+                parts.append(f"{target.name} ✓")
+            except KeyError as e:
+                all_ok = False
+                parts.append(f"{target.name} ✗ (missing password env var: {e})")
+            except Exception as e:
+                all_ok = False
+                parts.append(f"{target.name} ✗ ({e})")
+    finally:
+        # Best effort: a doctor that raises while tidying up reports nothing at
+        # all, which is worse than a leaked session in a one-shot command.
+        try:
+            conn_mgr.disconnect_all()
+        except Exception:  # noqa: BLE001 - see above
+            pass
+    return all_ok, "  ".join(parts)
 
 def _check_daemon() -> tuple[bool, str]:
     pid_file = CONFIG_DIR / "daemon.pid"
