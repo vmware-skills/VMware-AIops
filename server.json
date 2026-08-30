@@ -13,6 +13,24 @@
       "registryType": "pypi",
       "identifier": "vmware-aiops",
       "version": "1.8.13",
+      "runtimeHint": "uvx",
+      "packageArguments": [
+        {
+          "type": "positional",
+          "valueHint": "subcommand",
+          "value": "mcp",
+          "description": "Starts the stdio MCP server. Without it the console script runs the human CLI and exits."
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "VMWARE_AIOPS_CONFIG",
+          "description": "Path to the config file. Defaults to ~/.vmware-aiops/config.yaml.",
+          "format": "filepath",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ],
       "transport": {
         "type": "stdio"
       }
