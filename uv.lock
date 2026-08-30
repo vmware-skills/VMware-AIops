@@ -1195,7 +1195,7 @@ wheels = [
 
 [[package]]
 name = "vmware-aiops"
-version = "1.8.15"
+version = "1.8.16"
 source = { editable = "." }
 dependencies = [
     { name = "apscheduler" },
@@ -1240,7 +1240,7 @@ dev = [
 
 [[package]]
 name = "vmware-monitor"
-version = "1.8.14"
+version = "1.8.15"
 source = { editable = "../VMware-Monitor" }
 dependencies = [
     { name = "apscheduler" },

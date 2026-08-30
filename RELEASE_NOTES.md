@@ -1,3 +1,42 @@
+## v1.8.16 — three MCP annotations that were lying, and errors invisible on the wire
+
+`vm_guest_download` claimed `readOnlyHint: true` while overwriting an arbitrary
+caller-supplied path — and that hint is what a client consults before asking for
+confirmation, so the annotation was a safety control that silently did not
+apply. It refuses an occupied destination now unless `overwrite=true`, refuses
+directories, and refuses symlinks even with it. `vm_set_ttl` claimed
+`destructive: false` while scheduling an unattended auto-delete.
+`vm_create_snapshot` claimed `idempotent: true` while calling
+`CreateSnapshot_Task` unconditionally — the field a client reads before
+*retrying*, and this family retries transient failures once.
+
+Exceptions were caught inside tools and returned as ordinary values, so
+`isError` was always false: over stdio a client could not tell "the target does
+not exist" from "succeeded". The frame is marked now, with the authored teaching
+message intact.
+
+The documentation claimed double confirmation with no bypass on a surface that
+has neither. The git history and the design record show that removal was a
+decision, not an accident — `vm_delete` never had a confirmation parameter — so
+the documents were corrected rather than the code, and each now names which
+surface it is describing.
+
+**The `vmware-policy` floor moves to >=1.11.0.** Policy 1.11.0 stops the engine
+failing open: on a host whose locale is not UTF-8, reading `rules.yaml` raised a
+decode error that was swallowed, and a `freeze-production-writes` rule came back
+ALLOW. No new API is used here, so the floor could have stayed — it is raised
+because leaving it low means a user resolving 1.10.0 keeps the permissive engine
+and the fix never reaches them. One behaviour travels with it: on a host whose
+rules file cannot be read, operations move from all-allowed to all-denied.
+`VMWARE_POLICY_DISABLED=1` is checked above the rules, so the escape hatch does
+not itself depend on them loading.
+
+Also in this release: the suite no longer appends to the operator's real
+`~/.vmware/audit.db`. It held over 30,000 rows dominated by tool names nobody
+had invoked, including 1,400 entries for a destructive operation that never
+happened — an audit trail carrying test fiction cannot answer the question it is
+kept for.
+
 ## v1.8.15 — the schema an agent reads now carries the descriptions
 
 Parameter descriptions reach the JSON schema for the first time. An MCP client
