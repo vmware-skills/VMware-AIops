@@ -243,14 +243,33 @@ class AppConfig:
         return self.targets[0]
 
 
+def resolve_config_path(config_path: Path | None = None) -> Path:
+    """Which config file this skill will read: explicit arg, env var, default.
+
+    The single place that precedence lives. Before 2026-08-30 it was written
+    out three times and no two of them agreed: this function's job was done
+    inline in ``load_config``, which ignored ``VMWARE_AIOPS_CONFIG`` entirely;
+    the MCP server read the variable itself and passed the result down; and the
+    doctor checked ``CONFIG_FILE``. So the agent's tools opened one file while
+    the CLI and the doctor opened another, and the doctor reported that other
+    one green. The variable is this skill's advertised ``primaryEnv``, so the
+    CLI honouring it is the documented behaviour — ignoring it was the bug.
+    Copies of a rule do not disagree loudly; they disagree slowly (形态 #6).
+    """
+    if config_path is not None:
+        return config_path
+    env_override = os.environ.get("VMWARE_AIOPS_CONFIG")
+    return Path(env_override) if env_override else CONFIG_FILE
+
+
 def load_config(config_path: Path | None = None) -> AppConfig:
     """Load config from YAML file, with env var overrides for passwords."""
-    path = config_path or CONFIG_FILE
+    path = resolve_config_path(config_path)
     if not path.exists():
         raise FileNotFoundError(
             f"Config file not found: {path}\n"
             f"Run 'vmware-aiops init' to create it, or copy config.example.yaml "
-            f"to {CONFIG_FILE} and edit it."
+            f"to {path} and edit it."
         )
 
     with open(path, encoding="utf-8") as f:

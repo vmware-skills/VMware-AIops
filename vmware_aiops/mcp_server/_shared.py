@@ -12,9 +12,7 @@ tool signature — on Python 3.10 with older mcp/pydantic the union is eval'd to
 
 import functools
 import logging
-import os
 import ssl
-from pathlib import Path
 from typing import Any, Callable, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -187,9 +185,11 @@ def _ensure_conn_mgr() -> ConnectionManager:
     """Lazily build the shared ConnectionManager (does not connect anything)."""
     global _conn_mgr  # noqa: PLW0603
     if _conn_mgr is None:
-        config_path_str = os.environ.get("VMWARE_AIOPS_CONFIG")
-        config_path = Path(config_path_str) if config_path_str else None
-        config = load_config(config_path)
+        # No env-var read here: load_config resolves the path (explicit arg,
+        # then the environment, then the default). This copy was the reason the
+        # server and the CLI opened different files — load_config did not look
+        # at the variable at all, so only this path honoured it (形态 #6).
+        config = load_config()
         _conn_mgr = ConnectionManager(config)
     return _conn_mgr
 

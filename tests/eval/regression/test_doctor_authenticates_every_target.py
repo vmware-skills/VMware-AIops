@@ -51,7 +51,7 @@ def _install(monkeypatch, config, failures=()):
 
 @pytest.mark.unit
 def test_a_bad_password_on_a_non_default_target_fails_the_check(monkeypatch):
-    monkeypatch.setattr(type(doc.CONFIG_FILE), "exists", lambda self: True)
+    monkeypatch.setattr(type(doc.resolve_config_path()), "exists", lambda self: True)
     _install(monkeypatch, _targets("lab", "prod", "dr"), failures={"prod"})
 
     ok, message = doc._check_auth()
@@ -66,7 +66,7 @@ def test_a_bad_password_on_a_non_default_target_fails_the_check(monkeypatch):
 
 @pytest.mark.unit
 def test_every_target_is_named_in_the_result(monkeypatch):
-    monkeypatch.setattr(type(doc.CONFIG_FILE), "exists", lambda self: True)
+    monkeypatch.setattr(type(doc.resolve_config_path()), "exists", lambda self: True)
     _install(monkeypatch, _targets("lab", "prod", "dr"))
 
     ok, message = doc._check_auth()
@@ -83,7 +83,7 @@ def test_every_target_is_named_in_the_result(monkeypatch):
 def test_one_failure_does_not_hide_the_others(monkeypatch):
     """Aborting on the first bad target would report one problem and leave the
     operator to discover the rest one call at a time."""
-    monkeypatch.setattr(type(doc.CONFIG_FILE), "exists", lambda self: True)
+    monkeypatch.setattr(type(doc.resolve_config_path()), "exists", lambda self: True)
     _install(monkeypatch, _targets("a", "b", "c"), failures={"a", "c"})
 
     ok, message = doc._check_auth()
@@ -96,7 +96,7 @@ def test_one_failure_does_not_hide_the_others(monkeypatch):
 @pytest.mark.unit
 def test_a_healthy_single_target_still_passes(monkeypatch):
     """The control: the ordinary case must keep working and keep passing."""
-    monkeypatch.setattr(type(doc.CONFIG_FILE), "exists", lambda self: True)
+    monkeypatch.setattr(type(doc.resolve_config_path()), "exists", lambda self: True)
     _install(monkeypatch, _targets("lab"))
 
     ok, message = doc._check_auth()
