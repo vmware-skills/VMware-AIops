@@ -7,7 +7,11 @@ from vmware_policy import vmware_tool
 from vmware_aiops.mcp_server._shared import _get_connection, mcp, tool_errors
 
 
-@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
+# destructiveHint: the deletion is deferred, not absent — the daemon carries it
+# out later, unattended. Issue #25 already settled this for the CLI (double
+# confirmation + --dry-run) and SKILL.md lists it among the destructive
+# operations; the annotation was the last place still saying otherwise.
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(
     risk_level="medium",
     undo=lambda params, result: {

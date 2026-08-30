@@ -114,7 +114,11 @@ def vm_guest_upload(
     return guest_upload(si, vm_name, local_path, guest_path, username, password)
 
 
-@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+# Reading a file out of the VM is a read of the VM; writing it to local_path is
+# not, and readOnlyHint is what a client consults before deciding whether to ask
+# the user. Annotated exactly like its mirror vm_guest_upload — same operation,
+# opposite direction.
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium", sensitive_params=['password'])
 @tool_errors("str")
 def vm_guest_download(
@@ -123,24 +127,34 @@ def vm_guest_download(
     local_path: str,
     username: str = "root",
     password: str = "",
+    overwrite: bool = False,
     target: Optional[str] = None,
 ) -> str:
-    """[READ] Download a file from a VM to local machine via VMware Tools.
+    """[WRITE] Download a file from a VM and write it to a local path.
 
-    Returns a status string. Requires VMware Tools running in the guest OS. Use
-    vm_guest_upload for the reverse direction; to capture command output use
-    vm_guest_exec_output instead — it redirects and downloads for you.
+    Reads from the guest, writes the local filesystem — the write is why this is
+    not a read tool. Returns a status string. Requires VMware Tools running in
+    the guest OS. Use vm_guest_upload for the reverse direction; to capture
+    command output use vm_guest_exec_output instead — it redirects and
+    downloads for you.
+
+    Refuses a destination that already exists unless overwrite=True, and never
+    writes through a symlink or over a directory. Pick a path that does not
+    exist yet rather than passing overwrite=True by default.
 
     Args:
         vm_name: Target VM name.
         guest_path: File path inside the guest to download.
-        local_path: Local destination path.
+        local_path: Local destination path, including the file name.
         username: Guest OS username (default "root").
         password: Guest OS password.
+        overwrite: True replaces an existing file at local_path (default False).
         target: Optional vCenter/ESXi target name from config.
     """
     si = _get_connection(target)
-    return guest_download(si, vm_name, guest_path, local_path, username, password)
+    return guest_download(
+        si, vm_name, guest_path, local_path, username, password, overwrite=overwrite
+    )
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})

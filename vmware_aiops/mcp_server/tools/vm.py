@@ -243,7 +243,12 @@ def vm_delete(vm_name: str, target: Optional[str] = None) -> str:
     return delete_vm(si, vm_name)
 
 
-@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+# idempotentHint: false. CreateSnapshot_Task is called unconditionally and
+# vSphere allows siblings with the same name, so a second call leaves a second
+# snapshot. The field is what a client reads before retrying, and this family
+# retries transient failures once — a timeout on a snapshot that had in fact
+# succeeded would be retried into a second delta-disk chain.
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(
     risk_level="medium",
     undo=lambda params, result: {

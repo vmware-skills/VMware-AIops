@@ -10,11 +10,13 @@ tool signature — on Python 3.10 with older mcp/pydantic the union is eval'd to
 ``types.UnionType`` and FastMCP's ``issubclass`` check crashes (踩坑 #33).
 """
 
+import contextvars
 import functools
 import logging
 import ssl
 from typing import Any, Callable, Optional
 
+from mcp import types as mcp_types
 from mcp.server.fastmcp import FastMCP
 from vmware_policy import report_tool_failure, sanitize
 
@@ -104,6 +106,113 @@ def _safe_error(exc: Exception, tool: str) -> str:
     return f"{type(exc).__name__}: operation failed."
 
 
+# ---------------------------------------------------------------------------
+# Protocol-level failure reporting
+# ---------------------------------------------------------------------------
+
+#: Set by :class:`_FrameErrorFastMCP` for the tool call it is dispatching, and
+#: appended to by :func:`_mark_call_failed` from inside the tool body. A list is
+#: used rather than a plain value because it is the binding, not the variable,
+#: that has to survive: the marker is written deep inside the call and read
+#: after it returns, and mutating an object both sides already hold works
+#: whether FastMCP calls the tool inline (it does today) or moves it to a
+#: worker thread with a copied context (it would not carry a rebind back).
+#: One binding per dispatch, so concurrent calls cannot mark each other.
+_call_failed: contextvars.ContextVar[list[bool] | None] = contextvars.ContextVar(
+    "vmware_aiops_mcp_call_failed", default=None
+)
+
+
+def _mark_call_failed() -> None:
+    """Declare that the in-flight tool call failed, though it will *return*."""
+    sink = _call_failed.get()
+    if sink is not None:
+        sink.append(True)
+
+
+def _is_error_envelope(result: Any) -> bool:
+    """True if ``result`` is the family's documented error envelope.
+
+    Not every failure travels as an exception: ``apply_plan`` answers an unknown
+    plan id with ``{"error": "Plan 'x' not found"}`` and never raises, so
+    ``@tool_errors`` sees a perfectly ordinary return.
+
+    A truthy top-level ``error`` key is this family's convention for "the call
+    failed", and vmware-policy already audits by exactly that rule — a falsy
+    ``error`` is a result reporting that nothing went wrong (``guest_provision``
+    returns ``{"error": None}`` on a clean run), and a multi-element list is a
+    batch with partial results, which is a successful call.
+
+    This duplicates ``vmware_policy.decorators._returned_failure``, which is
+    private and not exported. The duplication is deliberate but not left to
+    trust: ``test_failure_envelope_rule_matches_vmware_policys`` pins the two
+    against each other over a table of shapes, so they cannot drift into a state
+    where the audit row and the protocol frame disagree about the same call
+    (形态 #6). The right home for the rule is a public export from vmware-policy,
+    which every skill's boundary could then share.
+    """
+    if isinstance(result, dict):
+        return bool(result.get("error"))
+    if isinstance(result, list) and len(result) == 1 and isinstance(result[0], dict):
+        return bool(result[0].get("error"))
+    return False
+
+
+def _error_frame(converted: Any) -> mcp_types.CallToolResult:
+    """Re-wrap an already-converted tool result as an error frame.
+
+    ``converted`` is whatever ``FuncMetadata.convert_result`` produced — a list
+    of content blocks, or an ``(unstructured, structured)`` pair for a tool with
+    an output schema. Re-wrapping *after* that conversion rather than building a
+    ``CallToolResult`` inside the tool is the whole point: the content and
+    ``structuredContent`` are then byte-identical to what the same payload
+    produced before this change, and nothing here has to know FastMCP's
+    ``{"result": ...}`` wrapping convention or which of the 60 tools it applies
+    to. Only ``isError`` is new.
+    """
+    if isinstance(converted, mcp_types.CallToolResult):
+        return converted.model_copy(update={"isError": True})
+    if isinstance(converted, tuple) and len(converted) == 2:
+        unstructured, structured = converted
+    else:
+        unstructured, structured = converted, None
+    return mcp_types.CallToolResult(
+        content=list(unstructured), structuredContent=structured, isError=True
+    )
+
+
+class _FrameErrorFastMCP(FastMCP):
+    """FastMCP that reports a caught tool failure as ``isError`` on the wire.
+
+    ``@tool_errors`` catches every exception and returns an error payload, so
+    the lowlevel server saw an ordinary return and built
+    ``CallToolResult(isError=False)``. A client over stdio could not tell a
+    missing VM from a powered-on one without parsing prose.
+
+    Raising instead would set the flag — the lowlevel handler turns any
+    exception into an error result — but at the cost of the payload: it keeps
+    only ``str(exc)``, prefixed with "Error executing tool <name>: ", and drops
+    ``structuredContent`` entirely. Returning a ``CallToolResult`` is the other
+    shape ``mcp`` 1.28.1 accepts (``convert_result`` passes it through and the
+    lowlevel handler returns it verbatim), and it is the one that keeps the
+    authored message exactly as it was.
+
+    Both paths were established by reading the installed package and driving it,
+    not from memory (踩坑 #36).
+    """
+
+    async def call_tool(self, name: str, arguments: dict) -> Any:
+        sink: list[bool] = []
+        token = _call_failed.set(sink)
+        try:
+            converted = await super().call_tool(name, arguments)
+        finally:
+            _call_failed.reset(token)
+        if not sink:
+            return converted
+        return _error_frame(converted)
+
+
 def tool_errors(shape: str = "str") -> Callable:
     """Wrap a tool body in the canonical try/except → ``_safe_error`` pattern.
 
@@ -137,7 +246,7 @@ def tool_errors(shape: str = "str") -> Callable:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
-                return func(*args, **kwargs)
+                result = func(*args, **kwargs)
             except Exception as e:  # noqa: BLE001 — sanitised below
                 msg = _safe_error(e, name)
                 # This wrapper swallows the exception, so @vmware_tool above it
@@ -145,18 +254,28 @@ def tool_errors(shape: str = "str") -> Callable:
                 # Declare the failure explicitly — unconditionally, because a
                 # single call is easier to keep true than one per shape.
                 report_tool_failure(msg)
+                # The same declaration, aimed at the protocol frame instead of
+                # the audit row. Both have to hear it: the audit trail is for
+                # the operator afterwards, ``isError`` is for the agent now.
+                _mark_call_failed()
                 if shape == "dict":
                     return {"error": msg, "hint": _DOCTOR_HINT}
                 if shape == "list":
                     return [{"error": msg, "hint": _DOCTOR_HINT}]
                 return f"Error: {msg} {_DOCTOR_HINT}"
+            # A tool can also fail by *returning* the family's error envelope
+            # without ever raising — the plan guards do exactly that. Policy
+            # already reads that envelope when it audits; the frame agrees.
+            if _is_error_envelope(result):
+                _mark_call_failed()
+            return result
 
         return wrapper
 
     return decorator
 
 
-mcp = FastMCP(
+mcp = _FrameErrorFastMCP(
     "vmware-aiops",
     instructions=(
         "VMware vCenter/ESXi VM lifecycle and deployment operations. "

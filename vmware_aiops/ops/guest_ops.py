@@ -462,6 +462,52 @@ def guest_upload(
     return f"Uploaded {file_size} bytes to {guest_path} on VM '{vm_name}'"
 
 
+def _check_download_destination(local_path: str, overwrite: bool) -> None:
+    """Refuse a download destination that is not free to write.
+
+    Three refusals, all raised before the transfer begins:
+
+    * a **symlink**, always — the write would land wherever the link points,
+      which is not the path the caller named. Consenting to replace a path is
+      not consenting to replace something else, so ``overwrite`` does not open
+      this one;
+    * a **directory**, always — nothing this function can write replaces a
+      directory, and ``open(dir, "wb")`` raises ``IsADirectoryError``, which
+      ``_safe_error`` reduces to a bare class name that teaches the agent
+      nothing;
+    * an **existing file**, unless ``overwrite``. The caller is typically an
+      agent, and the destination may be a path a model produced rather than one
+      a human chose; a tool that replaces any writable file on the strength of
+      that is a hazard regardless of how it is annotated. ``cp -n`` and
+      ``curl --no-clobber`` make the same default, and the symlink guard above
+      (which predates this) already refuses rather than clobbers.
+
+    Each message leads with the remedy and ends with the path. That order is
+    load-bearing: ``_safe_error`` runs ``sanitize(str(exc), 300)`` and the path
+    is caller-supplied and unbounded, so a message that closed with its remedy
+    would lose exactly the part the agent needs.
+    """
+    local = Path(local_path).expanduser()
+    if local.is_symlink():
+        raise ValueError(
+            "Refusing to write a download through a symlink. Pass a destination "
+            "that is a regular file or does not exist yet, or remove the symlink "
+            f"first, then retry. Destination: {local_path}"
+        )
+    if local.is_dir():
+        raise ValueError(
+            "Refusing to write a download over a directory. Pass a destination "
+            "file path, including the file name, rather than the directory to "
+            f"put it in. Destination: {local_path}"
+        )
+    if local.exists() and not overwrite:
+        raise ValueError(
+            "Refusing to overwrite an existing local file. Pass overwrite=true "
+            "(CLI: --overwrite) to replace it deliberately, or choose a "
+            f"destination that does not exist yet. Destination: {local_path}"
+        )
+
+
 def guest_download(
     si: ServiceInstance,
     vm_name: str,
@@ -469,6 +515,7 @@ def guest_download(
     local_path: str,
     username: str,
     password: str,
+    overwrite: bool = False,
 ) -> str:
     """Download a file from a VM to the local machine via VMware Tools.
 
@@ -479,12 +526,20 @@ def guest_download(
         local_path: Local destination path.
         username: Guest OS username.
         password: Guest OS password.
+        overwrite: Replace ``local_path`` if it already exists. Off by default:
+            the caller is usually an agent and the destination may be a path a
+            model invented, so silently replacing whatever is there is not a
+            reasonable default. Never opens a symlink or a directory.
 
     Returns:
         Success message string.
     """
     import urllib.request
     import ssl
+
+    # Checked before anything is transferred: refusing afterwards would have
+    # paid for the guest read and the HTTPS GET to then throw the bytes away.
+    _check_download_destination(local_path, overwrite=overwrite)
 
     vm = _require_vm_with_tools(si, vm_name)
     content = si.RetrieveContent()
@@ -509,16 +564,7 @@ def guest_download(
     ) as resp:
         file_data = resp.read()
 
-    # Write to local file. Refuse to follow a symlink at the destination so the
-    # download can't be redirected to clobber a file elsewhere; create the
-    # parent dir if needed.
     local = Path(local_path).expanduser()
-    if local.is_symlink():
-        raise ValueError(
-            f"Refusing to write download through a symlink: {local_path}. "
-            f"Pass --local a path that is a regular file or does not exist yet, "
-            f"or remove the symlink first, then retry."
-        )
     local.parent.mkdir(parents=True, exist_ok=True)
     with open(local, "wb") as f:
         f.write(file_data)

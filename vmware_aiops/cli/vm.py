@@ -737,20 +737,26 @@ def vm_guest_upload_cmd(
 
 @vm_app.command("guest-download")
 @cli_errors
+@guarded(risk_level='medium', sensitive_params=['password'])
 def vm_guest_download_cmd(
     vm_name: Annotated[str, typer.Argument(help="VM name")],
     guest_path: Annotated[str, typer.Option("--guest", help="File path inside VM")],
     local_path: Annotated[str, typer.Option("--local", help="Local destination path")],
     username: Annotated[str, typer.Option("--user", "-u", help="Guest OS username")] = "root",
     password: Annotated[str, typer.Option("--password", "-p", help="Guest OS password", prompt=True, hide_input=True)] = "",
+    overwrite: Annotated[
+        bool, typer.Option("--overwrite", help="Replace an existing local file")
+    ] = False,
     target: TargetOption = None,
     config: ConfigOption = None,
 ) -> None:
-    """Download a file from a VM via VMware Tools."""
+    """Download a file from a VM via VMware Tools (writes the local filesystem)."""
     from vmware_aiops.ops.guest_ops import guest_download
 
     si, _ = _get_connection(target, config)
-    result = guest_download(si, vm_name, guest_path, local_path, username, password)
+    result = guest_download(
+        si, vm_name, guest_path, local_path, username, password, overwrite=overwrite
+    )
     _audit.log(
         target=_resolve_target(target),
         operation="guest_download",

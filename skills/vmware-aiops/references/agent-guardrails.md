@@ -120,7 +120,7 @@ checklist when evaluating any local model against these skills:
 | Adds generic recommendations unsupported by results | The "analysis discipline" rules. |
 | Drops requested fields or reorders results | State the required fields and ordering in the request itself, not only in the system prompt. |
 | Multi-tool workflows take 30–50s end to end | Prefer the aggregate tools — `cluster_health_summary`, `vm_investigation_bundle`, `host_investigation_bundle`, `datastore_investigation_bundle`, `cross_vcenter_attention` — which collapse a 3-4 call sequence into one round trip. |
-| Picks a write tool for a question that only reads | Route read questions to vmware-monitor. A model that can see 42 write tools will sometimes reach for one to "check" something. |
+| Picks a write tool for a question that only reads | Route read questions to vmware-monitor. A model that can see 43 write tools will sometimes reach for one to "check" something. |
 | Treats a long-running task's "still running" reply as a failure and re-issues the write | The `vm_task_status` rule above. A re-issued clone or delete is the worst outcome in this skill. |
 | Assumes an alarm reset cleared only the alarm it named | Report `scope` from the response. The clear is entity-type-wide by design. |
 

@@ -182,15 +182,14 @@ Start here when the ask is "is anything on fire?" before diving into a specific 
 | Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
 | Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-## MCP Tools (60 — 18 read, 42 write)
+## MCP Tools (60 — 17 read, 43 write)
 
 | Category | Tools | R/W |
 |----------|-------|:---:|
 | VM Lifecycle (16) | `vm_list_ttl`, `vm_list_snapshots`, `vm_task_status` | Read |
 | | `vm_power_on`, `vm_power_off`, `vm_create`, `vm_reconfigure`, `vm_clone`, `vm_migrate`, `vm_delete`, `vm_create_snapshot`, `vm_revert_snapshot`, `vm_delete_snapshot`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_clean_slate` | Write |
 | Deployment (8) | `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec` | Write |
-| Guest Ops (5) | `vm_guest_download` | Read |
-| | `vm_guest_exec`, `vm_guest_exec_output`, `vm_guest_upload`, `vm_guest_provision` | Write |
+| Guest Ops (5) | `vm_guest_exec`, `vm_guest_exec_output`, `vm_guest_upload`, `vm_guest_download`, `vm_guest_provision` | Write |
 | Plan/Apply (4) | `vm_list_plans` | Read |
 | | `vm_create_plan`, `vm_apply_plan`, `vm_rollback_plan` | Write |
 | Datastore (2) | `browse_datastore`, `scan_datastore_images` | Read |
@@ -205,7 +204,7 @@ Start here when the ask is "is anything on fire?" before diving into a specific 
 
 **List envelope**: the read list tools — `browse_datastore`, `list_vcenter_alarms`, `vm_list_plans`, `vm_list_snapshots`, `vm_list_ttl` — return `{items, returned, limit, total, truncated, hint}` rather than a bare array. Read the rows from `items` and check `truncated` before concluding a listing is complete; empty `items` with `truncated: false` means checked-and-none, not a failure. The write `batch_*` tools keep their bare list (complete by construction). Rationale, `total` semantics, error shape: `references/capabilities.md`.
 
-**Read/write split**: 18 tools are read-only (per `[READ]` docstring marker), 42 modify state. All write tools require explicit parameters and are audit-logged. Destructive operations (`vm_delete`, `vm_revert_snapshot`, `vm_delete_snapshot`, `vm_set_ttl` (schedules an unattended auto-delete), force power-off, cluster delete/remove-host, alarm reset, `remove_host_vmk`, `delete_drs_rule`) require double confirmation at the CLI layer and support `--dry-run`.
+**Read/write split**: 17 tools are read-only (per `[READ]` docstring marker), 43 modify state. All write tools require explicit parameters and are audit-logged. Destructive operations (`vm_delete`, `vm_revert_snapshot`, `vm_delete_snapshot`, `vm_set_ttl` (schedules an unattended auto-delete), force power-off, cluster delete/remove-host, alarm reset, `remove_host_vmk`, `delete_drs_rule`) require double confirmation at the CLI layer and support `--dry-run`.
 
 **Network write gating**: `create_dvs_portgroup`, `add_host_vmk`, and `set_vmk_service` are preview/confirm-gated — `confirm=False` (default) returns the exact spec that would be applied without writing. `remove_host_vmk` is **fail-closed**: it refuses when the vmk is selected for a host service (management/vMotion/vSAN), lives on a non-default netstack (NSX TEPs, dedicated vMotion stacks), carries a default gateway route, or when any of that cannot be verified — pass `force_unprotected=True` to override the non-absolute protections. The host's only management-enabled vmk is never removable (no override). `set_vmk_service` is **fail-closed** too: it refuses both directions when the host's service map is unreadable, and refuses (no override) to untag `management` from the host's only management-enabled vmk — the call rides the interface it would untag.
 
