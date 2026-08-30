@@ -1228,7 +1228,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.0,<16.0" },
     { name = "typer", specifier = ">=0.12,<1.0" },
     { name = "vmware-monitor", editable = "../VMware-Monitor" },
-    { name = "vmware-policy", specifier = ">=1.8.8,<2.0" },
+    { name = "vmware-policy", specifier = ">=1.10.0,<2.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1264,7 +1264,7 @@ requires-dist = [
     { name = "pyvmomi", specifier = ">=8.0.3.0,<10.0" },
     { name = "rich", specifier = ">=13.0,<16.0" },
     { name = "typer", specifier = ">=0.12,<1.0" },
-    { name = "vmware-policy", specifier = ">=1.8.5,<2.0" },
+    { name = "vmware-policy", specifier = ">=1.10.0,<2.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1276,14 +1276,14 @@ dev = [
 
 [[package]]
 name = "vmware-policy"
-version = "1.9.0"
+version = "1.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fb/07/53c849427b78bd16fd4cecaeb62eda381c66274d5cda1325c6f7a8dd3a4b/vmware_policy-1.9.0.tar.gz", hash = "sha256:e7dd8507351837d6aa1b06ccef4675382db8167ff2005964243f5a6a5f379102", size = 126406, upload-time = "2026-08-28T05:10:13.361Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/48/10/a1b83a1d61286cdc0e02fb73bea5e28b252e143842cbd190358224259932/vmware_policy-1.10.0.tar.gz", hash = "sha256:fb0125858634bfae256886d604065702e5cf16944b9a51fba48ff1baf33d55f9", size = 136492, upload-time = "2026-08-30T09:19:44.457Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/28/9c/9cdc7305f7ae5c7e05d3b217dda9b69705f696081eae6dc56eec534b78fc/vmware_policy-1.9.0-py3-none-any.whl", hash = "sha256:8ea644eacbc34164c352f20c704c39c12d1884b9e61c68509e7ec276210c33b7", size = 47588, upload-time = "2026-08-28T05:10:11.641Z" },
+    { url = "https://files.pythonhosted.org/packages/68/e0/5d10c715e464c0ae08f8f22fd0801cfa06249e3cd39d27f95463b959ded6/vmware_policy-1.10.0-py3-none-any.whl", hash = "sha256:7c7c8745e1764cac507df0c032fbe291217e9751f1947ceb3d4ac78ab2e2f349", size = 52110, upload-time = "2026-08-30T09:19:43.079Z" },
 ]
