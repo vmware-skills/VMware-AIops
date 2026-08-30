@@ -60,7 +60,9 @@ vmware-aiops alarm acknowledge <entity_name> <alarm_name> [--target <name>]
 vmware-aiops alarm reset <entity_name> <alarm_name> [--target <name>]
 # NOTE: 'alarm reset' clears ALL triggered alarms matching the named alarm's
 # entity type (host/VM/all) and current status (red/yellow) — vSphere has no
-# per-alarm clear API. Double confirmation required; output reports the scope.
+# per-alarm clear API. The CLI double confirmation applies; output reports the
+# scope. The reset_vcenter_alarm MCP tool has no confirmation — it clears on the
+# first call.
 
 # Datastore
 vmware-aiops datastore browse <ds-name> [--path <subdir>]

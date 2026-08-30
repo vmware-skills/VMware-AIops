@@ -35,11 +35,14 @@ that changed the behaviour instead of the label would still pass.
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import inspect
+import pathlib
 
+from vmware_aiops.mcp_server import tools as mcp_server_tools
 from vmware_aiops.mcp_server.server import mcp
-from vmware_aiops.ops import vm_lifecycle
+from vmware_aiops.ops import guest_ops, vm_lifecycle
 
 
 def _annotations(name: str):
@@ -131,3 +134,124 @@ def test_the_tools_that_do_claim_idempotence_earn_it() -> None:
     """
     for name in ("set_drs_rule_enabled", "set_vmk_service", "vm_power_on"):
         assert _annotations(name).idempotentHint is True, name
+
+
+# ---------------------------------------------------------------------------
+# Guest operations — the widest blast radius in the skill, labelled additive
+# ---------------------------------------------------------------------------
+
+#: The two vSphere Guest Operations calls that push caller-supplied content
+#: *into* a guest: run this program, place this file at this path. Their mirror
+#: ``InitiateFileTransferFromGuest`` is deliberately absent — reading a file out
+#: of a VM changes nothing inside it.
+_INTO_THE_GUEST = ("StartProgramInGuest", "InitiateFileTransferToGuest")
+
+
+def _ops_reaching_into_the_guest() -> frozenset[str]:
+    """Ops functions that reach one of those calls, directly or through another.
+
+    Derived from vSphere's own API names rather than a list of ops functions
+    kept here: a fifth guest tool, or a refactor that routes an existing one
+    through a new helper, is picked up without this file being edited. The
+    transitive step is what makes ``guest_exec_with_output`` and
+    ``guest_provision`` resolve — neither touches the API directly.
+    """
+    tree = ast.parse(pathlib.Path(guest_ops.__file__).read_text(encoding="utf-8"))
+    bodies = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+    reaching = {
+        name
+        for name, node in bodies.items()
+        if any(
+            isinstance(n, ast.Attribute) and n.attr in _INTO_THE_GUEST
+            for n in ast.walk(node)
+        )
+    }
+    assert reaching, (
+        f"no function in {guest_ops.__file__} calls any of {_INTO_THE_GUEST} — "
+        f"the API names have changed and this derivation now checks nothing"
+    )
+    changed = True
+    while changed:
+        changed = False
+        for name, node in bodies.items():
+            if name in reaching:
+                continue
+            called = {
+                c.func.id
+                for c in ast.walk(node)
+                if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+            }
+            if called & reaching:
+                reaching.add(name)
+                changed = True
+    return frozenset(reaching)
+
+
+def _tools_calling(ops_names: frozenset[str]) -> dict[str, set[str]]:
+    """MCP tool name -> the ops functions in ``ops_names`` its body calls."""
+    tools_dir = pathlib.Path(mcp_server_tools.__file__).parent
+    out: dict[str, set[str]] = {}
+    for path in sorted(tools_dir.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            called = {
+                c.func.id
+                for c in ast.walk(node)
+                if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+            } & ops_names
+            if called:
+                out[node.name] = called
+    return out
+
+
+def test_pushing_anything_into_a_guest_is_advertised_destructive() -> None:
+    """``vm_guest_exec`` ran arbitrary commands as root and said ``destructive: false``.
+
+    The annotation is what a client consults before deciding whether to ask its
+    user, and this is the tool with the widest blast radius in the skill: the
+    command string is caller-supplied and runs with the credentials handed to
+    it, which the docstring's own example makes ``root``. Nothing in the skill
+    bounds what it may be — ``rm -rf /`` is a well-formed argument. The same
+    label was on ``vm_guest_exec_output`` and ``vm_guest_provision``, which
+    execute the same way, and on ``vm_guest_upload``, which replaces whatever
+    already sits at the caller's chosen guest path (its CLI mirror has carried a
+    comment calling that destructive since it was written).
+
+    Derived, not listed: any tool reaching a vSphere call that puts content into
+    a guest must carry the label.
+    """
+    reaching = _ops_reaching_into_the_guest()
+    tools = _tools_calling(reaching)
+    assert len(tools) >= 4, (
+        f"only {sorted(tools)} derived as guest-writing tools — the "
+        f"ops-name derivation has gone stale and this checks almost nothing"
+    )
+    mislabelled = {
+        name: sorted(ops)
+        for name, ops in tools.items()
+        if _annotations(name).destructiveHint is not True
+    }
+    assert not mislabelled, (
+        f"these tools push caller-supplied commands or files into a guest OS "
+        f"and are advertised as non-destructive: {mislabelled}"
+    )
+
+
+def test_reading_a_file_out_of_a_guest_stays_non_destructive() -> None:
+    """Control: the fix must not become "every guest tool is destructive".
+
+    ``vm_guest_download`` writes the *caller's* disk, which is why it is a write
+    tool, and it refuses an occupied destination. It changes nothing inside the
+    VM, so the guest-side destructive label would be false — and a label applied
+    to everything tells a client nothing.
+    """
+    assert _annotations("vm_guest_download").destructiveHint is False
+    assert _annotations("vm_guest_download").readOnlyHint is False
+
+
+def test_additive_writes_stay_non_destructive() -> None:
+    """Control over the rest of the write surface, not just the guest corner."""
+    for name in ("vm_power_on", "vm_create", "vm_create_snapshot", "vm_clone"):
+        assert _annotations(name).destructiveHint is False, name

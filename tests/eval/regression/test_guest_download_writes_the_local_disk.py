@@ -91,18 +91,26 @@ def test_guest_download_carries_the_write_marker() -> None:
     assert _tool("vm_guest_download").description.lstrip().startswith("[WRITE]")
 
 
-def test_guest_upload_and_download_are_annotated_alike() -> None:
+def test_guest_upload_and_download_are_annotated_alike_except_where_direction_matters() -> None:
     """They are the same operation in opposite directions.
 
     Pinning them against each other rather than against a literal keeps the pair
     honest if the family's convention for guest file transfer ever moves.
+
+    ``destructiveHint`` is excluded from the mirror, and that exclusion is the
+    interesting part. The field describes what the tool does to the environment
+    it is pointed at, and the direction is exactly what makes the two differ:
+    upload replaces whatever already sits at a caller-chosen path *inside the
+    guest*, download changes nothing in the VM at all. When this test asserted
+    the two were identical on all three fields it was asserting a symmetry the
+    field does not have, and it went red on 2026-08-30 for the upload being
+    labelled honestly — which is the assertion failing, not the label. Both
+    halves are pinned below so neither can quietly follow the other.
     """
     up, down = _tool("vm_guest_upload").annotations, _tool("vm_guest_download").annotations
-    assert (down.readOnlyHint, down.destructiveHint, down.idempotentHint) == (
-        up.readOnlyHint,
-        up.destructiveHint,
-        up.idempotentHint,
-    )
+    assert (down.readOnlyHint, down.idempotentHint) == (up.readOnlyHint, up.idempotentHint)
+    assert up.destructiveHint is True, "upload replaces content inside the guest"
+    assert down.destructiveHint is False, "download changes nothing inside the guest"
 
 
 def test_skill_md_read_write_split_matches_the_annotations() -> None:

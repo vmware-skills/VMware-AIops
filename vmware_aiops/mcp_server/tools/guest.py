@@ -14,7 +14,16 @@ from vmware_aiops.ops.guest_ops import (
 )
 
 
-@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
+# The four tools below hand caller-supplied content to the guest OS — a program
+# to run, or a file to place at a chosen path — and every one of them advertised
+# `destructiveHint: false`. The command string is unbounded and runs with the
+# credentials passed in, which the example here makes root; `rm -rf /` is a
+# well-formed argument. `destructiveHint` is the field a client consults before
+# deciding whether to ask its user, so the label was disarming the one prompt
+# that mattered most. `vm_guest_download` below keeps `false`: it reads the
+# guest and writes the *caller's* disk, which is a different hazard with its own
+# guard, and a label applied to everything tells a client nothing.
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium", sensitive_params=['password'])
 @tool_errors("dict")
 def vm_guest_exec(
@@ -52,7 +61,7 @@ def vm_guest_exec(
     )
 
 
-@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium", sensitive_params=['password'])
 @tool_errors("dict")
 def vm_guest_exec_output(
@@ -85,7 +94,7 @@ def vm_guest_exec_output(
     return guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout)
 
 
-@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium", sensitive_params=['password'])
 @tool_errors("str")
 def vm_guest_upload(
@@ -157,7 +166,7 @@ def vm_guest_download(
     )
 
 
-@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium", sensitive_params=['password'])
 @tool_errors("dict")
 def vm_guest_provision(

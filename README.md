@@ -317,10 +317,11 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 
 | Feature | Details |
 |---------|---------|
-| **Dry-Run Mode** | `--dry-run` on any destructive command prints exact API calls without executing |
-| **Plan → Confirm → Execute → Log** | Structured workflow: show current state, confirm changes, execute, audit log |
-| **Double Confirmation** | All destructive ops (power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate) require 2 sequential confirmations — no bypass flags |
-| **Rejection Logging** | Declined confirmations are recorded in the audit trail |
+| **Dry-Run Mode** (**CLI only**) | `--dry-run` on any destructive CLI command prints exact API calls without executing |
+| **Plan → Confirm → Execute → Log** | CLI workflow: show current state, confirm changes, execute, audit log |
+| **Double Confirmation** (**CLI only**) | Destructive CLI commands (power-off, delete, reconfigure, snapshot-revert/delete, clean-slate, guest-exec, guest-upload, cluster delete/remove-host, alarm clear) require 2 sequential prompts and take no bypass flag |
+| **No confirmation on the MCP path** | The 43 write tools an agent sees over MCP act on the first call — no `confirmed=` handshake, no approval tier, no read-only switch. What decides whether a write lands is the privilege of the vCenter account, and what records it is the audit trail. See [What protects you](#what-protects-you) |
+| **Rejection Logging** | Declined CLI confirmations are recorded in the audit trail |
 | **Audit Trail** | All operations logged to `~/.vmware-aiops/audit.log` (JSONL) with before/after state |
 | **Input Validation** | VM name, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated |
 | **Password Protection** | `.env` file loading with permission check; never in shell history |
@@ -344,6 +345,48 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | Guest operations | ✅ | ✅ |
 
 > Inventory, alarms, events, sensors, host services, and scanning are now in [vmware-monitor](https://github.com/vmware-skills/VMware-Monitor).
+
+### What protects you
+
+The table above lists two different surfaces and it is worth being blunt about
+which protections apply to which, because getting this wrong is worse than
+having no protection at all — a guardrail you believe in is one you stop
+compensating for.
+
+**On the CLI**, a destructive command asks twice and takes no bypass flag, and
+`--dry-run` previews any write. That defends a mistyped command typed by a
+human. It does not defend against an agent, which satisfies both prompts with
+`yes |`.
+
+**Over MCP**, there is no confirmation step at all. All 43 write tools —
+`vm_delete`, `cluster_delete`, `vm_guest_exec` among them — act on the first
+call. Seven host-networking and DRS tools take a `confirm` argument that
+defaults to a no-write preview, but that is a preview switch, not an approval
+gate: one more call is all it takes. This is deliberate. A `confirmed=`
+handshake was considered in July 2026 and cut, along with the earlier
+`VMWARE_READ_ONLY` switch, because neither was a real boundary — the switch was
+enforced on the MCP path only and any agent with a shell walked around it via
+the CLI, and a handshake is a speed-bump a model that intends to act steps over.
+
+**What actually decides whether a write lands is the vCenter/ESXi service
+account.** Give the skill an account with the privileges the work needs and no
+more; vCenter refuses the rest itself, on every surface, with no way around it
+from inside this skill. **To run an agent read-only, give it a read-only vCenter
+role** — one decision, enforced where it is made. Every call is then recorded in
+`~/.vmware/audit.db` before the caller sees a result, which is how you find out
+what happened.
+
+**`vm_guest_exec` is the one to think hardest about.** It runs a caller-supplied
+command inside the guest OS with the credentials handed to it, which the
+documentation's own example makes `root`; nothing bounds what the command may
+be. The guest account is a *separate* authorization boundary from the vCenter
+one — a read-only vCenter role does not constrain what this tool does inside a
+VM. If you do not need guest operations, do not configure guest credentials.
+
+The full inventory of which tools are gated and which are not is in
+[references/capabilities.md](skills/vmware-aiops/references/capabilities.md#what-gates-a-write),
+where the numbers are checked against the live tool registry by the test suite
+rather than maintained by hand.
 
 ---
 

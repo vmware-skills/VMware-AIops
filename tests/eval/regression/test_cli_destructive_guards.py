@@ -11,18 +11,23 @@ and intentionally do NOT prompt. There is no single reliable marker for the
 "needs a prompt" set — it is the author's per-command judgement:
 
 * ``destructiveHint`` marks data-destroying ops (delete / revert / clean-slate /
-  power-off) but is ``False`` for guest-exec, clone and migrate;
+  power-off) but is ``False`` for clone and migrate;
 * ``--dry-run`` is added to some *additive* previews too (create, power-on);
 * ``[WRITE]`` is far broader than "dangerous".
 
 So this file does NOT claim to guard every destructive command (an earlier
 version derived from ``[WRITE]`` and, via a tool-name↔ops-name mismatch, silently
 guarded only two — 踩坑 #43). It guards the subset that is **unambiguously**
-must-confirm: every tool the MCP layer marks ``destructiveHint=True``, plus the
-guest-execution tools (arbitrary code in a guest, the widest blast radius). Those
-are derived structurally (marker → the ops function the CLI actually calls), and
-the intersection with real CLI commands is asserted to be broad, not just its two
+must-confirm: every tool the MCP layer marks ``destructiveHint=True``. That is
+derived structurally (marker → the ops function the CLI actually calls), and the
+intersection with real CLI commands is asserted to be broad, not just its two
 source sets non-empty.
+
+Until 2026-08-30 the marker was joined by a hard-coded set of guest-execution
+tool names, because those tools were annotated ``destructiveHint: false`` while
+running arbitrary commands as root. Correcting the annotations dissolved the
+list — which is the better outcome, since the list had already drifted past
+``vm_guest_exec_output``.
 """
 
 from __future__ import annotations
@@ -39,17 +44,22 @@ assert TOOLS_DIR.is_dir(), f"MCP tools not found at {TOOLS_DIR} — the derivati
 
 _CONFIRM = "_double_confirm"
 
-#: Guest-execution tools always confirm regardless of destructiveHint — they run
-#: attacker-controlled code inside a guest OS. Named by MCP tool = function name.
-_GUEST_EXEC_TOOLS = frozenset({"vm_guest_exec", "vm_guest_upload", "vm_guest_provision"})
-
 
 def _must_confirm_tool_names() -> frozenset[str]:
-    """MCP tool names that a CLI command MUST double-confirm before running:
-    everything marked ``destructiveHint=True`` plus the guest-execution tools."""
+    """MCP tool names that a CLI command MUST double-confirm before running.
+
+    One source now: ``destructiveHint=True``. This used to be that marker
+    *plus* a hard-coded ``_GUEST_EXEC_TOOLS`` set, which existed only because
+    the guest tools were annotated ``destructiveHint: false`` while running
+    arbitrary commands as root — the list was a patch over a wrong label, and it
+    had already gone stale by omitting ``vm_guest_exec_output``. The labels were
+    corrected (see ``test_tool_annotations_match_behaviour``), so the patch is
+    removed rather than extended: a fifth guest tool now arrives in this set by
+    being annotated honestly, not by someone remembering to edit a frozenset.
+    """
     from vmware_aiops.mcp_server.server import mcp
 
-    names = set(_GUEST_EXEC_TOOLS)
+    names = set()
     for tool in asyncio.run(mcp.list_tools()):
         ann = getattr(tool, "annotations", None)
         if ann is not None and getattr(ann, "destructiveHint", None):
@@ -135,10 +145,10 @@ def test_irreversible_and_guest_exec_cli_commands_double_confirm():
     driving, unguarded = _matched()
 
     # Anti-vacuity on the INTERSECTION with real commands, not just the source
-    # sets. AIops has ~9 destructiveHint tools + 3 guest-exec ones; if the
-    # marker→ops→command derivation silently stops matching, this collapses and
-    # the check would pass while guarding nothing — the failure this file exists
-    # to prevent.
+    # sets. AIops marks 16 tools destructiveHint=True, 9 of which have a CLI
+    # command; if the marker→ops→command derivation silently stops matching,
+    # this collapses and the check would pass while guarding nothing — the
+    # failure this file exists to prevent.
     assert len(driving) >= 8, (
         f"only {len(driving)} CLI commands matched a must-confirm op ({driving}) — "
         f"the derivation is likely stale. A check that matches almost nothing is "
