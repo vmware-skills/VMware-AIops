@@ -145,7 +145,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:81"
+            "where": "host_network_mgmt.py:118"
           },
           {
             "message": "Host '{}' not found",
@@ -161,7 +161,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:278"
+            "where": "host_network_mgmt.py:434"
           },
           {
             "message": "Unknown service '{}'. Valid services: {}",
@@ -169,7 +169,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:389"
+            "where": "host_network_mgmt.py:545"
           },
           {
             "message": "'{}' not found on '{}'. Present: {}",
@@ -177,7 +177,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:396"
+            "where": "host_network_mgmt.py:552"
           },
           {
             "message": "SOAP fault: {}",
@@ -185,7 +185,7 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:518"
+            "where": "host_network_mgmt.py:674"
           },
           {
             "message": "SOAP HTTP {}: {}",
@@ -193,67 +193,100 @@
               "names_artifact",
               "states_remedy"
             ],
-            "where": "host_network_mgmt.py:520"
+            "where": "host_network_mgmt.py:676"
           }
         ],
         "per_dimension_pct": {
-          "names_artifact": 51.7,
-          "names_input": 97.7,
-          "states_remedy": 70.1
+          "names_artifact": 51.1,
+          "names_input": 97.8,
+          "states_remedy": 71.1
         },
-        "raise_sites": 87
+        "raise_sites": 90
       },
-      "maximum": 261,
-      "pct": 73.2,
+      "maximum": 270,
+      "pct": 73.3,
       "unit": "points",
-      "value": 191
+      "value": 198
     },
     "manifest_context_headroom": {
       "detail": {
         "heaviest_tools": {
-          "create_dvs_portgroup": 375,
-          "deploy_linked_clone": 389,
-          "set_vmk_service": 373,
-          "vm_create": 368,
-          "vmk_ping": 425
+          "create_dvs_portgroup": 407,
+          "deploy_linked_clone": 422,
+          "deploy_vm_from_ova": 402,
+          "list_host_vmks": 422,
+          "vmk_ping": 461
         },
-        "manifest_tokens": 14357,
-        "mean_tokens_per_tool": 239.3,
+        "manifest_tokens": 15731,
+        "mean_tokens_per_tool": 262.2,
         "reference_context": 16384,
         "tool_count": 60
       },
       "maximum": 16384,
-      "pct": 12.4,
+      "pct": 4.0,
       "unit": "tokens",
-      "value": 2027
+      "value": 653
     },
     "parameter_documentation_coverage": {
       "detail": {
-        "undocumented_by_tool": {}
+        "undocumented_by_tool": {
+          "vm_create_snapshot": [
+            "description",
+            "snapshot_name"
+          ]
+        },
+        "value_set_candidates": {
+          "cluster_configure.drs_behavior": [
+            "fullyAutomated",
+            "manual",
+            "partiallyAutomated"
+          ],
+          "cluster_create.drs_behavior": [
+            "fullyAutomated",
+            "manual",
+            "partiallyAutomated"
+          ],
+          "create_drs_rule.rule_type": [
+            "affinity",
+            "antiAffinity"
+          ],
+          "create_dvs_portgroup.binding": [
+            "earlyBinding",
+            "ephemeral"
+          ]
+        }
       },
-      "maximum": 245,
-      "pct": 100.0,
+      "maximum": 246,
+      "pct": 99.2,
       "unit": "parameters",
-      "value": 245
+      "value": 244
     },
     "per_tool_token_discipline": {
       "detail": {
         "ceiling": 350,
         "over_ceiling": {
-          "add_host_vmk": 365,
-          "create_drs_rule": 352,
-          "create_dvs_portgroup": 375,
-          "deploy_linked_clone": 389,
-          "deploy_vm_from_ova": 367,
-          "set_vmk_service": 373,
-          "vm_create": 368,
-          "vmk_ping": 425
+          "add_host_vmk": 394,
+          "batch_clone_vms": 364,
+          "batch_linked_clone_vms": 379,
+          "create_drs_rule": 384,
+          "create_dvs_portgroup": 407,
+          "deploy_linked_clone": 422,
+          "deploy_vm_from_ova": 402,
+          "deploy_vm_from_template": 380,
+          "list_host_vmks": 422,
+          "remove_host_vmk": 372,
+          "set_vmk_service": 400,
+          "vm_create": 402,
+          "vm_guest_download": 351,
+          "vm_guest_exec": 355,
+          "vm_guest_provision": 359,
+          "vmk_ping": 461
         }
       },
       "maximum": 60,
-      "pct": 86.7,
+      "pct": 73.3,
       "unit": "tools",
-      "value": 52
+      "value": 44
     },
     "read_only_manifest_saving": {
       "detail": {
@@ -334,45 +367,51 @@
       },
       "maximum": 61,
       "pct": 100.0,
+      "stale": true,
       "unit": "messages",
       "value": 61
     },
     "teaching_error_rate": {
       "detail": {},
-      "maximum": 87,
-      "pct": 51.7,
+      "maximum": 90,
+      "pct": 51.1,
       "unit": "messages",
-      "value": 45
+      "value": 46
     },
     "tool_description_quality": {
       "detail": {
         "per_dimension_pct": {
-          "args": 100.0,
-          "gotcha": 96.7,
+          "args": 98.3,
+          "gotcha": 95.0,
           "marker": 100.0,
-          "next_hop": 98.3,
-          "what": 100.0,
+          "next_hop": 95.0,
+          "what": 95.0,
           "when": 91.7
         },
         "tools_graded": 60,
         "weakest_tools": {
-          "acknowledge_vcenter_alarm": [],
           "add_host_vmk": [
             "when"
           ],
-          "attach_iso_to_vm": [],
           "create_drs_rule": [
             "when"
           ],
+          "datastore_investigation_bundle": [
+            "what"
+          ],
           "delete_drs_rule": [
+            "next_hop",
             "when"
+          ],
+          "host_investigation_bundle": [
+            "what"
           ],
           "list_drs_rules": [
             "gotcha",
             "when"
           ],
-          "remove_host_vmk": [
-            "when"
+          "list_dvs_portgroups": [
+            "gotcha"
           ],
           "vmk_ping": [
             "gotcha",
@@ -381,14 +420,14 @@
         }
       },
       "maximum": 360,
-      "pct": 97.8,
+      "pct": 95.8,
       "unit": "points",
-      "value": 352
+      "value": 345
     },
     "tool_failure_payload_quality": {
       "detail": {
         "bare_string_error_lines": [
-          154
+          286
         ],
         "carries_hint": 2,
         "dict_shaped": 2,

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from ..capability._scoring import undocumented_args, value_set_candidates
 from ..capability._skill import CLI_NAME
 from ..capability.test_error_actionability import _artifact_matcher
 
@@ -182,8 +183,7 @@ def test_an_error_returned_via_a_local_is_still_seen(tmp_path):
         "        pass\n"
         "    except Exception as exc:\n"
         "        payload = {'error': str(exc), 'hint': _HINT}\n"
-        "        return payload\n",
-        encoding="utf-8",
+        "        return payload\n"
     )
     sites = list(_error_returns_in_server(server_dir=tmp_path, module=None))
 
@@ -219,7 +219,7 @@ def test_a_partial_run_does_not_erase_metrics_it_did_not_measure(tmp_path):
     partial.add(Score(name="alpha", value=2, maximum=2))
     partial.write(path)
 
-    scores = json.loads(path.read_text(encoding="utf-8"))["scores"]
+    scores = json.loads(path.read_text())["scores"]
     assert set(scores) == {"alpha", "beta"}, "a partial run deleted a metric"
     assert scores["alpha"]["value"] == 2, "the fresh measurement must win"
     assert not scores["alpha"].get("stale"), "a freshly measured metric is not stale"
@@ -238,7 +238,7 @@ def test_an_empty_run_leaves_the_baseline_alone(tmp_path):
     seeded.write(path)
 
     ScoreBoard().write(path)
-    assert set(json.loads(path.read_text(encoding="utf-8"))["scores"]) == {"alpha"}
+    assert set(json.loads(path.read_text())["scores"]) == {"alpha"}
 
 
 def test_credits_a_real_subcommand_under_a_group():
@@ -400,3 +400,130 @@ def test_unresolvable_holes_still_render_as_placeholders():
     )
     assert text == "VM {} not found."
     assert holes is True and composed is False
+
+
+# ---------------------------------------------------------------------------
+# undocumented_args — the grader must read the schema, not just the prose.
+#
+# It read the prose alone, which was a fair proxy only while every ``Args:``
+# block still sat inside the description. `describe_tool_parameters` moved those
+# entries into the JSON schema and stripped the block from the prose, because
+# both copies otherwise ship in every `tools/list` response. The grader went on
+# reading the half that had been emptied on purpose and scored eleven of twelve
+# skills under the floor -- while all ~889 of their parameters carried a real
+# description. A grader that reports a deliberate saving as a defect trains
+# people to undo the saving.
+#
+# Fabricated schemas, like the surface above: the property under test has to be
+# visible in the test, and against the live registry these would drift with
+# every tool added.
+# ---------------------------------------------------------------------------
+
+
+def _schema(**props):
+    return {"properties": {n: d for n, d in props.items()}}
+
+
+def test_credits_a_parameter_described_only_in_the_schema():
+    """The bug. No prose mention, a real schema description -- documented."""
+    schema = _schema(top_n={"description": "How many outliers to return."})
+    assert undocumented_args(schema) == ()
+
+
+def test_still_reports_a_parameter_described_nowhere():
+    """The other half: the check must remain able to go red.
+
+    A rule that credits everything is the failure this suite keeps
+    rediscovering (形态 #1) -- worse than no rule, because it reports green.
+    """
+    schema = _schema(top_n={})
+    assert undocumented_args(schema) == ("top_n",)
+
+
+def test_rejects_a_schema_description_that_only_restates_the_name():
+    """``storage_class: "Storage class."`` leaves a model exactly where it began."""
+    schema = _schema(storage_class={"description": "Storage class."})
+    assert undocumented_args(schema) == ("storage_class",)
+
+
+def test_rejects_a_description_that_adds_only_filler():
+    schema = _schema(description={"description": "Optional description."})
+    assert undocumented_args(schema) == ("description",)
+
+
+def test_credits_a_terse_description_that_carries_real_information():
+    """The rubric must not pay for padding.
+
+    ``"1 or 3."`` is the most useful description on that surface; a word-count
+    bar would fail it and buy ``"The number of control plane nodes."`` instead,
+    which says strictly less. See ``has_any`` for the same warning.
+    """
+    schema = _schema(control_plane_count={"description": "1 or 3."})
+    assert undocumented_args(schema) == ()
+
+
+def test_a_prose_mention_alone_does_not_count():
+    """The clause that had to be removed, pinned so it cannot come back.
+
+    Crediting a parameter because its name appears somewhere in the tool
+    description was the original rule, and keeping it as a fallback looked
+    harmless. It is not: strip every schema description out of vmware-debug and
+    this test still read 100%, because that surface's prose names each argument
+    in passing anyway. A rule written to catch exactly that regression must not
+    carry a clause that hides it (形态 #5).
+    """
+    schema = _schema(top_n={})
+    assert undocumented_args(schema) == ("top_n",)
+
+
+def test_reports_every_parameter_when_the_schema_descriptions_are_gone():
+    """The end-to-end shape: `describe_tool_parameters` silently not running.
+
+    This is the whole reason the grader exists. If that call is dropped, or
+    fails, or is never added to a new skill's server, every parameter reaches
+    the model as a bare name and a type -- and this must say so loudly rather
+    than inherit a pass from well-written prose.
+    """
+    schema = _schema(target={}, severity={}, top_n={})
+    # Sorted for comparison: the order is the schema's, and the caller sorts.
+    assert sorted(undocumented_args(schema)) == ["severity", "target", "top_n"]
+
+
+def test_a_tool_with_no_parameters_has_no_gaps():
+    assert undocumented_args({}) == ()
+
+
+# ---------------------------------------------------------------------------
+# value_set_candidates — a triage list, never a gate. These pin the two ends
+# that matter: it notices a closed set with no enum, and it goes quiet once the
+# enum is there. Its middle is admittedly noisy (~2 in 3 on the real surface),
+# which is exactly why nothing asserts on it in the capability suite.
+# ---------------------------------------------------------------------------
+
+
+def _tool(name, **props):
+    return SimpleNamespace(name=name, inputSchema=_schema(**props))
+
+
+def test_flags_a_closed_set_with_no_enum():
+    tools = [_tool("get_events", severity={"description": 'Either "critical" or "warning".'})]
+    assert value_set_candidates(tools) == {"get_events.severity": ["critical", "warning"]}
+
+
+def test_says_nothing_once_the_enum_is_declared():
+    tools = [
+        _tool(
+            "get_events",
+            severity={
+                "description": 'Either "critical" or "warning".',
+                "enum": ["critical", "warning"],
+            },
+        )
+    ]
+    assert value_set_candidates(tools) == {}
+
+
+def test_does_not_flag_literals_offered_as_examples():
+    """``e.g.`` marks an open set. Flagging it would demand an enum that cannot exist."""
+    tools = [_tool("apply_vm_tag", tag_scope={"description": "Scope, e.g. 'env' or 'tier'."})]
+    assert value_set_candidates(tools) == {}

@@ -132,13 +132,13 @@ class ScoreBoard:
             ),
             "scores": merged,
         }
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
 def previous_scores(path: Path = SCORES_PATH) -> dict[str, Any]:
     """Load the last recorded run, or ``{}`` on a first run / unreadable file."""
     try:
-        return json.loads(path.read_text(encoding="utf-8")).get("scores", {})
+        return json.loads(path.read_text()).get("scores", {})
     except (OSError, ValueError):
         return {}
 
@@ -231,15 +231,132 @@ def has_any(text: str, markers: tuple[str, ...]) -> bool:
     return any(m in low for m in markers)
 
 
-def documented_args(description: str, schema: dict[str, Any]) -> tuple[int, int]:
-    """Return ``(documented, total)`` schema properties named in ``description``.
+#: Words that carry no information about a *particular* parameter, so they
+#: cannot be what makes its description say more than its name already does.
+#: Deliberately short. Every addition here makes the restatement rule stricter
+#: for every skill at once, so a word earns its place only if it is filler in
+#: every sentence it can appear in -- ``critical`` or ``seconds`` never qualify.
+_EMPTY_WORDS = frozenset(
+    {
+        "a", "an", "and", "are", "as", "be", "by", "default", "for", "id",
+        "if", "in", "is", "it", "its", "name", "of", "on", "optional", "or",
+        "set", "string", "that", "the", "this", "to", "use", "used", "value",
+        "values", "when", "with",
+    }
+)
 
-    An undocumented parameter is one a model must guess the meaning of from its
-    name alone. That is survivable for ``target`` and not survivable for
-    ``top_n`` or ``folder_filter``.
+_WORDS = re.compile(r"[a-z0-9][a-z0-9'-]*")
+
+
+def _says_more_than_its_name(param: str, text: str) -> bool:
+    """Does ``text`` tell a model anything ``param`` does not already say?
+
+    ``storage_class: "Storage class."`` and ``description: "Optional
+    description."`` are schema descriptions that carry zero information -- a
+    model reading them learns exactly what it knew from the property name. They
+    are the only kind of filled-in description this rubric refuses to credit.
+
+    The bar is one surviving word, not a word count, and that is the whole
+    design. ``control_plane_count: "1 or 3."`` is four characters and is the
+    single most useful description on that surface; a length rule would fail it
+    and pay instead for ``"The number of control plane nodes."``, which says
+    less. This rubric must never buy padding (see :func:`has_any`).
     """
-    props = tuple((schema or {}).get("properties", {}))
+    own = set(_WORDS.findall(param.lower()))
+    return any(w not in own and w not in _EMPTY_WORDS for w in _WORDS.findall(text.lower()))
+
+
+def undocumented_args(schema: dict[str, Any]) -> tuple[str, ...]:
+    """Schema properties a model would have to guess the meaning of.
+
+    A parameter counts as documented when its **schema property** carries a
+    ``description`` that says more than the property name
+    (:func:`_says_more_than_its_name`). The schema is what an MCP client puts in
+    front of the model, one description attached to the one argument it
+    describes, so it is the only place this can honestly be measured.
+
+    Reading the schema is the correction, and it was overdue. This used to check
+    the prose alone -- was the property *name* a substring of the tool
+    description -- which was a fair proxy while every ``Args:`` block was still
+    embedded in that text. ``vmware_policy.describe_tool_parameters`` then moved
+    those entries into the JSON schema and stripped the block from the prose;
+    both copies otherwise ship in every ``tools/list`` response and the tightest
+    manifest budget in the family could not carry them twice. The grader kept
+    reading the half that had been emptied on purpose and scored the saving as a
+    documentation gap: eleven of twelve skills fell under this test's floor at a
+    moment when all 889 of their parameters carried a real description.
+
+    **The prose is not a fallback, and that is deliberate.** Crediting a
+    parameter because its name appears somewhere in the description was tried
+    here first and had to be removed: stripping every schema description out of
+    vmware-debug left this test still reading 100%, because that surface's
+    prose mentions each argument in passing anyway. A rule written to catch
+    exactly that regression must not contain a clause that hides it (形态 #5).
+    Dropping it costs nothing measured -- every skill scores the same with it and
+    without it -- and buys back the ability to fail.
+
+    Returned as names rather than a count so the score and the gap report cannot
+    disagree -- they were two separate predicates, and a second copy of a rule is
+    a copy that drifts (形态 #6).
+    """
+    props = (schema or {}).get("properties", {})
     if not props:
-        return (0, 0)
-    low = description.lower()
-    return (sum(1 for p in props if p.lower() in low), len(props))
+        return ()
+    return tuple(
+        name
+        for name, prop in props.items()
+        if not _says_more_than_its_name(name, (prop or {}).get("description") or "")
+    )
+
+
+def documented_args(schema: dict[str, Any]) -> tuple[int, int]:
+    """``(documented, total)`` schema properties, derived from :func:`undocumented_args`."""
+    total = len((schema or {}).get("properties", {}))
+    return (total - len(undocumented_args(schema)), total)
+
+
+#: A description offers a closed set when it uses a closure word...
+_CLOSED_SET = re.compile(r"\bone of\b|\beither\b|\bor\b", re.I)
+#: ...and does not hedge the literals as examples, a format, or an open set.
+_OPEN_SET = re.compile(
+    r"e\.g\.|for example|such as|\blike\b|format|suffix|substring|pattern|\bany\b|\betc\b",
+    re.I,
+)
+#: Quoted literals, the shape a permitted value is written in.
+_LITERAL = re.compile(r"""["'`]([A-Za-z0-9_-]{1,24})["'`]""")
+
+
+def value_set_candidates(tools) -> dict[str, list[str]]:
+    """Parameters that read like a closed set but carry no schema ``enum``.
+
+    **A lead list, not a verdict. Never assert on this.** It is keyword matching
+    over prose and its precision is about two in three: on the family surface it
+    returns seventeen candidates, of which roughly eleven are genuine
+    (``drs_behavior``, ``rule_type``, ``gateway_type``, ``action``, ``severity``,
+    ``time_source``) and the rest are not enums at all -- ``since`` and ``last``
+    quote duration *formats*, ``objects`` and ``available_skills`` quote
+    *examples*. That is the same accuracy as the ``gotcha`` dimension, which this
+    suite already tells readers to trust least, and it is precisely why this is
+    recorded in a score's ``detail`` for a human to triage rather than wired to a
+    floor. A noisy gate would pay people to reword descriptions that are already
+    correct.
+
+    Worth recording anyway, because it tracks the half of the 2026-08-30 failure
+    that is still open. Moving parameter docs into the schema fixed the wrong
+    *name* half; a wrong *value* -- ``power_state="running"`` -- still returns
+    zero rows where there were eleven, with nothing raised at any layer, and
+    ``enum`` coverage across the family is still 0%. Closing a candidate means
+    changing the signature to ``Literal[...]``, which is a code change to a
+    published surface and a separate decision from grading.
+    """
+    found: dict[str, list[str]] = {}
+    for tool in tools:
+        for name, prop in ((tool.inputSchema or {}).get("properties", {})).items():
+            prop = prop or {}
+            if prop.get("enum"):
+                continue
+            text = prop.get("description") or ""
+            literals = sorted(set(_LITERAL.findall(text)))
+            if len(literals) >= 2 and _CLOSED_SET.search(text) and not _OPEN_SET.search(text):
+                found[f"{tool.name}.{name}"] = literals
+    return found

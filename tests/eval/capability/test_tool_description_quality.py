@@ -37,8 +37,12 @@ The six dimensions, and why each one earns a point
                reviewers flagged this within one pass. Read a high ``gotcha`` as
                "nothing contradicts the claim", not as evidence the caveat is
                there — and prefer sharpening this dimension over celebrating it.
-``args``     — every schema property is named in the description text. Scored as
-               a full point only when *all* are documented; partial credit is
+``args``     — every schema property carries its own ``description``, which is
+               where an MCP client actually shows it. A description that only
+               restates the property name (``storage_class``: "Storage class.")
+               does not count — it leaves the model exactly where it started,
+               and neither does a passing mention in the prose. Scored as a
+               full point only when *all* are documented; partial credit is
                deliberately withheld because one undocumented parameter is
                enough to produce a bad call.
 ``next_hop`` — names another concrete tool to call after this one. The single
@@ -69,6 +73,8 @@ from ._scoring import (
     Score,
     documented_args,
     has_any,
+    undocumented_args,
+    value_set_candidates,
 )
 
 pytestmark = pytest.mark.capability
@@ -84,7 +90,7 @@ DIMENSIONS = ("marker", "what", "when", "gotcha", "args", "next_hop")
 def _grade(tool, all_names: frozenset[str]) -> dict[str, bool]:
     desc = tool.description or ""
     stripped = desc.lstrip()
-    documented, total = documented_args(desc, tool.inputSchema or {})
+    documented, total = documented_args(tool.inputSchema or {})
     others = all_names - {tool.name}
     # A gotcha marker that is also a word in the tool's own name is describing
     # what the tool does, not warning about it: `confirm_draft` earned the point
@@ -168,18 +174,23 @@ def test_parameter_documentation_coverage(board, tools):
     Reported per-parameter rather than per-tool so that one badly documented
     wide tool cannot hide behind many well documented narrow ones. An
     undocumented parameter is where a small model invents a value.
+
+    Reads the schema, where an MCP client shows a parameter's description.
+    Before that it read the prose alone, and scored eleven of twelve skills
+    under this floor at a moment when every parameter on every one of those
+    surfaces carried a real description — see :func:`undocumented_args`. The
+    detail also carries ``value_set_candidates``, a triage list that is
+    deliberately no part of the score.
     """
     documented = total = 0
     gaps: dict[str, list[str]] = {}
     for t in tools:
-        d, n = documented_args(t.description or "", t.inputSchema or {})
-        documented += d
-        total += n
-        if d < n:
-            low = (t.description or "").lower()
-            gaps[t.name] = sorted(
-                p for p in (t.inputSchema or {}).get("properties", {}) if p.lower() not in low
-            )
+        missing = undocumented_args(t.inputSchema or {})
+        count = len((t.inputSchema or {}).get("properties", {}))
+        total += count
+        documented += count - len(missing)
+        if missing:
+            gaps[t.name] = sorted(missing)
 
     score = board.add(
         Score(
@@ -187,7 +198,11 @@ def test_parameter_documentation_coverage(board, tools):
             value=documented,
             maximum=total,
             unit="parameters",
-            detail={"undocumented_by_tool": gaps},
+            detail={
+                "undocumented_by_tool": gaps,
+                # Reported, never asserted — see value_set_candidates.
+                "value_set_candidates": value_set_candidates(tools),
+            },
         )
     )
     print(f"\n[capability] parameter_documentation_coverage = {score.pct}%  ({documented}/{total})")
