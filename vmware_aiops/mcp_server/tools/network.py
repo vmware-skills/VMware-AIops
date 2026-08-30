@@ -1,6 +1,6 @@
 """Network tools: dvSwitch portgroups + host VMkernel adapters and MTU diagnostics."""
 
-from typing import Optional
+from typing import Literal, Optional
 
 from vmware_policy import vmware_tool
 
@@ -52,7 +52,7 @@ def create_dvs_portgroup(
     name: str,
     dvs_name: str,
     vlan_id: int,
-    binding: str = "earlyBinding",
+    binding: Literal["earlyBinding", "ephemeral"] = "earlyBinding",
     num_ports: int = 8,
     confirm: bool = False,
     target: Optional[str] = None,

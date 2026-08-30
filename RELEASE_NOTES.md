@@ -1,3 +1,13 @@
+## v1.8.17 — closed-value parameters now reach the MCP schema
+
+`drs_behavior` (cluster_create, cluster_configure), `rule_type` (create_drs_rule)
+and `binding` (create_dvs_portgroup) were typed `str`, with their valid values
+named only in prose. An MCP client sees the schema, not the prose, so a model had
+to guess the spelling. They are now `Literal[...]`, and a new regression test
+pins each enum against the set the ops layer actually validates against
+(`_VALID_DRS_BEHAVIORS`, `_CREATABLE_RULE_TYPES`, `_VALID_BINDINGS`), so the two
+cannot drift apart.
+
 ## v1.8.16 — three MCP annotations that were lying, and errors invisible on the wire
 
 `vm_guest_download` claimed `readOnlyHint: true` while overwriting an arbitrary

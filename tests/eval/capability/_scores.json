@@ -211,21 +211,21 @@
     "manifest_context_headroom": {
       "detail": {
         "heaviest_tools": {
-          "create_dvs_portgroup": 407,
+          "create_dvs_portgroup": 418,
           "deploy_linked_clone": 422,
           "deploy_vm_from_ova": 402,
           "list_host_vmks": 422,
           "vmk_ping": 461
         },
-        "manifest_tokens": 15731,
-        "mean_tokens_per_tool": 262.2,
+        "manifest_tokens": 15778,
+        "mean_tokens_per_tool": 263.0,
         "reference_context": 16384,
         "tool_count": 60
       },
       "maximum": 16384,
-      "pct": 4.0,
+      "pct": 3.7,
       "unit": "tokens",
-      "value": 653
+      "value": 606
     },
     "parameter_documentation_coverage": {
       "detail": {
@@ -240,19 +240,6 @@
             "fullyAutomated",
             "manual",
             "partiallyAutomated"
-          ],
-          "cluster_create.drs_behavior": [
-            "fullyAutomated",
-            "manual",
-            "partiallyAutomated"
-          ],
-          "create_drs_rule.rule_type": [
-            "affinity",
-            "antiAffinity"
-          ],
-          "create_dvs_portgroup.binding": [
-            "earlyBinding",
-            "ephemeral"
           ]
         }
       },
@@ -268,8 +255,8 @@
           "add_host_vmk": 394,
           "batch_clone_vms": 364,
           "batch_linked_clone_vms": 379,
-          "create_drs_rule": 384,
-          "create_dvs_portgroup": 407,
+          "create_drs_rule": 394,
+          "create_dvs_portgroup": 418,
           "deploy_linked_clone": 422,
           "deploy_vm_from_ova": 402,
           "deploy_vm_from_template": 380,

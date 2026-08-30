@@ -1,6 +1,6 @@
 """Cluster tools: create/delete clusters, add/remove hosts, HA/DRS config, info."""
 
-from typing import Optional
+from typing import Literal, Optional
 
 from vmware_policy import vmware_tool
 
@@ -15,7 +15,7 @@ def cluster_create(
     datacenter: Optional[str] = None,
     ha: bool = False,
     drs: bool = False,
-    drs_behavior: str = "fullyAutomated",
+    drs_behavior: Literal["fullyAutomated", "partiallyAutomated", "manual"] = "fullyAutomated",
     target: Optional[str] = None,
 ) -> str:
     """[WRITE] Create a new empty cluster in a datacenter, optionally enabling HA and DRS.
@@ -119,7 +119,7 @@ def cluster_configure(
     name: str,
     ha: Optional[bool] = None,
     drs: Optional[bool] = None,
-    drs_behavior: Optional[str] = None,
+    drs_behavior: Optional[Literal["fullyAutomated", "partiallyAutomated", "manual"]] = None,
     target: Optional[str] = None,
 ) -> str:
     """[WRITE] Reconfigure cluster HA/DRS settings.
@@ -228,7 +228,7 @@ def set_drs_rule_enabled(
 def create_drs_rule(
     cluster: str,
     rule_name: str,
-    rule_type: str,
+    rule_type: Literal["affinity", "antiAffinity"],
     vm_names: list[str],
     enabled: bool = True,
     confirm: bool = False,
