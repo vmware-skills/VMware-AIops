@@ -1240,7 +1240,7 @@ dev = [
 
 [[package]]
 name = "vmware-monitor"
-version = "1.9.1"
+version = "1.9.2"
 source = { editable = "../VMware-Monitor" }
 dependencies = [
     { name = "apscheduler" },

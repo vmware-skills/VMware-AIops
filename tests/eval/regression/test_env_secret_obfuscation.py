@@ -8,6 +8,8 @@ never change the effective password. Failures block release.
 """
 from __future__ import annotations
 
+from vmware_policy.fsperms import assert_owner_only
+
 import importlib
 import os
 import stat
@@ -83,7 +85,7 @@ def test_idempotent_already_encoded_not_rewritten(tmp_path):
 def test_autoencode_preserves_0600_permissions(tmp_path):
     env = _write_env(tmp_path, "VMWARE_PROD_PASSWORD=Secr3t\n")
     config._autoencode_env_file(env)
-    assert stat.S_IMODE(env.stat().st_mode) == 0o600
+    assert_owner_only(env)
 
 
 def test_empty_value_left_untouched(tmp_path):

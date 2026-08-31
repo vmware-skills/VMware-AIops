@@ -6,12 +6,13 @@ Passwords are NEVER stored in config files — always via environment variables.
 
 from __future__ import annotations
 
+from vmware_policy.fsperms import check_secret_file
+
 import base64
 import binascii
 import logging
 import os
 import re
-import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -100,21 +101,28 @@ load_dotenv(ENV_FILE)
 
 
 def _check_env_permissions() -> None:
-    """Warn if .env file has permissions wider than owner-only (600)."""
-    if not ENV_FILE.exists():
-        return
-    try:
-        mode = ENV_FILE.stat().st_mode
-        if mode & (stat.S_IRWXG | stat.S_IRWXO):
-            _log.warning(
-                "Security warning: %s has permissions %s (should be 600). "
-                "Run: chmod 600 %s",
-                ENV_FILE,
-                oct(stat.S_IMODE(mode)),
-                ENV_FILE,
-            )
-    except OSError:
-        pass
+    """Warn if the .env file is readable by anyone but its owner.
+
+    Delegates to ``vmware_policy.fsperms.check_secret_file`` so this hot path and
+    ``doctor`` answer the same question the same way. They did not: doctor was
+    moved to the three-state check while this stayed on a POSIX mode-bit test, so
+    a single command on Windows printed both
+
+        Security warning: <config dir>/.env has permissions 0o666 (should be 600).
+        Run: chmod 600 ...                      <- here, red, and chmod is a no-op
+        .env permissions | PASS | This platform does not express file
+        permissions as POSIX mode bits ... run: icacls ...   <- doctor, green
+
+    about the same file in the same run. The remedy printed here was the one that
+    does nothing on the platform being warned about.
+
+    ``unknown`` (a platform with no POSIX mode bits) is deliberately silent here:
+    it is not a finding, and doctor is where a nuanced verdict belongs. Only an
+    actually-too-open file warns.
+    """
+    check = check_secret_file(ENV_FILE)
+    if check.verdict == "too_open":
+        _log.warning("Security warning: %s", check.message)
 
 
 _check_env_permissions()
