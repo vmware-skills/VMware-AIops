@@ -18,7 +18,7 @@ dependencies = [
     "apscheduler>=3.10,<4.0",
     "httpx>=0.27,<1.0",
     "python-dotenv>=1.0,<2.0",
-    "mcp[cli]>=1.10,<2.0",
+    "mcp[cli]>=1.10,<3.0",
     "vmware-policy>=1.12.0,<2.0",
     # Read-only cluster-health triage (summary + HTML snapshot) is owned by
     # vmware-monitor; AIops delegates to it so a conversation with the AIops
