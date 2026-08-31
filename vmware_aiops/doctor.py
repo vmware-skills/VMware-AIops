@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import json
 import socket
-import stat
 from typing import Callable
 
 from rich.console import Console
 from rich.table import Table
 
 from vmware_aiops.config import CONFIG_DIR, ENV_FILE, resolve_config_path
+from vmware_policy.fsperms import check_secret_file
 
 console = Console()
 
@@ -62,13 +62,11 @@ def _check_env_file() -> tuple[bool, str]:
             f".env not found: {ENV_FILE}  →  Run: vmware-aiops init  "
             f"(or manually: cp .env.example {ENV_FILE} && chmod 600 {ENV_FILE})"
         )
-    mode = ENV_FILE.stat().st_mode
-    if mode & (stat.S_IRWXG | stat.S_IRWXO):
-        return (
-            False,
-            f".env permissions too open ({oct(stat.S_IMODE(mode))})  →  Run: chmod 600 {ENV_FILE}",
-        )
-    return True, f".env found with correct permissions (600): {ENV_FILE}"
+    # Three states, not two: a platform without POSIX mode bits cannot answer
+    # this, and reporting that as "too open" gave Windows a permanent red whose
+    # remedy (`chmod 600`) exits 0 and changes nothing.
+    check = check_secret_file(ENV_FILE)
+    return not check.is_failure, check.message
 
 
 def _check_targets() -> tuple[bool, str]:

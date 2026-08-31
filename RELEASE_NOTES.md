@@ -1,3 +1,46 @@
+## v1.8.18 — the test suite runs on a non-UTF-8 machine, and the guardrail tests with it
+
+
+**The suite now runs on a cp936 machine.** Round 3 of the VCF 9 field testing ran
+on Windows Server 2025 with locale cp936. Across the family four repos' suites --
+1687 tests -- never executed at all, dying at collection reading our own UTF-8
+sources, and 101 more failed the same way. Most of those were the tests that
+verify the destructive-operation guardrails: the guardrails were fine, the tests
+that check them could not open a file. On the UTF-8 CI every one of them was
+green. A security test that cannot run is not a security test.
+
+Every text read and write here names its encoding now, `tests/` included -- the
+previous round fixed only the package, which is why this came back. A gate in
+`family_smoke` scans both trees by AST, and the whole family's suites were re-run
+under an ASCII locale to confirm: 15 of 15 green, from 1 of 15.
+
+**`--help` no longer dies on a console that cannot encode it.** On any console
+whose encoding cannot carry the characters in our own help text, `--help` exited
+with a `UnicodeEncodeError` traceback -- unavailable exactly on the machines
+where it is most needed. Four repos were affected; the handler is now relaxed in
+all fifteen so a glyph degrades instead of killing the command.
+
+**Its environment resolver no longer answers for other skills.**
+`set_environment_resolver` wrote one process-global slot and twelve servers
+registered into it at import time, so the last one won for all of them --
+measured taking a `freeze-production-writes` rule from DENY to ALLOW on another
+skill's production target. Registration is keyed by skill now (requires
+vmware-policy 1.12.0).
+
+**The `.env` permission check stopped being permanently red on Windows.** It was
+POSIX-only, and `chmod 600` there exits 0 without changing any bits -- so
+`doctor` printed a failure on every run with a remedy that could not clear it.
+Three states now, via `vmware_policy.fsperms`: only a demonstrated exposure
+fails, and "this platform cannot answer" says so and offers `icacls`.
+
+**Unknown tool arguments are refused instead of dropped.** The schema declared
+`additionalProperties: false` and the runtime accepted them anyway, so a filter
+argument whose name a model guessed wrong returned the *unfiltered* result with
+nothing to indicate anything had been discarded. Fixed in vmware-policy 1.12.0
+and in force here.
+
+Requires vmware-policy 1.12.0.
+
 ## v1.8.17 — closed-value parameters now reach the MCP schema
 
 `drs_behavior` (cluster_create, cluster_configure), `rule_type` (create_drs_rule)

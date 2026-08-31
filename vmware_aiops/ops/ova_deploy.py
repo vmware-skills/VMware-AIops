@@ -103,7 +103,7 @@ def _read_ovf_from_ova(ova_path: str) -> tuple[str, dict[str, int]]:
     disks: dict[str, int] = {}
     ovf_content = ""
 
-    with tarfile.open(ova_path, "r") as tar:
+    with tarfile.open(ova_path, "r", encoding="utf-8") as tar:
         members = tar.getmembers()
 
         # Aggregate size check — guard against tar bombs before processing.
@@ -157,7 +157,7 @@ def _upload_disk(
     if not upload_url.lower().startswith("https://"):
         raise ValueError(f"Refusing non-HTTPS upload URL: {upload_url}")
 
-    with tarfile.open(ova_path, "r") as tar:
+    with tarfile.open(ova_path, "r", encoding="utf-8") as tar:
         member = tar.getmember(disk_name)
         if not _safe_tar_member(member):
             raise ValueError(

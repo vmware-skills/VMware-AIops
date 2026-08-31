@@ -91,9 +91,9 @@ def sandbox(tmp_path, monkeypatch):
     for an unrelated reason would prove nothing.
     """
     default = tmp_path / "default.yaml"
-    default.write_text(_ONE_TARGET)
+    default.write_text(_ONE_TARGET, encoding="utf-8")
     env_file = tmp_path / "dot.env"
-    env_file.write_text("")
+    env_file.write_text("", encoding="utf-8")
     env_file.chmod(0o600)
 
     monkeypatch.setattr(cfg, "CONFIG_FILE", default)
@@ -108,7 +108,7 @@ def sandbox(tmp_path, monkeypatch):
 @pytest.mark.unit
 def test_the_env_var_decides_which_file_is_resolved(sandbox, tmp_path, monkeypatch):
     elsewhere = tmp_path / "elsewhere.yaml"
-    elsewhere.write_text(_THREE_TARGETS)
+    elsewhere.write_text(_THREE_TARGETS, encoding="utf-8")
     monkeypatch.setenv("VMWARE_AIOPS_CONFIG", str(elsewhere))
 
     assert cfg.resolve_config_path() == elsewhere
@@ -127,7 +127,7 @@ def test_an_explicit_path_still_beats_the_env_var(sandbox, tmp_path, monkeypatch
     above and break the flag.
     """
     explicit = tmp_path / "explicit.yaml"
-    explicit.write_text(_ONE_TARGET)
+    explicit.write_text(_ONE_TARGET, encoding="utf-8")
     monkeypatch.setenv("VMWARE_AIOPS_CONFIG", str(tmp_path / "ignored.yaml"))
 
     assert cfg.resolve_config_path(explicit) == explicit
@@ -151,7 +151,7 @@ def test_the_cli_and_the_mcp_server_open_the_same_file(sandbox, tmp_path, monkey
     from vmware_aiops.mcp_server import server
 
     elsewhere = tmp_path / "elsewhere.yaml"
-    elsewhere.write_text(_THREE_TARGETS)
+    elsewhere.write_text(_THREE_TARGETS, encoding="utf-8")
     monkeypatch.setenv("VMWARE_AIOPS_CONFIG", str(elsewhere))
 
     cli_targets = [t.name for t in cfg.load_config().targets]
@@ -208,7 +208,7 @@ def test_doctor_reads_the_env_vars_file_not_the_default(
     """The positive half: pointed at a real file elsewhere, the doctor reports
     on that one — three targets, not the default's one."""
     elsewhere = tmp_path / "elsewhere.yaml"
-    elsewhere.write_text(_THREE_TARGETS)
+    elsewhere.write_text(_THREE_TARGETS, encoding="utf-8")
     monkeypatch.setenv("VMWARE_AIOPS_CONFIG", str(elsewhere))
 
     doc.run_doctor(skip_auth=True)

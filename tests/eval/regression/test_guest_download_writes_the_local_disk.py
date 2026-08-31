@@ -123,7 +123,7 @@ def test_skill_md_read_write_split_matches_the_annotations() -> None:
     reads = sum(1 for t in tools if getattr(t.annotations, "readOnlyHint", None) is True)
     writes = len(tools) - reads
 
-    text = SKILL_MD.read_text()
+    text = SKILL_MD.read_text(encoding="utf-8")
     header = re.search(r"## MCP Tools \((\d+) — (\d+) read, (\d+) write\)", text)
     assert header, "SKILL.md no longer states the split in the expected form"
     assert (int(header[1]), int(header[2]), int(header[3])) == (len(tools), reads, writes)
