@@ -1195,7 +1195,7 @@ wheels = [
 
 [[package]]
 name = "vmware-aiops"
-version = "1.8.18"
+version = "1.8.19"
 source = { editable = "." }
 dependencies = [
     { name = "apscheduler" },
@@ -1240,7 +1240,7 @@ dev = [
 
 [[package]]
 name = "vmware-monitor"
-version = "1.9.2"
+version = "1.10.0"
 source = { editable = "../VMware-Monitor" }
 dependencies = [
     { name = "apscheduler" },
@@ -1264,7 +1264,7 @@ requires-dist = [
     { name = "pyvmomi", specifier = ">=8.0.3.0,<10.0" },
     { name = "rich", specifier = ">=13.0,<16.0" },
     { name = "typer", specifier = ">=0.12,<1.0" },
-    { name = "vmware-policy", specifier = ">=1.12.0,<2.0" },
+    { name = "vmware-policy", specifier = ">=1.13.0,<2.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1276,14 +1276,14 @@ dev = [
 
 [[package]]
 name = "vmware-policy"
-version = "1.12.1"
+version = "1.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9c/3d/8ee23731cb464fdbcf062feed1f6e37bb3c1675284716f7fd1770bd960b4/vmware_policy-1.12.1.tar.gz", hash = "sha256:ad17bb16a31975fcf87d396e55ae208a43cb84349f0c4720e261231ae962cc31", size = 159930, upload-time = "2026-08-31T00:49:44.936Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ac/3b/248bfc8ce8020e7cdfabf6144b56c22a1f3096a90414f0910a50f0a61e92/vmware_policy-1.13.0.tar.gz", hash = "sha256:b0dbd9f9f78233aff885000a6a2bbc19c3bb330c9b51f67a88540468bd0f8399", size = 164319, upload-time = "2026-08-31T07:16:01.984Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/b8/5bf2264c9dd7e1e678f9501d0c787165c1df0a266a0351ff96e6481ec551/vmware_policy-1.12.1-py3-none-any.whl", hash = "sha256:914ea3ed307524f237a0136f9b15dc8e012377788a63849a81d7a48bc139ffa2", size = 61688, upload-time = "2026-08-31T00:49:43.357Z" },
+    { url = "https://files.pythonhosted.org/packages/24/02/738d97a6b4a0f83f079bde22297ab8cd5152895b92ddbce1eb171782545f/vmware_policy-1.13.0-py3-none-any.whl", hash = "sha256:537f28eb4187889216a57c2e10a91e862ca6c80d82871796ce1932b7247dab34", size = 64748, upload-time = "2026-08-31T07:16:00.269Z" },
 ]

@@ -1,3 +1,17 @@
+## v1.8.19 — one answer per .env, on every platform
+
+`.env` permissions are decided by `vmware_policy.fsperms` instead of POSIX mode
+bits. On Windows a single command printed both a red "has permissions 0o666
+(should be 600). Run: chmod 600" from this hot path — where `chmod` does nothing
+— and a green "this platform does not express file permissions as POSIX mode
+bits ... run: icacls" from `doctor`, about the same file in the same run. `doctor`
+had been moved to the three-state check and the path that runs on *every* command
+had not. An unmeasurable platform is now silent here rather than loudly wrong.
+
+The `vmware-monitor` floor moves to 1.10.0: the investigation bundles this
+skill re-exports had a cluster check that never matched on real hardware, and
+the fix ships in Monitor.
+
 ## v1.8.18 — the test suite runs on a non-UTF-8 machine, and the guardrail tests with it
 
 
