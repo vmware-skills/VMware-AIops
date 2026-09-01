@@ -158,12 +158,12 @@ operational language — do not dump it raw.
 | Poll Async Task | `vm task-status <task-id>` | — | ✅ | ✅ |
 | Clone VM | `vm clone <name> --new-name <new> [--to-host <host>] [--to-datastore <ds>]` | Double | ✅ | ✅ |
 | vMotion | `vm migrate <name> --to-host <host> [--to-datastore <ds>]` | Double | ✅ | ❌ |
-| Set TTL | `vm set-ttl <name> --minutes <n>` | — | ✅ | ✅ |
+| Set TTL | `vm set-ttl <name> --minutes <n>` | Double | ✅ | ✅ |
 | Cancel TTL | `vm cancel-ttl <name>` | — | ✅ | ✅ |
 | List TTLs | `vm list-ttl` | — | ✅ | ✅ |
 | Clean Slate | `vm clean-slate <name> [--snapshot baseline]` | Double | ✅ | ✅ |
-| Guest Exec | `vm guest-exec <name> --cmd /bin/bash --args "-c 'whoami'"` | — | ✅ | ✅ |
-| Guest Upload | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | — | ✅ | ✅ |
+| Guest Exec | `vm guest-exec <name> --cmd /bin/bash --args "-c 'whoami'"` | Double | ✅ | ✅ |
+| Guest Upload | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | Double | ✅ | ✅ |
 | Guest Download | `vm guest-download <name> --guest /var/log/syslog --local ./syslog` | — | ✅ | ✅ |
 
 > Guest Operations require VMware Tools running inside the guest OS.

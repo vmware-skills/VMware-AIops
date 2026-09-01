@@ -230,18 +230,18 @@ ESXi Standalone Host ──→ VM
 | Reconfigure | `vm reconfigure <name> --cpu --memory` | Double | ✅ | ✅ |
 | Create Snapshot | `vm snapshot-create <name> --name <snap>` | — | ✅ | ✅ |
 | List Snapshots | `vm snapshot-list <name>` | — | ✅ | ✅ |
-| Revert Snapshot | `vm snapshot-revert <name> --name <snap>` | — | ✅ | ✅ |
-| Delete Snapshot | `vm snapshot-delete <name> --name <snap> [--no-wait]` | — | ✅ | ✅ |
+| Revert Snapshot | `vm snapshot-revert <name> --name <snap>` | Double | ✅ | ✅ |
+| Delete Snapshot | `vm snapshot-delete <name> --name <snap> [--no-wait]` | Double | ✅ | ✅ |
 | Task Status | `vm task-status <task-id>` | — | ✅ | ✅ |
-| Clone VM | `vm clone <name> --new-name <new>` | — | ✅ | ✅ |
-| vMotion | `vm migrate <name> --to-host <host>` | — | ✅ | ❌ |
-| **Set TTL** | `vm set-ttl <name> --minutes <n>` | — | ✅ | ✅ |
+| Clone VM | `vm clone <name> --new-name <new>` | Double | ✅ | ✅ |
+| vMotion | `vm migrate <name> --to-host <host>` | Double | ✅ | ❌ |
+| **Set TTL** | `vm set-ttl <name> --minutes <n>` | Double | ✅ | ✅ |
 | **Cancel TTL** | `vm cancel-ttl <name>` | — | ✅ | ✅ |
 | **List TTLs** | `vm list-ttl` | — | ✅ | ✅ |
 | **Clean Slate** | `vm clean-slate <name> [--snapshot baseline]` | Double | ✅ | ✅ |
-| **Guest Exec** | `vm guest-exec <name> --cmd /bin/bash --args "..."` | — | ✅ | ✅ |
+| **Guest Exec** | `vm guest-exec <name> --cmd /bin/bash --args "..."` | Double | ✅ | ✅ |
 | **Guest Exec (with output)** | `vm guest-exec-output <name> --cmd "df -h"` | — | ✅ | ✅ |
-| **Guest Upload** | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | — | ✅ | ✅ |
+| **Guest Upload** | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | Double | ✅ | ✅ |
 | **Guest Download** | `vm guest-download <name> --guest /var/log/syslog --local ./syslog` | — | ✅ | ✅ |
 
 > Guest Operations require VMware Tools running inside the guest OS. `guest-exec-output` auto-detects Linux/Windows shell and captures stdout/stderr.
