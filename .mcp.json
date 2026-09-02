@@ -5,7 +5,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "vmware-aiops==1.8.19",
+        "vmware-aiops==1.8.20",
         "vmware-aiops-mcp"
       ]
     }

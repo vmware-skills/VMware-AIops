@@ -1,3 +1,13 @@
+## v1.8.20 — `vm_cancel_ttl` is not destructive — it prevents a deletion
+
+The annotation was copied from `vm_set_ttl` directly above it, where
+`destructiveHint=True` is right and carefully argued: set_ttl schedules an
+unattended deletion that a daemon carries out later. cancel_ttl calls that off.
+
+No behaviour changes; the CLI already asked nothing, correctly. What changes is
+that a client reading the annotations is no longer told that preventing a
+deletion is a destructive act.
+
 ## v1.8.19 — one answer per .env, on every platform
 
 `.env` permissions are decided by `vmware_policy.fsperms` instead of POSIX mode
