@@ -43,7 +43,12 @@ def vm_set_ttl(
     return _set_ttl(vm_name, minutes, target=target)
 
 
-@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
+# destructiveHint is False here and True on vm_set_ttl directly above, and the
+# difference is the whole point: set_ttl schedules an unattended deletion,
+# cancel_ttl calls it off. This one was marked destructive too — copied from its
+# neighbour — which made the family's "destructive tools double-confirm in the
+# CLI" gate demand two prompts before *preventing* a deletion.
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 @tool_errors("str")
 def vm_cancel_ttl(vm_name: str) -> str:
