@@ -379,6 +379,14 @@ def vm_snapshot_delete(
         int,
         typer.Option(help="Seconds to wait for consolidation before returning the task id."),
     ] = 1800,
+    remove_children: Annotated[
+        bool,
+        typer.Option(
+            "--remove-children",
+            help="Also delete every snapshot below this one. Off by default: "
+            "children are kept and consolidated into their parent.",
+        ),
+    ] = False,
 ) -> None:
     """Delete a VM snapshot (waits up to 30 min for delta consolidation)."""
     from vmware_aiops.ops.vm_lifecycle import delete_snapshot
@@ -387,13 +395,16 @@ def vm_snapshot_delete(
         _dry_run_print(
             target=_resolve_target(target), vm_name=vm_name, operation="snapshot_delete",
             api_call="vim.vm.Snapshot.RemoveSnapshot_Task()",
-            parameters={"snap_name": snap_name},
+            parameters={"snap_name": snap_name, "remove_children": remove_children},
         )
         return
     si, _ = _get_connection(target, config)
     console.print(f"[bold yellow]⚠️  即将删除 VM '{vm_name}' 的快照 '{snap_name}'[/]")
     _double_confirm(f"删除快照 '{snap_name}'", vm_name, _resolve_target(target))
-    result = delete_snapshot(si, vm_name, snap_name, wait=not no_wait, timeout=timeout)
+    result = delete_snapshot(
+        si, vm_name, snap_name, wait=not no_wait, timeout=timeout,
+        remove_children=remove_children,
+    )
     console.print(f"[green]{result}[/]")
     _audit.log(
         target=_resolve_target(target),
