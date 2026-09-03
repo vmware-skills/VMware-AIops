@@ -11,6 +11,10 @@ updates:
     commit-message:
       prefix: "chore"
     ignore:
-      # mcp 2.0 removed mcp.server.fastmcp (breaking); hold at <2.0 until server API migration
+      # mcp 2.0 removed mcp.server.fastmcp (breaking); hold at <2.0 until server API migration.
+      # `versions` rather than `update-types`: the semver-major rule blocks a version bump,
+      # but Dependabot still proposed *widening the requirement* to `<3.0` (2026-08-31),
+      # which changes no locked version and so is not a major update. That PR would have
+      # let a fresh install resolve 2.x and fail to import on startup.
       - dependency-name: "mcp"
-        update-types: ["version-update:semver-major"]
+        versions: [">=2.0"]
