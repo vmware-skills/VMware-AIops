@@ -1,3 +1,12 @@
+## v1.8.21 — snapshot-delete gains the flag its docs already promised
+
+The reference documented `vm snapshot-delete <name> --name <snap>
+[--remove-children]`. The option did not exist, so following the documentation
+got "No such option" — while the capability was real all along: the ops layer
+takes `remove_children` and the MCP tool exposes it. Only the CLI never passed
+it through. It reaches the `--dry-run` preview too, so the difference is visible
+before the delete rather than after.
+
 ## v1.8.20 — `vm_cancel_ttl` is not destructive — it prevents a deletion
 
 The annotation was copied from `vm_set_ttl` directly above it, where
