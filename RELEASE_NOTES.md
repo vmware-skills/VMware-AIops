@@ -1,3 +1,28 @@
+## v1.8.22 — a dropped connection no longer keeps itself alive
+
+Every `connect()` registered an `atexit` cleanup that closes over the
+ServiceInstance, and `atexit` held that closure — and so the SI, its stub and
+its socket — until the process exited. Nothing ever unregistered it. A
+long-running MCP server that reconnects after each session expiry therefore
+pinned one dead connection per reconnect, and at exit would run a `Disconnect`
+against every session it had ever opened.
+
+Measured before the fix: 20 evict-and-reconnect cycles left all 20 evicted
+ServiceInstance objects reachable. The `id(si)` side stores were correctly down
+to one entry throughout — the side-store discipline was never the leak, the
+registration was.
+
+`_release_si()` now takes the handler back off at both points that drop a
+connection: the eviction inside `connect()` and `disconnect()`. Five repos had
+the identical shape, so `family_smoke` gained a gate for it (154 → 155).
+
+Not `WeakKeyDictionary`, which looks like the obvious fix and is a regression:
+pyVmomi's `ManagedObject.__eq__` compares moId, class and serverGuid, and every
+ServiceInstance carries moId `'ServiceInstance'` with serverGuid `None`. Two
+vCenters collapse into one entry — connecting to the second silently hands the
+first one's `verify_ssl` to both. Keying by `id()` is right precisely because
+it is identity.
+
 ## v1.8.21 — snapshot-delete gains the flag its docs already promised
 
 The reference documented `vm snapshot-delete <name> --name <snap>

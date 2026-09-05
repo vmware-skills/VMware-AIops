@@ -44,6 +44,12 @@ def _release_si(si: ServiceInstance) -> None:
     registered and all 50 evicted ServiceInstance objects still reachable, while
     the id(si) side stores stayed correctly at one entry -- the side-store
     discipline was never the leak, the registration was.
+
+    Boundary: this covers the paths that drop a *connection* -- the eviction
+    inside connect() and disconnect(). A caller that drops the whole
+    ConnectionManager while it still holds connections leaks them exactly as
+    before, since both atexit and this table still reach them. Unchanged rather
+    than fixed: the reconnect loop is the shape that grows without bound.
     """
     fn = _SI_ATEXIT.pop(id(si), None)
     if fn is not None:
