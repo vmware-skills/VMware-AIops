@@ -1,0 +1,24 @@
+{
+  "id": "vmware-aiops",
+  "name": "VMware AIops",
+  "description": "AI-powered VMware vCenter/ESXi VM lifecycle and deployment with 60 MCP tools.",
+  "skills": [
+    "./skills"
+  ],
+  "mcpServers": {
+    "vmware-aiops": {
+      "transport": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "vmware-aiops==1.9.0",
+        "vmware-aiops-mcp"
+      ]
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
