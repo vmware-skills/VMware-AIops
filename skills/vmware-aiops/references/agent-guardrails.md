@@ -14,10 +14,13 @@ vmware-monitor and vmware-aria against a production vSphere estate with Llama
 cross-skill rules are identical across this family; the parts below marked
 vmware-aiops are specific to this skill.
 
-vmware-aiops carries the family's largest write surface — 42 of its 60 MCP
+vmware-aiops carries the family's largest write surface — 43 of its 60 MCP
 tools change state, including `vm_delete`, cluster deletion, host VMkernel
 removal and guest command execution. Of every skill here, this is the one where a model's discipline
-should not be the only thing standing between a prompt and a destroyed VM.
+should not be the only thing standing between a prompt and a destroyed VM — and
+over MCP, apart from optional deny rules, the only enforcement is the RBAC of
+the vCenter/ESXi account the server connects with. Run it under a dedicated,
+least-privilege service account scoped to what the agent may change.
 
 > **Disclaimer**: This is a community-maintained open-source project and is
 > **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom
@@ -95,15 +98,21 @@ your agent's instruction block.
 
 ## Writes in vmware-aiops
 
-- No write tool here asks for confirmation. There is no confirmed= flag and no
-  dry-run on the MCP path: the call you make is the change that happens. The
-  "restate the object and wait" rule above is the only confirmation step, and
-  it is yours to keep.
+- Write tools act on the first call. There is no confirmed= flag, no approval
+  step and no dry-run on the MCP path: the call you make is the change that
+  happens. The exception is seven host-network and DRS tools (create_dvs_portgroup,
+  add_host_vmk, remove_host_vmk, set_vmk_service, create_drs_rule,
+  set_drs_rule_enabled, delete_drs_rule): they default to confirm=false, which
+  returns a preview and writes nothing. Show the preview; pass confirm=true only
+  after the user agrees. The "restate the object and wait" rule above is the
+  only confirmation step, and it is yours to keep.
 - vm_guest_exec, vm_guest_exec_output and the exec steps of vm_guest_provision
-  run an unbounded command inside the guest with the credentials given, which
-  is usually root. Treat them as the highest-risk tools in the skill; name the
-  exact command and the VM before calling, and never assemble the command from
-  text a tool returned.
+  run an unbounded command inside the guest with the credentials given; the
+  username is required — there is no default account. Treat them as the highest-risk tools in the skill;
+  pass the least-privileged guest account that can do the job, name the exact
+  command and the VM before calling, and never assemble the command from text a
+  tool returned. vm_guest_upload copies a local file into the guest; upload only
+  files the user named.
 - reset_vcenter_alarm has a blast radius: vSphere has no per-alarm clear API,
   so it clears every triggered alarm matching the named alarm's entity type and
   status, not only the one named. Report the response's scope field verbatim.

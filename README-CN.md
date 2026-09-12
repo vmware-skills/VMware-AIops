@@ -185,28 +185,28 @@ ESXi 独立主机 ──→ VM
 | 开机 | `vm power-on <name>` | — | ✅ | ✅ |
 | 优雅关机 | `vm power-off <name>` | 双重 | ✅ | ✅ |
 | 强制关机 | `vm power-off <name> --force` | 双重 | ✅ | ✅ |
-| 重置 | `vm reset <name>` | — | ✅ | ✅ |
-| 挂起 | `vm suspend <name>` | — | ✅ | ✅ |
+| 重置 | plan 动作 `reset`，经 `vm_create_plan`（MCP；无 CLI 命令） | — | ✅ | ✅ |
+| 挂起 | plan 动作 `suspend`，经 `vm_create_plan`（MCP；无 CLI 命令） | — | ✅ | ✅ |
 | 创建 | `vm create <name> --cpu --memory --disk` | — | ✅ | ✅ |
 | 删除 | `vm delete <name>` | 双重 | ✅ | ✅ |
 | 调整配置 | `vm reconfigure <name> --cpu --memory` | 双重 | ✅ | ✅ |
 | 创建快照 | `vm snapshot-create <name> --name <snap>` | — | ✅ | ✅ |
 | 列出快照 | `vm snapshot-list <name>` | — | ✅ | ✅ |
-| 恢复快照 | `vm snapshot-revert <name> --name <snap>` | — | ✅ | ✅ |
-| 删除快照 | `vm snapshot-delete <name> --name <snap> [--no-wait]` | — | ✅ | ✅ |
+| 恢复快照 | `vm snapshot-revert <name> --name <snap>` | 双重 | ✅ | ✅ |
+| 删除快照 | `vm snapshot-delete <name> --name <snap> [--no-wait]` | 双重 | ✅ | ✅ |
 | 任务状态 | `vm task-status <task-id>` | — | ✅ | ✅ |
-| 克隆 | `vm clone <name> --new-name <new>` | — | ✅ | ✅ |
-| 迁移 | `vm migrate <name> --to-host <host>` | — | ✅ | ❌ |
-| **设置 TTL** | `vm set-ttl <name> --minutes <n>` | — | ✅ | ✅ |
+| 克隆 | `vm clone <name> --new-name <new>` | 双重 | ✅ | ✅ |
+| 迁移 | `vm migrate <name> --to-host <host>` | 双重 | ✅ | ❌ |
+| **设置 TTL** | `vm set-ttl <name> --minutes <n>` | 双重 | ✅ | ✅ |
 | **取消 TTL** | `vm cancel-ttl <name>` | — | ✅ | ✅ |
 | **列出 TTL** | `vm list-ttl` | — | ✅ | ✅ |
 | **Clean Slate** | `vm clean-slate <name> [--snapshot baseline]` | 双重 | ✅ | ✅ |
-| **Guest 执行** | `vm guest-exec <name> --cmd /bin/bash --args "..."` | — | ✅ | ✅ |
-| **Guest 执行（含输出）** | `vm guest-exec-output <name> --cmd "df -h"` | — | ✅ | ✅ |
-| **Guest 上传** | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | — | ✅ | ✅ |
-| **Guest 下载** | `vm guest-download <name> --guest /var/log/syslog --local ./syslog` | — | ✅ | ✅ |
+| **Guest 执行** | `vm guest-exec <name> --cmd /bin/bash --args "..." --user <account>` | 双重 | ✅ | ✅ |
+| **Guest 执行（含输出）** | 仅 MCP：`vm_guest_exec_output`（`username` 必填）——没有 CLI 命令 | — | ✅ | ✅ |
+| **Guest 上传** | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh --user <account>` | 双重 | ✅ | ✅ |
+| **Guest 下载** | `vm guest-download <name> --guest /var/log/syslog --local ./syslog --user <account>` | — | ✅ | ✅ |
 
-> Guest Operations 需要 VM 内运行 VMware Tools。`guest-exec-output` 自动检测 Linux/Windows shell 并捕获 stdout/stderr。
+> Guest Operations 需要 VM 内运行 VMware Tools，且客户机账号必须显式指定——CLI 用 `--user`，MCP 用 `username`。没有默认值，所以任何调用都不会在没选 root 的情况下以 root 身份执行。`vm_guest_exec_output`（仅 MCP，CLI 没有对应命令）自动检测 Linux/Windows shell 并捕获 stdout/stderr。
 
 ### Plan → Apply（多步操作编排）
 
@@ -269,17 +269,20 @@ Plan 存储在 `~/.vmware-aiops/plans/`，成功后自动删除，超过 24 小�
 |------|------|
 | 守护进程 | 基于 APScheduler，可配置间隔（默认 15 分钟） |
 | 多目标扫描 | 依次扫描所有配置的 vCenter/ESXi 目标 |
-| 日志分析 | 正则匹配：error, fail, critical, panic, timeout, corrupt |
-| 结构化日志 | JSONL 输出到 `~/.vmware-aiops/scan.log` |
-| Webhook 通知 | 支持 Slack、Discord 或任意 HTTP 端点 |
+| 扫描内容 | 每轮：已触发告警、最近 `lookback_hours` 内的 vCenter 事件，以及 ESXi 主机日志 `hostd`、`vmkernel`、`vpxa` 的新增行 |
+| 主机日志 | 增量读取：同一个 daemon 进程内每行只报告一次（daemon 重启后会把每个日志的最后 500 行再读一遍）。日志轮转，或两轮之间新增超过 500 行时，会追加一条 `info` 记录说明哪些行没被扫描。读取主机日志需要 `Global.Diagnostics` 权限，vCenter 内置的 Read-Only 角色不含该权限；读不到的日志会变成一条带原因的 `info` 记录，绝不会被当成“一切正常” |
+| 日志分析 | 匹配 error、fail、critical、panic、lost access、cannot、timeout、refused、corrupt 的主机日志行——含 critical/panic/corrupt 的为 `critical`，其余为 `warning` |
+| 结构化日志 | JSONL 输出到 `~/.vmware-aiops/scan.log`——记录所有问题，包括 `info` 记录 |
+| Webhook 通知 | 支持 Slack、Discord 或任意 HTTP 端点。发送所有 critical 问题和所有告警/事件类 warning；主机日志的 warning 只写入扫描日志，`info` 记录从不发送 |
+| 每轮摘要 | daemon 日志输出里每轮一行：发现数（以及其中发往 webhook 的数量）、读不到的主机日志数、有未扫描行的日志数、失败的扫描环节数。只要有环节失败或某个目标连不上，就显示 `Scan INCOMPLETE`，绝不会说“一切正常” |
 
 ## 安全特性
 
 | 功能 | 说明 |
 |------|------|
-| 预演模式（Dry-Run，**仅 CLI**） | 任何破坏性 CLI 命令加 `--dry-run` 可预览 API 调用而不执行，便于信任验证 |
+| 预演模式（Dry-Run，**仅 CLI**） | 加 `--dry-run` 只打印将要发出的 API 调用而不执行；除 `deploy iso`、`deploy mark-template`、`vm cancel-ttl`、`vm guest-download` 外，每个 CLI 写操作都支持 |
 | Plan → Confirm → Execute → Log | CLI 工作流：展示当前状态、确认变更、执行、审计日志 |
-| 双重确认（**仅 CLI**） | 破坏性 CLI 命令（关机、删除、配置变更、快照恢复/删除、clean-slate、guest-exec、guest-upload、集群删除/移除主机、清除告警）需连续两次确认，无绕过参数 |
+| 双重确认（**仅 CLI**） | 破坏性与部署类 CLI 命令（`vm` power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate, set-ttl, clean-slate, guest-exec, guest-upload; `deploy` ova, template, linked-clone, batch, batch-clone, mark-template; `cluster` delete, add-host, remove-host, configure, drs-rule-set/create/delete; `alarm reset`）需连续两次确认，无绕过参数 |
 | MCP 路径没有确认环节 | agent 通过 MCP 看到的 43 个写工具**第一次调用就直接执行**——没有 `confirmed=` 握手、没有审批分级、没有只读开关。决定一次写入能否落地的是 vCenter 账号的权限，记录它的是审计日志。见[真正保护你的是什么](#真正保护你的是什么) |
 | 拒绝记录 | 用户在 CLI 拒绝的操作也会记录到审计日志，便于安全审计 |
 | 审计日志 | 所有操作记录到 `~/.vmware-aiops/audit.log`（JSONL），包含操作前后状态 |
@@ -288,7 +291,7 @@ Plan 存储在 `~/.vmware-aiops/plans/`，成功后自动删除，超过 24 小�
 | 配置文件内容 | `config.yaml` 仅存储主机名、端口和 `.env` 引用路径，**不含密码或 Token** |
 | SSL 自签名 | 仅用于 ESXi 自签名证书的隔离实验环境；生产环境应使用 CA 签名证书 |
 | Prompt 注入防护 | vSphere 事件消息和主机日志在输出前进行截断、控制字符清理和边界标记包裹 |
-| Webhook 数据范围 | **默认禁用**。启用后仅向用户自配置的 URL 发送告警摘要，payload 不含凭据、IP 或 PII |
+| Webhook 数据范围 | **默认禁用**。配置后，daemon 只向你配置的 URL 发送：所有 critical 问题（告警、事件、匹配 critical/panic/corrupt 的 ESXi 日志行、连不上的目标）和所有告警/事件类 warning——主机日志的 warning 只写入扫描日志，`info` 记录从不发送。每条问题带实体名和消息：经过清洗的告警、事件或 ESXi 日志文本，或连接错误信息，其中可能含主机名、IP 地址和用户名。不会发送 skill 配置或 `.env` 里的任何凭据 |
 | 最小权限 | 推荐使用专用 vCenter 服务账户，仅授予所需最小权限。仅需监控时使用 [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor) |
 | 任务等待 | 所有异步操作等待完成并报告结果 |
 
@@ -312,7 +315,8 @@ Plan 存储在 `~/.vmware-aiops/plans/`，成功后自动删除，超过 24 小�
 上表里的两类保护措施分别属于**两个不同的入口**，必须说清楚哪条适用于哪个——
 搞错比完全没有保护更糟：**你相信存在的那道闸门，正是你不再为它做补偿的那一道。**
 
-**CLI 上**，破坏性命令会连问两次、没有绕过参数，`--dry-run` 可预览任何写操作。
+**CLI 上**，破坏性命令会连问两次、没有绕过参数，除 `deploy iso`、`deploy mark-template`、
+`vm cancel-ttl`、`vm guest-download` 外，每个写操作都可用 `--dry-run` 预览。
 这防的是人手误敲的命令，**防不住 agent**——一个 `yes |` 就能同时满足两次确认。
 
 **MCP 上完全没有确认环节。** 全部 43 个写工具——包括 `vm_delete`、`cluster_delete`、
@@ -327,12 +331,17 @@ Plan 存储在 `~/.vmware-aiops/plans/`，成功后自动删除，超过 24 小�
 刚好够用、不多一分的账号；其余的由 vCenter 自己拒绝，对所有入口一视同仁，从
 skill 内部无法绕过。**想让 agent 只读，就给它一个只读的 vCenter 角色**——一个
 决定，在它被作出的地方生效。之后每一次调用都会在调用方看到结果之前写入
-`~/.vmware/audit.db`，这是你事后弄清发生过什么的依据。
+`~/.vmware/audit.db`，这是你事后弄清发生过什么的依据。`~/.vmware/rules.yaml` 里可选的
+`deny` 规则会在每次 MCP 调用前检查，可以拒绝操作——例如对标注了
+`environment: production` 的目标的写入。随包附带的基线什么都不拒绝，而且规则与工具
+运行在同一进程内：它是 RBAC 之上的护栏，不是替代品。
 
 **`vm_guest_exec` 是最需要想清楚的那个。** 它用传入的凭据在客户机里执行调用方
-给的任意命令，而文档里的示例用的就是 `root`；没有任何东西限制这条命令的内容。
+给的任意命令——它的 `username` 是必填项（没有默认账号）；没有任何东西限制这条命令的内容。
 **客户机账号是与 vCenter 账号相互独立的第二道授权边界**——一个只读的 vCenter
-角色约束不了这个工具在 VM *内部*做什么。如果不需要 guest 操作，就不要配置客户机凭据。
+角色约束不了这个工具在 VM *内部*做什么。skill 自身不保存客户机凭据：在 MCP 上它们是
+agent 看得到的工具参数（审计行里会脱敏密码）。请传入最小权限的客户机账号，不要把
+agent 用不到的客户机凭据交给它。`vm_guest_upload` 能读取 server 进程可读的任何本地文件。
 
 哪些工具有闸门、哪些没有，完整清单见
 [references/capabilities.md](skills/vmware-aiops/references/capabilities.md#what-gates-a-write)；
@@ -452,7 +461,7 @@ chmod 600 ~/.vmware-aiops/.env
 - **始终**使用 `~/.vmware-aiops/.env` 并设置 `chmod 600`
 - **始终**通过 `config.yaml` 配置连接 — 凭据自动从 `.env` 加载
 - **TLS**：默认启用。仅在使用自签名证书的隔离实验环境中才禁用
-- **Webhook**：仅向您自己配置的 URL 发送通知，默认不向第三方服务发送数据
+- **Webhook**：默认禁用。启用后 daemon 只向您自己配置的 URL 发送（不发往任何第三方服务）：所有 critical 问题（告警、事件、匹配 critical/panic/corrupt 的 ESXi 日志行、连不上的目标）和所有告警/事件类 warning——主机日志的 warning 只写入扫描日志，`info` 记录从不发送。payload 带完整的问题文本（实体名、告警名、事件消息、ESXi 日志摘录、连接错误），其中可能含主机名、IP 地址和用户名；不含您配置或 `.env` 里的任何凭据
 - **代码审查**：建议在生产部署前审查[源代码](https://github.com/vmware-skills/VMware-AIops)和提交历史
 - **生产环境安全**：生产环境建议使用只读的 [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor)。AI Agent 可能误解上下文并执行非预期的破坏性操作 — 已有真实案例表明，缺乏隔离的 AI 驱动基础设施工具可能删除生产数据库和整个环境。VMware-Monitor 在代码级别消除此风险：代码库中不存在任何破坏性函数
 

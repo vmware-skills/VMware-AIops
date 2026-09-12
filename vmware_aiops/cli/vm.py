@@ -259,7 +259,7 @@ def vm_reconfigure(
 
 @vm_app.command("snapshot-create")
 @cli_errors
-@guarded(risk_level='medium')
+@guarded('vm_create_snapshot', risk_level='medium')
 def vm_snapshot_create(
     vm_name: str,
     snap_name: Annotated[str, typer.Option("--name", help="Snapshot name")] = "snapshot",
@@ -322,7 +322,7 @@ def vm_snapshot_list(
 
 @vm_app.command("snapshot-revert")
 @cli_errors
-@guarded(risk_level='high')
+@guarded('vm_revert_snapshot', risk_level='high')
 def vm_snapshot_revert(
     vm_name: str,
     snap_name: Annotated[str, typer.Option("--name", help="Snapshot name to revert to")],
@@ -360,7 +360,7 @@ def vm_snapshot_revert(
 
 @vm_app.command("snapshot-delete")
 @cli_errors
-@guarded(risk_level='high')
+@guarded('vm_delete_snapshot', risk_level='high')
 def vm_snapshot_delete(
     vm_name: str,
     snap_name: Annotated[str, typer.Option("--name", help="Snapshot name to delete")],
@@ -464,7 +464,10 @@ def vm_clone(
 
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
-    params = {"new_name": new_name, "to_host": to_host, "to_datastore": to_datastore, "power_on": power_on}
+    params = {
+        "new_name": new_name, "to_host": to_host,
+        "to_datastore": to_datastore, "power_on": power_on,
+    }
     if dry_run:
         _dry_run_print(
             target=_resolve_target(target), vm_name=name, operation="clone_vm",
@@ -567,7 +570,10 @@ def vm_set_ttl(
         _dry_run_print(
             target=_resolve_target(target), vm_name=vm_name, operation="vm_set_ttl",
             api_call="scheduler.delete_vm() on TTL expiry",
-            parameters={"minutes": minutes, "preview": preview_ttl(vm_name, minutes, target=target)},
+            parameters={
+                "minutes": minutes,
+                "preview": preview_ttl(vm_name, minutes, target=target),
+            },
         )
         return
     _double_confirm(f"设置 TTL ({minutes} 分钟后自动删除)", vm_name, _resolve_target(target))
@@ -663,13 +669,18 @@ def vm_clean_slate(
 
 @vm_app.command("guest-exec")
 @cli_errors
-@guarded(risk_level='medium', sensitive_params=['password'])
+@guarded('vm_guest_exec', risk_level='medium', sensitive_params=['password'])
 def vm_guest_exec_cmd(
     vm_name: Annotated[str, typer.Argument(help="VM name")],
     command: Annotated[str, typer.Option("--cmd", help="Full path to program (e.g. /bin/bash)")],
+    username: Annotated[
+        str, typer.Option("--user", "-u", help="Guest OS account to run as (required)")
+    ],
     arguments: Annotated[str, typer.Option("--args", help="Command arguments")] = "",
-    username: Annotated[str, typer.Option("--user", "-u", help="Guest OS username")] = "root",
-    password: Annotated[str, typer.Option("--password", "-p", help="Guest OS password", prompt=True, hide_input=True)] = "",
+    password: Annotated[
+        str,
+        typer.Option("--password", "-p", help="Guest OS password", prompt=True, hide_input=True),
+    ] = "",
     target: TargetOption = None,
     config: ConfigOption = None,
     dry_run: DryRunOption = False,
@@ -711,13 +722,18 @@ def vm_guest_exec_cmd(
 
 @vm_app.command("guest-upload")
 @cli_errors
-@guarded(risk_level='medium', sensitive_params=['password'])
+@guarded('vm_guest_upload', risk_level='medium', sensitive_params=['password'])
 def vm_guest_upload_cmd(
     vm_name: Annotated[str, typer.Argument(help="VM name")],
     local_path: Annotated[str, typer.Option("--local", help="Local file path")],
     guest_path: Annotated[str, typer.Option("--guest", help="Destination path inside VM")],
-    username: Annotated[str, typer.Option("--user", "-u", help="Guest OS username")] = "root",
-    password: Annotated[str, typer.Option("--password", "-p", help="Guest OS password", prompt=True, hide_input=True)] = "",
+    username: Annotated[
+        str, typer.Option("--user", "-u", help="Guest OS account to run as (required)")
+    ],
+    password: Annotated[
+        str,
+        typer.Option("--password", "-p", help="Guest OS password", prompt=True, hide_input=True),
+    ] = "",
     target: TargetOption = None,
     config: ConfigOption = None,
     dry_run: DryRunOption = False,
@@ -748,13 +764,18 @@ def vm_guest_upload_cmd(
 
 @vm_app.command("guest-download")
 @cli_errors
-@guarded(risk_level='medium', sensitive_params=['password'])
+@guarded('vm_guest_download', risk_level='medium', sensitive_params=['password'])
 def vm_guest_download_cmd(
     vm_name: Annotated[str, typer.Argument(help="VM name")],
     guest_path: Annotated[str, typer.Option("--guest", help="File path inside VM")],
     local_path: Annotated[str, typer.Option("--local", help="Local destination path")],
-    username: Annotated[str, typer.Option("--user", "-u", help="Guest OS username")] = "root",
-    password: Annotated[str, typer.Option("--password", "-p", help="Guest OS password", prompt=True, hide_input=True)] = "",
+    username: Annotated[
+        str, typer.Option("--user", "-u", help="Guest OS account to run as (required)")
+    ],
+    password: Annotated[
+        str,
+        typer.Option("--password", "-p", help="Guest OS password", prompt=True, hide_input=True),
+    ] = "",
     overwrite: Annotated[
         bool, typer.Option("--overwrite", help="Replace an existing local file")
     ] = False,

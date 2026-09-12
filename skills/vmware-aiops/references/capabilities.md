@@ -8,8 +8,8 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 |:-:|---|---|---|
 | **L1** | Read-only, raw data | Always auto-run | `cluster_info`, `browse_datastore`, `scan_datastore_images`, `list_vcenter_alarms`, `vm_list_snapshots`, `vm_list_ttl`, `vm_task_status` |
 | **L2** | Read + analysis / recommendation | Always auto-run | `cluster_health_summary`, `cross_vcenter_attention`, `vm_investigation_bundle`, `host_investigation_bundle`, `datastore_investigation_bundle`; scheduled scan reports, alarm/event correlation, log pattern analysis |
-| **L3** | Single write | The level is a statement about blast radius, not about an enforced gate. On the CLI these commands double-confirm; over MCP they run on the first call — see [What gates a write](#what-gates-a-write) | `vm_power_on`, `vm_power_off`, `vm_delete`, `vm_create_snapshot`, `vm_clone`, `vm_migrate` |
-| **L4** | Multi-step plan / apply workflow | Plan generation auto; apply gated by user approval | `vm_create_plan` → `vm_apply_plan` → `vm_rollback_plan`, batch-clone, batch-deploy YAML |
+| **L3** | Single write | The level is a statement about blast radius, not about an enforced gate. On the CLI the destructive ones double-confirm (`vm power-on` and `vm snapshot-create` do not); over MCP they all run on the first call — see [What gates a write](#what-gates-a-write) | `vm_power_on`, `vm_power_off`, `vm_delete`, `vm_create_snapshot`, `vm_clone`, `vm_migrate` |
+| **L4** | Multi-step plan / apply workflow | Plan generation auto. Review with the user before applying — an agent convention, not enforced: `vm_apply_plan` takes only a plan id | `vm_create_plan` → `vm_apply_plan` → `vm_rollback_plan`, batch-clone, batch-deploy YAML |
 | **L5** | Auto-remediation from learned pattern | Pattern library only; requires `risk:low` + `reversible:true` + `repeatable:true` + signed approval | *(roadmap — not implemented; candidates: snapshot consolidation, orphaned VM cleanup)* |
 
 **Notes**:
@@ -27,17 +27,28 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 
 | Surface | Confirmation | Preview |
 |---|---|---|
-| **CLI** | Two interactive `typer.confirm` prompts before every irreversible or guest-writing command. The set is derived from the MCP `destructiveHint` annotations, so a new such command fails the test suite until it has them, and a declined prompt is audited as `rejected`. *Honest limitation:* an agent with a shell satisfies both prompts by piping `yes` into the command. This defends the mistyped command, not a determined caller. | `--dry-run` on every write command |
+| **CLI** | Two interactive `typer.confirm` prompts before every irreversible or guest-writing command. The set is derived from the MCP `destructiveHint` annotations, so a new such command fails the test suite until it has them, and a declined prompt is audited as `rejected`. *Honest limitation:* an agent with a shell satisfies both prompts by piping `yes` into the command. This defends the mistyped command, not a determined caller. | `--dry-run` on every write command except `deploy iso`, `deploy mark-template`, `vm cancel-ttl` and `vm guest-download` |
 | **MCP** | **None, by design.** A write tool acts on the first call. There is no `confirmed=` handshake, no approval tier, and no read-only switch — the switch existed in v1.8.0–1.8.6 and was removed in v1.8.7 (decision **D-2** of the family security HLD, 2026-07-21) because it was enforced on the MCP path only and any agent with a shell stepped around it. A two-step handshake was considered in the same review and cut: it is neither authorization nor accountability, only a speed-bump that a model intending to act steps over by passing `confirmed=True`. | 7 of the 43 write tools default to a no-write preview (below) |
 
 **What actually protects the estate over MCP is the vCenter/ESXi service account.**
 Writes the account may not perform are refused by vCenter itself, whatever the
 agent intends, on every surface, with no way around it from inside the skill. To
-run an agent read-only, give it a read-only vCenter role and point the skill's
-`.env` at that account — one decision, enforced where it is made. What happened
-is then recoverable from `~/.vmware/audit.db`, which every write goes through
-before the caller sees a result. Nothing in this skill will stop `vm_delete`
-deleting a VM the account is allowed to delete.
+run the server under a dedicated, least-privilege service account scoped to
+what the agent may change; to run it read-only, give it a read-only vCenter role
+and point the skill's `.env` at that account — one decision, enforced where it
+is made. What happened is then recoverable from `~/.vmware/audit.db`, which
+records every MCP call (credentials redacted) before the caller sees a result;
+the write is best-effort, so a failing audit store warns on stderr rather than
+blocking the call. Nothing in this skill will stop `vm_delete` deleting a VM the
+account is allowed to delete.
+
+The one skill-side control that can refuse a call is optional: `deny` rules and a maintenance window in
+`~/.vmware/rules.yaml` (vmware-policy) are evaluated before every MCP call and every guarded CLI write, and
+can refuse operations — for example, writes to targets whose `config.yaml` entry
+declares `environment: production`. The shipped baseline denies nothing, and an
+unreadable rules file fails closed. It runs in the same process as the tools
+(`VMWARE_POLICY_DISABLED=1` switches it off), so it is a guardrail for
+well-meaning agents, not a replacement for RBAC.
 
 - **Write tools: 43** — every tool whose description starts `[WRITE]` and whose `readOnlyHint` is `false`.
 - **Confirm-gated: 7** — `add_host_vmk`, `create_drs_rule`, `create_dvs_portgroup`, `delete_drs_rule`, `remove_host_vmk`, `set_drs_rule_enabled`, `set_vmk_service`
@@ -47,8 +58,8 @@ deleting a VM the account is allowed to delete.
 ### `vm_guest_exec` deserves naming
 
 `vm_guest_exec` runs a caller-supplied command inside the guest OS through
-VMware Tools, with the credentials passed to it — which its own documented
-example makes `root`. Nothing in this skill bounds what the command may be:
+VMware Tools, with the credentials passed to it — its `username` parameter
+is required — there is no default account. Nothing in this skill bounds what the command may be:
 `rm -rf /` is a well-formed argument, and the same is true of
 `vm_guest_exec_output` and of the `exec` steps inside `vm_guest_provision`.
 It is the widest blast radius in the skill and it is ungated over MCP.
@@ -56,7 +67,13 @@ It is the widest blast radius in the skill and it is ungated over MCP.
 Two things follow. First, the guest credentials are a second, separate
 authorization boundary — a read-only vCenter role does not constrain what these
 tools do *inside* a VM, because that is decided by the guest account. Give the
-skill a guest account with the privileges the work actually needs. Second, until
+skill a guest account with the privileges the work actually needs, and pass it —
+`username` has no default, so the account is always a deliberate choice. Over MCP the guest
+password is an ordinary tool argument, so the agent — and its transcript — sees
+it; only the audit row redacts it. The skill stores no guest credentials of its
+own. Relatedly, `vm_guest_upload` and the `upload` steps of `vm_guest_provision`
+read any local file the server process can read and copy it into the guest.
+Second, until
 2026-08-30 all four tools that push content into a guest were annotated
 `destructiveHint: false` — the field a client consults before deciding whether
 to ask its user. They now declare `true`. These tools exist only in this repo,
@@ -145,9 +162,9 @@ operational language — do not dump it raw.
 | Power On | `vm power-on <name>` | — | ✅ | ✅ |
 | Graceful Shutdown | `vm power-off <name>` | Double | ✅ | ✅ |
 | Force Power Off | `vm power-off <name> --force` | Double | ✅ | ✅ |
-| Reset | `vm reset <name>` | — | ✅ | ✅ |
-| Suspend | `vm suspend <name>` | — | ✅ | ✅ |
-| VM Info | `vm info <name>` | — | ✅ | ✅ |
+| Reset | plan action `reset` via `vm_create_plan` (MCP; no CLI command) | — | ✅ | ✅ |
+| Suspend | plan action `suspend` via `vm_create_plan` (MCP; no CLI command) | — | ✅ | ✅ |
+| VM Info | `vmware-monitor vm info <name>` (companion skill) | — | ✅ | ✅ |
 | Create VM | `vm create <name> --cpu --memory --disk` | — | ✅ | ✅ |
 | Delete VM | `vm delete <name>` | Double | ✅ | ✅ |
 | Reconfigure | `vm reconfigure <name> --cpu --memory` | Double | ✅ | ✅ |
@@ -162,11 +179,11 @@ operational language — do not dump it raw.
 | Cancel TTL | `vm cancel-ttl <name>` | — | ✅ | ✅ |
 | List TTLs | `vm list-ttl` | — | ✅ | ✅ |
 | Clean Slate | `vm clean-slate <name> [--snapshot baseline]` | Double | ✅ | ✅ |
-| Guest Exec | `vm guest-exec <name> --cmd /bin/bash --args "-c 'whoami'"` | Double | ✅ | ✅ |
-| Guest Upload | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | Double | ✅ | ✅ |
-| Guest Download | `vm guest-download <name> --guest /var/log/syslog --local ./syslog` | — | ✅ | ✅ |
+| Guest Exec | `vm guest-exec <name> --cmd /bin/bash --args "-c 'whoami'" --user <account>` | Double | ✅ | ✅ |
+| Guest Upload | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh --user <account>` | Double | ✅ | ✅ |
+| Guest Download | `vm guest-download <name> --guest /var/log/syslog --local ./syslog --user <account>` | — | ✅ | ✅ |
 
-> Guest Operations require VMware Tools running inside the guest OS.
+> Guest Operations require VMware Tools running inside the guest OS. `--user` is required on all three commands (and `username` on the MCP guest tools): there is no default account, so no call runs as root without choosing root.
 
 > `vm task-status` / `vm_task_status` polls a vSphere task id returned by an async
 > write (today: `vm_delete_snapshot`) instead of re-running the operation. Returns
@@ -267,18 +284,20 @@ MCP-only (no CLI subcommand). Seven tools for distributed-switch portgroup and h
 |---------|---------|
 | Daemon | APScheduler-based, configurable interval (default 15 min) |
 | Multi-target Scan | Sequentially scan all configured vCenter/ESXi targets |
-| Scan Content | Alarms + Events + Host logs (hostd, vmkernel, vpxd) |
-| Log Analysis | Regex pattern matching: error, fail, critical, panic, timeout |
-| Webhook | Slack, Discord, or any HTTP endpoint |
+| Scan Content | Each cycle: triggered alarms, vCenter events from the last `lookback_hours`, and new lines in the ESXi host logs `hostd`, `vmkernel`, `vpxa` (`scan now` reads alarms and events only) |
+| Host Logs | Read incrementally: each line is reported once per daemon run (a restart re-reads each log's last 500 lines once). A rotated log, or more than 500 new lines between cycles, adds an `info` row. Needs `Global.Diagnostics` (not in vCenter's Read-Only role); an unreadable log becomes an `info` row with the reason |
+| Log Analysis | Host-log lines matching error, fail, critical, panic, lost access, cannot, timeout, refused, corrupt — critical/panic/corrupt lines are `critical`, the rest `warning` |
+| Webhook | Slack, Discord, or any HTTP endpoint. Every critical issue and every alarm/event warning; host-log warnings stay in `scan.log`; `info` rows are never sent. Issue text (entity names, event/log text, connection errors) can include host names, IPs and user names; no credentials |
+| Cycle Summary | One line per cycle: findings (and how many were sent), unreadable host logs, logs with unscanned lines, failed passes; `Scan INCOMPLETE` if any pass failed or a target could not be reached |
 
 ## Safety Features
 
 | Feature | Details |
 |---------|---------|
 | Plan → Confirm → Execute → Log | CLI workflow: show current state, confirm changes, execute, audit log |
-| Double Confirmation (**CLI only**) | CLI destructive commands (power-off, delete, reconfigure, snapshot-revert/delete, clean-slate, guest-exec, guest-upload, cluster delete/remove-host, alarm clear) require 2 sequential prompts and take no bypass flag. **The MCP tools have no confirmation step at all** — see [What gates a write](#what-gates-a-write) |
+| Double Confirmation (**CLI only**) | CLI destructive and deploy commands (`vm` power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate, set-ttl, clean-slate, guest-exec, guest-upload; `deploy` ova, template, linked-clone, batch, batch-clone, mark-template; `cluster` delete, add-host, remove-host, configure, drs-rule-set/create/delete; `alarm reset`) require 2 sequential prompts and take no bypass flag. **The MCP tools have no confirmation step at all** — see [What gates a write](#what-gates-a-write) |
 | Rejection Logging | Declined CLI confirmations are recorded in the audit trail for security review |
-| Audit Trail | All operations logged to `~/.vmware/audit.db` (SQLite WAL, via vmware-policy) with before/after state |
+| Audit Trail | Every MCP call and every guarded CLI write logged to `~/.vmware/audit.db` (SQLite WAL, via vmware-policy; parameters, result, status, caller — credentials redacted). Most CLI writes also append to `~/.vmware-aiops/audit.log`, with before/after state where the command captures it (power, delete, reconfigure, snapshot-revert, clone, migrate, clean-slate, cluster delete/configure, DRS rule delete) |
 | Input Validation | VM name length/format, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated before execution |
 | Password Protection | `.env` file loading, never in command line or shell history; file permission check at startup |
 | SSL Self-signed Support | `verify_ssl: false` — **only** for ESXi hosts with self-signed certificates in isolated lab/home environments. Production environments should use CA-signed certificates with full TLS verification enabled. |

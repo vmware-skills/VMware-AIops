@@ -42,10 +42,8 @@ targets:
 scanner:
   enabled: true
   interval_minutes: 15
-  log_types:
-    - vpxd
-    - hostd
-    - vmkernel
+  # log_types is not read by any code: the host-log pass always reads hostd,
+  # vmkernel and vpxa. Setting it changes nothing.
   severity_threshold: warning  # critical, warning, or info
   lookback_hours: 1
 

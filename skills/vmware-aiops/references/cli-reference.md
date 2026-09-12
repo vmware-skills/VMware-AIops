@@ -1,8 +1,14 @@
 # CLI Reference
 
+Destructive and deploy commands ask for two confirmations and most write
+commands take `--dry-run` (not `deploy iso`, `deploy mark-template`,
+`vm cancel-ttl`, `vm guest-download`). These are CLI-only: the MCP tools act on the first call, and
+the enforcement boundary there is the RBAC of the vCenter/ESXi account — see
+`capabilities.md` → "What gates a write".
+
 ```bash
 # Diagnostics
-vmware-aiops doctor [--skip-auth]
+vmware-aiops doctor [--skip-auth]   # --skip-auth only skips doctor's own vSphere login check; no other command has it
 
 # MCP Config Generator
 vmware-aiops mcp-config generate --agent <goose|cursor|claude-code|continue|vscode-copilot|localcowork|mcp-agent>
@@ -69,7 +75,7 @@ vmware-aiops datastore browse <ds-name> [--path <subdir>]
 vmware-aiops datastore scan-images [--target <name>]
 
 # Scanning & Daemon
-vmware-aiops scan now [--target <name>]
+vmware-aiops scan now [--target <name>]   # alarms + events only; host logs are read by the daemon
 vmware-aiops daemon start
 vmware-aiops daemon stop
 vmware-aiops daemon status

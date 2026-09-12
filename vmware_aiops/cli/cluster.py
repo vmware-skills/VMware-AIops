@@ -51,7 +51,7 @@ def cluster_info_cmd(
 
 @cluster_app.command("create")
 @cli_errors
-@guarded(risk_level='medium')
+@guarded('cluster_create', risk_level='medium')
 def cluster_create_cmd(
     name: str,
     ha: Annotated[bool, typer.Option("--ha", help="Enable HA")] = False,
@@ -90,7 +90,7 @@ def cluster_create_cmd(
 
 @cluster_app.command("delete")
 @cli_errors
-@guarded(risk_level='high')
+@guarded('cluster_delete', risk_level='high')
 def cluster_delete_cmd(
     name: str,
     target: TargetOption = None,
@@ -121,7 +121,7 @@ def cluster_delete_cmd(
 
 @cluster_app.command("add-host")
 @cli_errors
-@guarded(risk_level='medium')
+@guarded('cluster_add_host', risk_level='medium')
 def cluster_add_host_cmd(
     name: str,
     host: Annotated[str, typer.Option("--host", help="Host name to add")],
@@ -152,7 +152,7 @@ def cluster_add_host_cmd(
 
 @cluster_app.command("remove-host")
 @cli_errors
-@guarded(risk_level='medium')
+@guarded('cluster_remove_host', risk_level='medium')
 def cluster_remove_host_cmd(
     name: str,
     host: Annotated[str, typer.Option("--host", help="Host name to remove")],
@@ -183,7 +183,7 @@ def cluster_remove_host_cmd(
 
 @cluster_app.command("configure")
 @cli_errors
-@guarded(risk_level='medium')
+@guarded('cluster_configure', risk_level='medium')
 def cluster_configure_cmd(
     name: str,
     ha: Annotated[bool | None, typer.Option("--ha/--no-ha", help="Enable/disable HA")] = None,
@@ -269,7 +269,7 @@ def cluster_drs_rules_cmd(
 
 @cluster_app.command("drs-rule-set")
 @cli_errors
-@guarded(risk_level='medium')
+@guarded('set_drs_rule_enabled', risk_level='medium')
 def cluster_drs_rule_set_cmd(
     name: str,
     rule_name: Annotated[str, typer.Option("--rule", help="Exact DRS rule name")],
@@ -302,7 +302,7 @@ def cluster_drs_rule_set_cmd(
 
 @cluster_app.command("drs-rule-create")
 @cli_errors
-@guarded(risk_level='medium')
+@guarded('create_drs_rule', risk_level='medium')
 def cluster_drs_rule_create_cmd(
     name: str,
     rule_name: Annotated[str, typer.Option("--rule", help="Name for the new rule (unique on the cluster)")],
@@ -344,7 +344,7 @@ def cluster_drs_rule_create_cmd(
 
 @cluster_app.command("drs-rule-delete")
 @cli_errors
-@guarded(risk_level='high')
+@guarded('delete_drs_rule', risk_level='high')
 def cluster_drs_rule_delete_cmd(
     name: str,
     rule_name: Annotated[str, typer.Option("--rule", help="Exact DRS rule name (VM-VM only)")],

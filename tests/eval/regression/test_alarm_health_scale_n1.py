@@ -26,6 +26,7 @@ from types import SimpleNamespace
 import pytest
 from pyVmomi import vim
 
+from tests.eval.regression._diag_fakes import LogStub, diag_manager, host
 from tests.eval.regression._pc_fakes import NoLazyMO, make_si
 from vmware_aiops.ops import alarm_mgmt
 from vmware_aiops.ops.health import (
@@ -202,37 +203,29 @@ def test_get_host_services_filter_before_touching_service_system():
 # ---------------------------------------------------------------------------
 
 
-class _FakeDiag:
-    """BrowseDiagnosticLog stub: probe returns lineEnd, real read returns text."""
-
-    def __init__(self, lines: list[str]) -> None:
-        self._lines = lines
-
-    def BrowseDiagnosticLog(self, key, start):  # noqa: N802 - pyVmomi API name
-        return SimpleNamespace(lineEnd=len(self._lines), lineText=self._lines)
-
-
 def test_scan_host_logs_narrows_to_host_before_browsing():
+    # content.diagnosticManager is a real vim.DiagnosticManager, so pyVmomi
+    # checks every BrowseDiagnosticLog argument (an earlier fake here took the
+    # arguments it happened to be given, and before that put the method on the
+    # host's diagnosticSystem, which has none — see
+    # test_host_log_scan_reads_real_logs.py). The wanted host is a real
+    # vim.HostSystem on the same stub, which raises on any lazy property read.
+    stub = LogStub({"hostd": ["all good", "ERROR: disk failure detected"]})
+    wanted = host("host-esxi-1", stub)
     fixtures = {
         vim.HostSystem: [
-            # Filtered-out host: diagnosticSystem is NoLazyMO -> BrowseDiagnosticLog
-            # would raise if the host_name filter weren't applied first.
-            (
-                NoLazyMO("host:other"),
-                {"name": "other", "configManager.diagnosticSystem": NoLazyMO("diag")},
-            ),
-            (
-                NoLazyMO("host:esxi-1"),
-                {
-                    "name": "esxi-1",
-                    "configManager.diagnosticSystem": _FakeDiag(
-                        ["all good", "ERROR: disk failure detected"]
-                    ),
-                },
-            ),
+            # Filtered-out host: never named in a BrowseDiagnosticLog call.
+            (NoLazyMO("host:other"), {"name": "other"}),
+            (wanted, {"name": "esxi-1"}),
         ]
     }
-    issues = scan_host_logs(make_si(fixtures), host_name="esxi-1", log_keys=("hostd",))
+    si = make_si(fixtures)
+    content = si.RetrieveContent()
+    content.diagnosticManager = diag_manager(stub)
+    content.about = SimpleNamespace(apiType="VirtualCenter")
+    issues = scan_host_logs(si, host_name="esxi-1", log_keys=("hostd",))
+    hosts = [c["host"] for c in stub.calls]
+    assert hosts and all(h is wanted for h in hosts), "a filtered-out host was browsed"
     assert len(issues) == 1
     assert issues[0]["entity"] == "esxi-1"
     assert "esxi-1" in issues[0]["message"]

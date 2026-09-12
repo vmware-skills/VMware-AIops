@@ -130,7 +130,8 @@ def _cli_write_commands() -> tuple[list[str], list[str]]:
 
 def test_every_write_cli_command_is_guarded():
     writing, unguarded = _cli_write_commands()
-    assert len(writing) >= 20, (
+    # 33 is the real count on 2026-09-11: a drop means a command fell out of the derivation.
+    assert len(writing) >= 33, (
         f"only {len(writing)} write CLI commands derived ({writing}) — the "
         f"MCP→ops→CLI derivation is likely stale; a check matching almost nothing "
         f"is worse than none."
@@ -138,6 +139,116 @@ def test_every_write_cli_command_is_guarded():
     assert not unguarded, (
         f"these CLI commands call a [WRITE] ops function but are not @guarded, so "
         f"they bypass policy + audit (HLD I-1): {unguarded}"
+    )
+
+
+# Guarded CLI writes that deliberately have NO MCP twin, name -> reason. Such a
+# command keeps its own name (there is no MCP tool name for a rule to share),
+# but it must be listed here on purpose: a command that silently lost its twin
+# (an MCP tool renamed or dropped) would otherwise pass unnoticed. Empty today —
+# every guarded AIops CLI write mirrors exactly one MCP write tool.
+_CLI_ONLY_WRITES: dict[str, str] = {}
+
+
+def _op_to_mcp_tools() -> tuple[dict[str, set[str]], dict[str, str]]:
+    """(write ops function -> MCP write tools whose body calls it,
+    MCP write tool -> the ``tools/`` module stem that defines it)."""
+    targets = _write_tool_names()
+    assert targets, "no write tools (readOnlyHint=False) — derivation vacuous"
+    op_tools: dict[str, set[str]] = {}
+    tool_module: dict[str, str] = {}
+    for path in sorted(TOOLS_DIR.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        func_map, mods = _ops_refs(tree)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name in targets:
+                tool_module[node.name] = path.stem
+                for op in _ops_calls(node, func_map, mods):
+                    op_tools.setdefault(op, set()).add(node.name)
+    return op_tools, tool_module
+
+
+def _mcp_tool_risk(tool: str, tool_module: dict[str, str]) -> object:
+    import importlib
+
+    mod = importlib.import_module(f"vmware_aiops.mcp_server.tools.{tool_module[tool]}")
+    return getattr(getattr(mod, tool), "_risk_level", None)
+
+
+def test_guarded_cli_writes_carry_their_mcp_tool_name():
+    """A deny rule names a tool; it must stop the CLI twin of that tool too (HLD I-3).
+
+    ``@guarded`` defaults the tool name to the function's ``__name__``, so ``vm
+    snapshot-create`` was guarded as ``vm_snapshot_create`` while its MCP twin is
+    ``vm_create_snapshot`` (and ``vm guest-exec`` as ``vm_guest_exec_cmd``, ``deploy
+    ova`` as ``deploy_ova_cmd``) — a rule denying the MCP tool refused the agent
+    and let the same write through the CLI, and the two surfaces wrote the one
+    audit sink under two names. The twin is DERIVED: the MCP write tool that
+    calls the same ops function the command calls.
+    """
+    import importlib
+
+    op_tools, tool_module = _op_to_mcp_tools()
+    write_ops = frozenset(op_tools)
+    assert write_ops, "no write ops derived — vacuous"
+    checked: list[str] = []
+    mismatched: list[str] = []
+    cli_only_seen: set[str] = set()
+    for path in sorted(CLI_DIR.rglob("*.py")):
+        if path.stem == "__init__":
+            continue
+        module = importlib.import_module(f"vmware_aiops.cli.{path.stem}")
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        func_map, mods = _ops_refs(tree)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            fn = getattr(module, node.name, None)
+            if not getattr(fn, "_is_guarded", False):
+                continue  # unguarded writes are test_every_write_cli_command_is_guarded's finding
+            ops = _ops_calls(node, func_map, mods) & write_ops
+            twins = set().union(*(op_tools[o] for o in ops)) if ops else set()
+            if not twins:
+                if node.name in _CLI_ONLY_WRITES:
+                    cli_only_seen.add(node.name)
+                    continue
+                mismatched.append(
+                    f"{node.name}: guarded but mirrors no MCP write tool — give it "
+                    f"one, or list it in _CLI_ONLY_WRITES with the reason"
+                )
+                continue
+            assert len(twins) == 1, (
+                f"{node.name} maps to several MCP tools {sorted(twins)} — pick "
+                f"the one it mirrors explicitly"
+            )
+            (twin,) = twins
+            checked.append(node.name)
+            twin_risk = _mcp_tool_risk(twin, tool_module)
+            if fn._guarded_tool != twin:
+                mismatched.append(
+                    f"{node.name}: guarded as {fn._guarded_tool!r}, MCP tool {twin!r}"
+                )
+            elif fn._risk_level != twin_risk:
+                mismatched.append(
+                    f"{node.name}: risk {fn._risk_level!r}, MCP tool {twin!r} risk {twin_risk!r}"
+                )
+    stale = set(_CLI_ONLY_WRITES) - cli_only_seen
+    assert not stale, (
+        f"_CLI_ONLY_WRITES lists {sorted(stale)}, which are not guarded twin-less "
+        f"CLI writes any more — drop the stale entries"
+    )
+    # 33 = every guarded CLI write today (alarm 2, cluster 8, deploy 7, vm 16).
+    # A floor below the real count lets a command that lost @guarded — or lost
+    # its MCP twin in the derivation — drop out of this check unnoticed. Raise
+    # it when a guarded write is added; never lower it to make a failure pass.
+    assert len(checked) >= 33, (
+        f"only {len(checked)} guarded CLI writes checked ({sorted(checked)}) — "
+        f"expected at least 33; a command dropped out of the name-alignment check"
+    )
+    assert not mismatched, (
+        "these CLI writes are guarded under a different name or risk than their "
+        "MCP tool, so one deny rule does not scope both surfaces — pass the MCP "
+        "tool name to @guarded(...): " + "; ".join(mismatched)
     )
 
 

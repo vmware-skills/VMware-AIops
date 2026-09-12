@@ -6,6 +6,9 @@ Re-exports `app` so the pyproject.toml entry point
 
 from vmware_aiops.cli._root import app
 import sys
+# Registers this skill's environment resolver, so environment-scoped policy
+# rules apply to @guarded CLI writes exactly as they do to MCP tools.
+import vmware_aiops.policy_environment  # noqa: E402,F401
 
 
 def _harden_console_encoding() -> None:

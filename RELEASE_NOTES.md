@@ -1,3 +1,114 @@
+## v1.9.0 — guest operations name their account; CLI writes answer to the same rules
+
+**BREAKING: guest operations require `username`.** `vm_guest_exec`, `vm_guest_exec_output`,
+`vm_guest_upload`, `vm_guest_download` (MCP) and `vm guest-exec/-upload/-download` (CLI) defaulted
+to `root`, so an omitted argument ran as root without anyone choosing root. A call that relied on
+the default now fails and says why.
+
+The docs now state the security model exactly: MCP write tools act on the first call, and the
+boundary is the RBAC of the account the server connects with; the CLI's double confirmation and
+`--dry-run` do not apply to MCP calls. Several claims that overstated a gate were corrected.
+
+Requires vmware-monitor >= 1.11.3, which carries the cluster-count fix this skill delegates to:
+`cluster_health_summary` / `vmware-aiops summary` no longer count the standalone-host row as a
+cluster. (AIops has no `host_log_scan` tool; the daemon's host-log pass runs AIops's own copy of
+the scanner, fixed in this release as described next.)
+
+**The daemon's host-log pass never read a host log.** AIops keeps its own copy of the host-log
+scanner for the daemon, and the copy called `BrowseDiagnosticLog` on the host's
+`configManager.diagnosticSystem` — a type that has no such method. Every read raised, the error was
+swallowed, and every cycle reported the host logs clean. It now reads through
+`content.diagnosticManager` (naming the host through vCenter, not on a standalone ESXi). Run live
+read-only: 228 findings on a vCenter and 227 on a standalone ESXi where the old code found none,
+with hostd, vmkernel and vpxa all readable on both. A log that cannot be read is written to the
+scan log as an `info` issue (`host_log:unavailable`, with the reason — e.g. the missing
+`Global.Diagnostics` privilege) and as a WARNING naming the host, log and fault in the daemon log,
+instead of disappearing. Only vSphere faults and connection errors count as "could not be read": a
+bug in the scanner now fails the pass loudly instead of being filed as one more unreadable log,
+which is how the original bug stayed hidden.
+
+**The daemon reports each host-log line once, and pages only critical ones.** Reading for real,
+every 15-minute cycle re-read the last 500 lines of each log and reported the same lines again —
+of those 228 lines, 135 were a single routine hostd line — and every warning went to the webhook.
+The daemon now remembers, in process memory, the last line it read of each log (per target, host
+and log) and reads only what came after. After a restart, the first cycle reads the last 500
+lines again. A log whose line count went down has rotated: the daemon reads its last 500 lines and
+writes an `info` issue (`host_log:skipped`) saying lines written between its previous read and the
+rotation were not scanned. More than 500 new lines in one interval: the newest 500 are read and a
+`host_log:skipped` issue says how many were skipped. Host-log **warnings are written to the scan
+log only; host-log criticals** (lines containing critical/panic/corrupt) **still go to the
+webhook**, as do alarm and event warnings, unchanged; `info` issues never do. If you watched
+host-log warnings in the webhook, read them in the scan log now. The cycle summary counts findings,
+unreadable host logs and failed passes separately, and a cycle in which any pass raised ends with a
+WARNING "Scan INCOMPLETE" naming the pass — never "all clear".
+
+*With a Read-Only account* (vCenter's Read-Only role lacks `Global.Diagnostics`), no host log can
+be read: each cycle writes one `host_log:unavailable` issue per host and log to the scan log and a
+WARNING per log to the daemon log, pages nothing for it, and the summary shows the unreadable count
+instead of "all clear".
+
+**CLI writes are authorised and audited under their MCP tool names.** A deny rule in
+`~/.vmware/rules.yaml` names an operation, and 23 guarded CLI commands were checked under their
+Python function names instead — so a rule against `vm_guest_exec` stopped the agent and let
+`vm guest-exec` do the same thing from a shell. One rule now scopes both surfaces:
+
+| CLI command | Operation name (was) | risk |
+|---|---|---|
+| `alarm acknowledge` | `acknowledge_vcenter_alarm` (`alarm_acknowledge`) | medium |
+| `alarm reset` | `reset_vcenter_alarm` (`alarm_reset`) | medium |
+| `cluster create` | `cluster_create` (`cluster_create_cmd`) | medium |
+| `cluster delete` | `cluster_delete` (`cluster_delete_cmd`) | high |
+| `cluster add-host` | `cluster_add_host` (`cluster_add_host_cmd`) | medium |
+| `cluster remove-host` | `cluster_remove_host` (`cluster_remove_host_cmd`) | medium |
+| `cluster configure` | `cluster_configure` (`cluster_configure_cmd`) | medium |
+| `cluster drs-rule-set` | `set_drs_rule_enabled` (`cluster_drs_rule_set_cmd`) | medium |
+| `cluster drs-rule-create` | `create_drs_rule` (`cluster_drs_rule_create_cmd`) | medium |
+| `cluster drs-rule-delete` | `delete_drs_rule` (`cluster_drs_rule_delete_cmd`) | high |
+| `deploy ova` | `deploy_vm_from_ova` (`deploy_ova_cmd`) | medium |
+| `deploy template` | `deploy_vm_from_template` (`deploy_template_cmd`) | medium |
+| `deploy linked-clone` | `deploy_linked_clone` (`deploy_linked_clone_cmd`) | medium |
+| `deploy batch` | `batch_deploy_from_spec` (`deploy_batch_cmd`) | high |
+| `deploy batch-clone` | `batch_clone_vms` (`deploy_batch_clone_cmd`) | medium |
+| `deploy mark-template` | `convert_vm_to_template` (`deploy_mark_template`) | medium |
+| `deploy iso` | `attach_iso_to_vm` (`deploy_iso_cmd`) | medium |
+| `vm snapshot-create` | `vm_create_snapshot` (`vm_snapshot_create`) | medium |
+| `vm snapshot-revert` | `vm_revert_snapshot` (`vm_snapshot_revert`) | high |
+| `vm snapshot-delete` | `vm_delete_snapshot` (`vm_snapshot_delete`) | high |
+| `vm guest-exec` | `vm_guest_exec` (`vm_guest_exec_cmd`) | medium |
+| `vm guest-upload` | `vm_guest_upload` (`vm_guest_upload_cmd`) | medium |
+| `vm guest-download` | `vm_guest_download` (`vm_guest_download_cmd`) | medium |
+
+The other ten guarded CLI writes (`vm power-on`, `vm delete`, `vm clone`, …) already carried their
+MCP tool's name and are unchanged. Risk levels were already equal to the MCP tools' and are
+unchanged. **A rule you wrote against an old name no longer matches** — a deny rule naming
+`vm_guest_exec_cmd` or `deploy_ova_cmd` now stops nothing; rewrite it to the MCP tool name in the
+middle column. **Audit rows for these commands carry the new names from this release on**; rows
+written before it keep the old ones, so a query over `~/.vmware/audit.db` that spans the upgrade
+needs both. A regression test derives each command's MCP twin from the ops function both call and
+fails if the names or risks drift.
+
+**Environment-scoped deny rules now apply to CLI writes.** The skill's environment resolver was
+registered only when the MCP server was imported, which the CLI never does — so a
+`freeze-production-writes` rule stopped the MCP tool and not the CLI command doing the same
+thing. It now lives in `policy_environment.py`, imported by both surfaces. (With vmware-policy
+1.13.1 the CLI's `--config` file is the one whose labels are judged.)
+
+**OpenClaw could not show this skill to the model.** `metadata.openclaw.requires` listed
+config *file paths* under `requires.config`, which OpenClaw reads as `openclaw.json` keys that
+must be truthy — so the skill was "needs setup / not visible to the model" whatever was on disk
+(verified on OpenClaw 2026.6.35). `requires.env` named an optional override and `requires.bins`
+demanded a CLI that a plugin install (uvx) never has. `requires` is now `anyBins: [<cli>, "uvx"]`;
+the variables are still declared, under `optional.env`.
+
+**Install commands in the skill pin this release.** ClawHub reviews SKILL.md and references/,
+not the package they install, so an unpinned `uv tool install` vouched for code nobody reviewed.
+Every install command for this package in the skill now names this version.
+
+**A config path written as `~/…` now resolves.** Every MCP example config and setup-guide snippet
+sets `VMWARE_AIOPS_CONFIG` to `~/.vmware-aiops/config.yaml`, but MCP clients pass env values verbatim and the
+path was used unexpanded, so copying the snippet gave "Config file not found" for a file that was
+there. `~` is now expanded in the variable and in `--config`.
+
 ## v1.8.22 — a dropped connection no longer keeps itself alive
 
 Every `connect()` registered an `atexit` cleanup that closes over the

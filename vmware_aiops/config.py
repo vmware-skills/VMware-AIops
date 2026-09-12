@@ -269,9 +269,11 @@ def resolve_config_path(config_path: Path | None = None) -> Path:
     Copies of a rule do not disagree loudly; they disagree slowly (形态 #6).
     """
     if config_path is not None:
-        return config_path
+        return Path(config_path).expanduser()
     env_override = os.environ.get("VMWARE_AIOPS_CONFIG")
-    return Path(env_override) if env_override else CONFIG_FILE
+    # MCP clients pass env values verbatim, and the setup guides' snippets say
+    # "~/.vmware-…/config.yaml" — unexpanded, that path never exists.
+    return Path(env_override).expanduser() if env_override else CONFIG_FILE
 
 
 def load_config(config_path: Path | None = None) -> AppConfig:

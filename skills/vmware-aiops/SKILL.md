@@ -12,13 +12,13 @@ installer:
 argument-hint: "[vm-name or describe your task]"
 allowed-tools:
   - Bash
-metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml","~/.vmware-aiops/.env"]},"optional":{"env":["VMWARE_TARGET_PASSWORD","VMWARE_<TARGET>_USERNAME","SLACK_WEBHOOK_URL","DISCORD_WEBHOOK_URL","VMWARE_AUDIT_APPROVED_BY"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/vmware-skills/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
+metadata: {"openclaw":{"requires":{"anyBins":["vmware-aiops","uvx"]},"optional":{"env":["VMWARE_AIOPS_CONFIG","VMWARE_TARGET_PASSWORD","VMWARE_<TARGET>_USERNAME","SLACK_WEBHOOK_URL","DISCORD_WEBHOOK_URL","VMWARE_AUDIT_APPROVED_BY"],"bins":["vmware-policy"]},"homepage":"https://github.com/vmware-skills/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
 compatibility: >
   vmware-policy auto-installed as Python dependency (provides @vmware_tool decorator and audit logging). All write operations audited to ~/.vmware/audit.db.
   Credentials: Each vCenter/ESXi target requires a per-target password env var in ~/.vmware-aiops/.env following the pattern VMWARE_<TARGET_NAME_UPPER>_PASSWORD. Passwords are never logged or echoed.
-  Destructive operations: All write tools require explicit parameters and pass through the @vmware_tool decorator (pre-check + audit + sanitize). CLI destructive commands additionally require double confirmation and support --dry-run; the MCP tools have neither — a write acts on the first call, and read/write authorization is delegated to the vCenter service account (give an agent a read-only vCenter role to run it read-only).
-  Guest operations: Require explicit vm_name, command (full path), arguments, username parameters — no implicit or background execution. The command is unbounded and runs with the guest credentials supplied, so the guest account is a second authorization boundary independent of the vCenter one; omit guest credentials if guest ops are not needed.
-  Webhooks: Disabled by default. When enabled, send only aggregated alert metadata (alarm counts, event types) to user-configured URLs. No credentials, IPs, or PII in payloads.
+  Destructive operations: All write tools require explicit parameters and pass through the @vmware_tool decorator (policy check + audit + sanitize). MCP write tools act on the first call: 36 of 43 have no confirmation or dry-run, and the 7 host-network/DRS tools default to a no-write preview that a single confirm=True call skips. The enforcement boundary is the RBAC of the vCenter/ESXi account the server connects with, so run it under a dedicated least-privilege service account (a read-only role makes it read-only). Optional deny rules in ~/.vmware/rules.yaml are checked before every MCP call and every guarded CLI write; the shipped baseline denies nothing. CLI destructive commands additionally require double confirmation and most CLI writes support --dry-run; neither applies to MCP calls.
+  Guest operations: vm_name and command are required; no implicit or background execution. The command is unbounded and runs with the guest credentials supplied — the username is required on MCP and CLI alike (no root default) and over MCP the password is a tool argument the agent sees (redacted from the audit row). The guest account is a second authorization boundary that a read-only vCenter role does not limit; pass a least-privilege guest account. vm_guest_upload reads any local file the server process can read.
+  Webhooks: Disabled by default. When enabled, the daemon posts to user-configured URLs only: issue counts plus every critical issue and every alarm/event warning (host-log warnings and info rows are not sent), each with its entity name and the sanitized alarm, event, or ESXi log text, or a connection error — which can include host names, IPs, and user names. No credentials from the skill's config are sent. Reading host logs needs the Global.Diagnostics privilege; an unreadable log is recorded, not skipped.
   TLS verification is on by default (verify_ssl: true); set verify_ssl: false only for self-signed certs in isolated lab environments.
   Transitive dependencies: Only vmware-policy (audit/policy). No post-install scripts or background services.
 ---
@@ -48,10 +48,21 @@ VMware family entry point — AI-powered VM lifecycle, deployment, and alarm man
 | **Alarm Management** | list alarms, acknowledge, reset | 3 |
 | **Triage & Investigation** (read-only, delegates to vmware-monitor) | one-glance cluster health summary, object-centered VM/host/datastore drill-down bundles, cross-vCenter "what needs attention now?" | 5 |
 
+## Audit & Safety
+
+Read before connecting an agent. Per-tool inventory: `references/capabilities.md`.
+
+- **MCP write tools act on the first call, by design (HLD D-2).** 36 of 43 have no confirmation or dry-run; 7 host-network/DRS tools default to a `confirm=False` preview that one `confirm=True` call skips. "Confirm with the user" steps here instruct the agent; the server does not enforce them.
+- **The enforcement boundary is vCenter/ESXi RBAC**: an agent can do whatever the configured account can. Use a dedicated, least-privilege service account scoped to what the agent may change (a read-only role makes the skill read-only). Its password: `~/.vmware-aiops/.env` (0600), or `VMWARE_<TARGET>_PASSWORD` injected from a secret manager.
+- **CLI only**: destructive commands require double confirmation; most CLI writes take `--dry-run`. Neither applies to MCP.
+- **Policy**: deny rules and a maintenance window in `~/.vmware/rules.yaml` are checked before every MCP call and CLI write (e.g. deny writes to `environment: production` targets). The shipped baseline denies nothing. An in-process guardrail, not a substitute for RBAC.
+- **Audit**: every MCP call is recorded in `~/.vmware/audit.db`, credentials redacted (`vmware-audit log --last 20`). Best-effort: a failed audit write warns, never blocks.
+- **Guest ops** run any command or file write the guest account allows — a read-only vCenter role does not limit this. `username` is required (no default account) and over MCP the password is a tool argument the agent sees; pass a minimal guest account. `vm_guest_upload` reads any local file the server can read.
+
 ## Quick Install
 
 ```bash
-uv tool install vmware-aiops
+uv tool install vmware-aiops==1.9.0
 vmware-aiops doctor
 vmware-aiops hub status   # see which family members are installed
 ```
@@ -204,11 +215,9 @@ Start here when the ask is "is anything on fire?" before diving into a specific 
 
 **List envelope**: the read list tools — `browse_datastore`, `list_vcenter_alarms`, `vm_list_plans`, `vm_list_snapshots`, `vm_list_ttl` — return `{items, returned, limit, total, truncated, hint}` rather than a bare array. Read the rows from `items` and check `truncated` before concluding a listing is complete; empty `items` with `truncated: false` means checked-and-none, not a failure. The write `batch_*` tools keep their bare list (complete by construction). Rationale, `total` semantics, error shape: `references/capabilities.md`.
 
-**Read/write split**: 17 tools are read-only (per `[READ]` docstring marker), 43 modify state. All write tools require explicit parameters and are audit-logged. Destructive operations (`vm_delete`, `vm_revert_snapshot`, `vm_delete_snapshot`, `vm_set_ttl` (schedules an unattended auto-delete), force power-off, cluster delete/remove-host, alarm reset, guest exec/upload, `remove_host_vmk`, `delete_drs_rule`) require double confirmation at the CLI layer and support `--dry-run`.
+**Read/write split**: 17 tools are read-only (per `[READ]` docstring marker), 43 modify state — gating in [Audit & Safety](#audit--safety). `vm_set_ttl` schedules an unattended auto-delete.
 
-**The MCP tools have no confirmation step and no dry-run** — a write acts on the first call, by design (HLD D-2). What decides whether it lands is the vCenter account's privilege; what records it is `~/.vmware/audit.db`. To run an agent read-only, give it a read-only vCenter role. `vm_guest_exec` is the widest blast radius here: an unbounded command run inside the guest with the credentials passed in (`root` in the documented example), ungated. The guest account is a second authorization boundary — a read-only vCenter role does not constrain it. Inventory: `references/capabilities.md`.
-
-**Network write gating**: `create_dvs_portgroup`, `add_host_vmk`, and `set_vmk_service` are preview/confirm-gated — `confirm=False` (default) returns the exact spec that would be applied without writing. `remove_host_vmk` is **fail-closed**: it refuses when the vmk is selected for a host service (management/vMotion/vSAN), lives on a non-default netstack (NSX TEPs, dedicated vMotion stacks), carries a default gateway route, or when any of that cannot be verified — pass `force_unprotected=True` to override the non-absolute protections. The host's only management-enabled vmk is never removable (no override). `set_vmk_service` is **fail-closed** too: it refuses both directions when the host's service map is unreadable, and refuses (no override) to untag `management` from the host's only management-enabled vmk — the call rides the interface it would untag.
+**Network write gating**: `create_dvs_portgroup`, `add_host_vmk`, and `set_vmk_service` are preview/confirm-gated — `confirm=False` (default) returns the exact spec that would be applied without writing. A preview, not an approval. `remove_host_vmk` is **fail-closed**: it refuses when the vmk is selected for a host service (management/vMotion/vSAN), lives on a non-default netstack (NSX TEPs, dedicated vMotion stacks), carries a default gateway route, or when any of that cannot be verified — pass `force_unprotected=True` to override the non-absolute protections. The host's only management-enabled vmk is never removable (no override). `set_vmk_service` is **fail-closed** too: it refuses both directions when the host's service map is unreadable, and refuses (no override) to untag `management` from the host's only management-enabled vmk — the call rides the interface it would untag.
 
 **DRS rule gating**: `set_drs_rule_enabled`, `create_drs_rule`, `delete_drs_rule` are preview/confirm-gated and idempotent (matching state returns a no-write noop). `create_drs_rule` handles VM-VM affinity/anti-affinity only (≥2 distinct VMs, all cluster members); VM-Host rules are read via `list_drs_rules` but managed in the vSphere UI. `delete_drs_rule` **refuses non-VM-VM rules** (they can carry licensing/compliance placement constraints) and records the full rule definition in both preview and result so a mistaken delete can be recreated from the audit trail.
 
@@ -289,26 +298,13 @@ Run `vmware-aiops plan list` to see failed plan status. Ask user if they want to
 ## Setup
 
 ```bash
-uv tool install vmware-aiops
+uv tool install vmware-aiops==1.9.0
 mkdir -p ~/.vmware-aiops
 vmware-aiops init  # generates config.yaml and .env templates
 chmod 600 ~/.vmware-aiops/.env
 ```
 
-> All tools are automatically audited via vmware-policy. Audit logs: `vmware-audit log --last 20`
-
 > Full setup guide, security details, and AI platform compatibility: see `references/setup-guide.md`
-
-## Audit & Safety
-
-All operations are automatically audited via vmware-policy (`@vmware_tool` decorator):
-- Every tool call logged to `~/.vmware/audit.db` (SQLite, framework-agnostic)
-- Policy rules enforced via `~/.vmware/rules.yaml` (deny rules, maintenance windows, risk levels)
-- Risk classification: each tool tagged as low/medium/high/critical
-- View recent operations: `vmware-audit log --last 20`
-- View denied operations: `vmware-audit log --status denied`
-
-vmware-policy is automatically installed as a dependency — no manual setup needed.
 
 ## License
 

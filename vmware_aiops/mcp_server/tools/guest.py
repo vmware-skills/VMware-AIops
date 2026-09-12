@@ -29,8 +29,8 @@ from vmware_aiops.ops.guest_ops import (
 def vm_guest_exec(
     vm_name: str,
     command: str,
+    username: str,
     arguments: str = "",
-    username: str = "root",
     password: str = "",
     working_directory: Optional[str] = None,
     target: Optional[str] = None,
@@ -48,7 +48,8 @@ def vm_guest_exec(
         vm_name: Target VM name.
         command: Full path to program (e.g. "/bin/bash", "C:\\Windows\\System32\\cmd.exe").
         arguments: Command arguments (e.g. "-c 'whoami'").
-        username: Guest OS username (default "root").
+        username: Guest OS account to run as. Required — there is no default, so a
+            call can never act as root without choosing root.
         password: Guest OS password.
         working_directory: Working directory inside guest (optional).
         target: Optional vCenter/ESXi target name from config.
@@ -67,7 +68,7 @@ def vm_guest_exec(
 def vm_guest_exec_output(
     vm_name: str,
     command: str,
-    username: str = "root",
+    username: str,
     password: str = "",
     timeout: int = 300,
     target: Optional[str] = None,
@@ -85,7 +86,8 @@ def vm_guest_exec_output(
     Args:
         vm_name: Target VM name.
         command: Shell command (e.g. "df -h", "ls /etc", "ipconfig").
-        username: Guest OS username (default "root").
+        username: Guest OS account to run as. Required — there is no default, so a
+            call can never act as root without choosing root.
         password: Guest OS password.
         timeout: Max wait seconds (default 300).
         target: Optional vCenter/ESXi target name from config.
@@ -101,7 +103,7 @@ def vm_guest_upload(
     vm_name: str,
     local_path: str,
     guest_path: str,
-    username: str = "root",
+    username: str,
     password: str = "",
     target: Optional[str] = None,
 ) -> str:
@@ -115,7 +117,8 @@ def vm_guest_upload(
         vm_name: Target VM name.
         local_path: Local file path to upload.
         guest_path: Destination path inside the guest.
-        username: Guest OS username (default "root").
+        username: Guest OS account to run as. Required — there is no default, so a
+            call can never act as root without choosing root.
         password: Guest OS password.
         target: Optional vCenter/ESXi target name from config.
     """
@@ -134,7 +137,7 @@ def vm_guest_download(
     vm_name: str,
     guest_path: str,
     local_path: str,
-    username: str = "root",
+    username: str,
     password: str = "",
     overwrite: bool = False,
     target: Optional[str] = None,
@@ -155,7 +158,8 @@ def vm_guest_download(
         vm_name: Target VM name.
         guest_path: File path inside the guest to download.
         local_path: Local destination path, including the file name.
-        username: Guest OS username (default "root").
+        username: Guest OS account to run as. Required — there is no default, so a
+            call can never act as root without choosing root.
         password: Guest OS password.
         overwrite: True replaces an existing file at local_path (default False).
         target: Optional vCenter/ESXi target name from config.

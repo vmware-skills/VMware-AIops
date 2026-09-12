@@ -223,8 +223,8 @@ ESXi Standalone Host ──→ VM
 | Power On | `vm power-on <name>` | — | ✅ | ✅ |
 | Graceful Shutdown | `vm power-off <name>` | Double | ✅ | ✅ |
 | Force Power Off | `vm power-off <name> --force` | Double | ✅ | ✅ |
-| Reset | `vm reset <name>` | — | ✅ | ✅ |
-| Suspend | `vm suspend <name>` | — | ✅ | ✅ |
+| Reset | plan action `reset` via `vm_create_plan` (MCP; no CLI command) | — | ✅ | ✅ |
+| Suspend | plan action `suspend` via `vm_create_plan` (MCP; no CLI command) | — | ✅ | ✅ |
 | Create VM | `vm create <name> --cpu --memory --disk` | — | ✅ | ✅ |
 | Delete VM | `vm delete <name>` | Double | ✅ | ✅ |
 | Reconfigure | `vm reconfigure <name> --cpu --memory` | Double | ✅ | ✅ |
@@ -239,12 +239,12 @@ ESXi Standalone Host ──→ VM
 | **Cancel TTL** | `vm cancel-ttl <name>` | — | ✅ | ✅ |
 | **List TTLs** | `vm list-ttl` | — | ✅ | ✅ |
 | **Clean Slate** | `vm clean-slate <name> [--snapshot baseline]` | Double | ✅ | ✅ |
-| **Guest Exec** | `vm guest-exec <name> --cmd /bin/bash --args "..."` | Double | ✅ | ✅ |
-| **Guest Exec (with output)** | `vm guest-exec-output <name> --cmd "df -h"` | — | ✅ | ✅ |
-| **Guest Upload** | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | Double | ✅ | ✅ |
-| **Guest Download** | `vm guest-download <name> --guest /var/log/syslog --local ./syslog` | — | ✅ | ✅ |
+| **Guest Exec** | `vm guest-exec <name> --cmd /bin/bash --args "..." --user <account>` | Double | ✅ | ✅ |
+| **Guest Exec (with output)** | MCP only: `vm_guest_exec_output` (`username` required) — no CLI command | — | ✅ | ✅ |
+| **Guest Upload** | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh --user <account>` | Double | ✅ | ✅ |
+| **Guest Download** | `vm guest-download <name> --guest /var/log/syslog --local ./syslog --user <account>` | — | ✅ | ✅ |
 
-> Guest Operations require VMware Tools running inside the guest OS. `guest-exec-output` auto-detects Linux/Windows shell and captures stdout/stderr.
+> Guest Operations require VMware Tools running inside the guest OS, and the guest account is always named explicitly — `--user` on the CLI, `username` over MCP. There is no default, so no call runs as root without choosing root. `vm_guest_exec_output` (MCP only; the CLI has no equivalent) auto-detects Linux/Windows shell and captures stdout/stderr.
 
 ### Plan → Apply (Multi-step Operations)
 
@@ -307,19 +307,21 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 |---------|---------|
 | Daemon | APScheduler-based, configurable interval (default 15 min) |
 | Multi-target Scan | Sequentially scan all configured vCenter/ESXi targets |
-| Scan Content | Alarms + Events + Host logs (hostd, vmkernel, vpxd) |
-| Log Analysis | Regex pattern matching: error, fail, critical, panic, timeout, corrupt |
-| Structured Log | JSONL output to `~/.vmware-aiops/scan.log` |
-| Webhook | Slack, Discord, or any HTTP endpoint |
+| Scan Content | Each cycle: triggered alarms, vCenter events from the last `lookback_hours`, and new lines in the ESXi host logs `hostd`, `vmkernel`, `vpxa` |
+| Host Logs | Read incrementally: each line is reported once per daemon run (a restarted daemon re-reads each log's last 500 lines once). A rotated log, or more than 500 new lines between cycles, adds an `info` row saying which lines were not scanned. Reading host logs needs the `Global.Diagnostics` privilege, which vCenter's Read-Only role does not include; a log that cannot be read becomes an `info` row with the reason, never a silent "all clear" |
+| Log Analysis | Host-log lines matching error, fail, critical, panic, lost access, cannot, timeout, refused, corrupt — lines with critical/panic/corrupt are `critical`, the rest `warning` |
+| Structured Log | JSONL output to `~/.vmware-aiops/scan.log` — every issue, `info` rows included |
+| Webhook | Slack, Discord, or any HTTP endpoint. Receives every critical issue and every alarm/event warning; host-log warnings go to the scan log only, and `info` rows are never sent |
+| Cycle Summary | One line per cycle in the daemon's log output: findings (and how many went to the webhook), unreadable host logs, logs with unscanned lines, failed passes. If any pass failed or a target could not be reached it reads `Scan INCOMPLETE`, never "all clear" |
 | Daemon Management | `daemon start/stop/status`, PID file, graceful shutdown |
 
 ## Safety Features
 
 | Feature | Details |
 |---------|---------|
-| **Dry-Run Mode** (**CLI only**) | `--dry-run` on any destructive CLI command prints exact API calls without executing |
+| **Dry-Run Mode** (**CLI only**) | `--dry-run` prints the exact API call without executing, on every CLI write except `deploy iso`, `deploy mark-template`, `vm cancel-ttl` and `vm guest-download` |
 | **Plan → Confirm → Execute → Log** | CLI workflow: show current state, confirm changes, execute, audit log |
-| **Double Confirmation** (**CLI only**) | Destructive CLI commands (power-off, delete, reconfigure, snapshot-revert/delete, clean-slate, guest-exec, guest-upload, cluster delete/remove-host, alarm clear) require 2 sequential prompts and take no bypass flag |
+| **Double Confirmation** (**CLI only**) | Destructive and deploy CLI commands (`vm` power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate, set-ttl, clean-slate, guest-exec, guest-upload; `deploy` ova, template, linked-clone, batch, batch-clone, mark-template; `cluster` delete, add-host, remove-host, configure, drs-rule-set/create/delete; `alarm reset`) require 2 sequential prompts and take no bypass flag |
 | **No confirmation on the MCP path** | The 43 write tools an agent sees over MCP act on the first call — no `confirmed=` handshake, no approval tier, no read-only switch. What decides whether a write lands is the privilege of the vCenter account, and what records it is the audit trail. See [What protects you](#what-protects-you) |
 | **Rejection Logging** | Declined CLI confirmations are recorded in the audit trail |
 | **Audit Trail** | All operations logged to `~/.vmware-aiops/audit.log` (JSONL) with before/after state |
@@ -327,7 +329,7 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | **Password Protection** | `.env` file loading with permission check; never in shell history |
 | **SSL Self-signed Support** | `verify_ssl: false` — only for ESXi with self-signed certs in isolated labs; production should use CA-signed certificates |
 | **Prompt Injection Protection** | vSphere event messages and host logs are truncated, stripped of control characters, and wrapped in boundary markers before output |
-| **Webhook Data Scope** | Sends notifications to user-configured URLs only — no third-party services by default |
+| **Webhook Data Scope** | Disabled by default. When configured, the daemon posts to your URL only: every critical issue (alarms, events, ESXi log lines matching critical/panic/corrupt, targets it could not connect to) and every alarm/event warning — host-log warnings stay in the scan log, and `info` rows are never sent. Each issue carries its entity name and message: sanitized alarm, event, or ESXi log text, or the connection error, which can include host names, IP addresses, and user names. No credentials from the skill's config or `.env` are sent |
 | **Task Waiting** | All async operations wait for completion and report result |
 | **State Validation** | Pre-operation checks (VM exists, power state correct) |
 
@@ -354,7 +356,8 @@ having no protection at all — a guardrail you believe in is one you stop
 compensating for.
 
 **On the CLI**, a destructive command asks twice and takes no bypass flag, and
-`--dry-run` previews any write. That defends a mistyped command typed by a
+`--dry-run` previews every write except `deploy iso`, `deploy mark-template`,
+`vm cancel-ttl` and `vm guest-download`. That defends a mistyped command typed by a
 human. It does not defend against an agent, which satisfies both prompts with
 `yes |`.
 
@@ -374,14 +377,20 @@ more; vCenter refuses the rest itself, on every surface, with no way around it
 from inside this skill. **To run an agent read-only, give it a read-only vCenter
 role** — one decision, enforced where it is made. Every call is then recorded in
 `~/.vmware/audit.db` before the caller sees a result, which is how you find out
-what happened.
+what happened. Optional `deny` rules in `~/.vmware/rules.yaml`, checked before
+every MCP call, can refuse operations — for example, writes to targets labelled
+`environment: production`. The shipped baseline denies nothing, and the rules
+run inside the same process: a guardrail on top of RBAC, not a replacement.
 
 **`vm_guest_exec` is the one to think hardest about.** It runs a caller-supplied
-command inside the guest OS with the credentials handed to it, which the
-documentation's own example makes `root`; nothing bounds what the command may
-be. The guest account is a *separate* authorization boundary from the vCenter
-one — a read-only vCenter role does not constrain what this tool does inside a
-VM. If you do not need guest operations, do not configure guest credentials.
+command inside the guest OS with the credentials handed to it — its `username`
+is required (no default account); nothing bounds what the command may be. The guest account is
+a *separate* authorization boundary from the vCenter one — a read-only vCenter
+role does not constrain what this tool does inside a VM. The skill stores no
+guest credentials: over MCP they are tool arguments the agent sees (the audit row
+redacts the password). Pass a least-privilege guest account, and do not hand the
+agent guest credentials it does not need. `vm_guest_upload` reads any local file
+the server process can read.
 
 The full inventory of which tools are gated and which are not is in
 [references/capabilities.md](skills/vmware-aiops/references/capabilities.md#what-gates-a-write),
@@ -522,7 +531,7 @@ VMWARE_{TARGET_NAME_UPPER}_PASSWORD
 - **ALWAYS** configure connections via `config.yaml` — credentials are loaded from `.env` automatically
 - **Config File Contents**: `config.yaml` stores target hostnames, ports, and a reference to the `.env` file. It does **not** contain passwords or tokens. All secrets are stored exclusively in `.env`
 - **TLS**: Enabled by default. Disable only for ESXi hosts with self-signed certificates in isolated lab environments
-- **Webhook**: Disabled by default. When enabled, sends monitoring summaries to your own configured URL only — payloads contain no credentials, IPs, or PII, only aggregated alert metadata. No data sent to third-party services
+- **Webhook**: Disabled by default. When enabled, the daemon posts to your own configured URL only — no third-party service — every critical issue (alarms, events, ESXi log lines matching critical/panic/corrupt, targets it could not connect to) and every alarm/event warning — host-log warnings stay in the scan log, and `info` rows are never sent. Payloads carry the full issue text (entity names, alarm names, event messages, ESXi log excerpts, connection errors), which can include host names, IP addresses, and user names; they carry no credentials from your config or `.env`
 - **Least Privilege**: Use a dedicated vCenter service account with minimal permissions. For monitoring-only use cases, prefer the read-only [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor)
 - **Prompt Injection Protection**: All vSphere-sourced content is truncated, stripped of control characters, and wrapped in boundary markers before output
 - **Code Review**: We recommend reviewing the [source code](https://github.com/vmware-skills/VMware-AIops) and commit history before deploying in production
@@ -772,7 +781,7 @@ Already installed? Re-run the install command for your channel to get the latest
 |----------------|----------------|
 | ClawHub | `clawhub install @zw008/vmware-aiops` |
 | Skills.sh | `npx skills add vmware-skills/VMware-AIops` |
-| Git clone | `cd VMware-AIops && git pull origin main && uv pip install -e .` |
+| Git clone | `cd VMware-AIops && git pull origin main && uv pip install --no-sources -e .` (without `--no-sources`, uv looks for a sibling `../VMware-Monitor` checkout) |
 | uv | `uv tool install vmware-aiops --force` |
 
 Check your current version: `vmware-aiops --version`
@@ -990,7 +999,7 @@ vmware-aiops datastore browse datastore1 --path "iso/"                 # Browse 
 vmware-aiops datastore scan-images --target home-esxi                  # Scan all datastores for images
 
 # Scan
-vmware-aiops scan now              # One-time scan
+vmware-aiops scan now              # One-time scan of alarms and events (host logs: daemon only)
 
 # Daemon
 vmware-aiops daemon start          # Start scanner
@@ -1019,7 +1028,7 @@ See `config.example.yaml` for all options.
 | scanner | interval_minutes | 15 | Scan frequency |
 | scanner | severity_threshold | warning | Min severity: critical/warning/info |
 | scanner | lookback_hours | 1 | How far back to scan |
-| scanner | log_types | [vpxd, hostd, vmkernel] | Log sources |
+| scanner | log_types | — | Not read by any code — the daemon always reads the hostd, vmkernel and vpxa host logs. Setting it changes nothing |
 | notify | log_file | ~/.vmware-aiops/scan.log | JSONL log output |
 | notify | webhook_url | — | Webhook endpoint (Slack, Discord, etc.) |
 

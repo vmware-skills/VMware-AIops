@@ -6,13 +6,13 @@ All install methods fetch from the same source: [github.com/vmware-skills/VMware
 
 ```bash
 # Via PyPI (recommended for version pinning)
-uv tool install vmware-aiops==1.2.3
+uv tool install vmware-aiops==1.9.0
 
 # Via Skills.sh (fetches from GitHub)
-npx skills add vmware-skills/VMware-AIops
+npx skills add vmware-skills/VMware-AIops#v1.9.0
 
 # Via ClawHub (fetches from ClawHub registry snapshot of GitHub)
-clawhub install @zw008/vmware-aiops
+clawhub install @zw008/vmware-aiops --version 1.9.0
 ```
 
 ### Claude Code
@@ -35,7 +35,7 @@ claude mcp add vmware-aiops -- vmware-aiops mcp
 
 ```bash
 # 1. Install from PyPI (source: github.com/vmware-skills/VMware-AIops)
-uv tool install vmware-aiops
+uv tool install vmware-aiops==1.9.0
 
 # 2. Verify installation source
 vmware-aiops --version  # confirms installed version
@@ -59,8 +59,12 @@ targets:
 `environment:` is an optional free-form label. Policy scopes its rules by this
 value, so an environment-scoped `deny` rule in `~/.vmware/rules.yaml` can match
 on it — for example, to freeze state-changing writes on `production`. A target
-with no label is simply not matched by such a rule. Read-only operations are
-never affected.
+with no label is simply not matched by such a rule. A rule refuses only what its
+`operations` / `min_risk_level` filters match, so scope it to write operations if
+reads should keep working. Rules are evaluated before every MCP tool call and
+every guarded CLI write, and `operations` are MCP tool names — CLI commands are
+authorised under the same names, so one rule covers both. The shipped baseline
+denies nothing.
 
 ## What Gets Installed
 
@@ -69,11 +73,20 @@ The `vmware-aiops` package installs a Python CLI binary and its dependencies (py
 ## Development Install
 
 ```bash
-git clone https://github.com/vmware-skills/VMware-AIops.git
+git clone --branch v1.9.0 https://github.com/vmware-skills/VMware-AIops.git
 cd VMware-AIops
 uv venv && source .venv/bin/activate
-uv pip install -e .
+# --no-sources: pyproject's [tool.uv.sources] points vmware-monitor at a sibling
+# checkout (../VMware-Monitor) for family development. A fresh clone has none, so
+# plain `uv pip install -e .` fails with "Distribution not found"; this takes
+# vmware-monitor (>=1.11.3) from PyPI instead.
+uv pip install --no-sources -e .
 ```
+
+To develop against an unreleased vmware-monitor, clone
+[VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor) next to this
+checkout (so `../VMware-Monitor` exists) and drop `--no-sources`. Plain `pip`
+ignores `[tool.uv.sources]` and needs neither.
 
 ### Password obfuscation at rest
 
@@ -101,11 +114,14 @@ whitespace are handled correctly).
   - (Optional) Webhook URLs for Slack/Discord notifications
 
   The config file `~/.vmware-aiops/config.yaml` stores only target hostnames, ports, and usernames — it does **not** contain passwords or tokens. The env var `VMWARE_AIOPS_CONFIG` points to this YAML file.
-- **Webhook Data Scope**: Webhook notifications are **disabled by default**. When enabled, they send infrastructure health summaries (alarm counts, event types, host status) to **user-configured URLs only** (Slack, Discord, or any HTTP endpoint you control). No data is sent to third-party services. Webhook payloads contain no credentials, IPs, or personally identifiable information — only aggregated alert metadata.
+- **Webhook Data Scope**: Webhook notifications are **disabled by default**. When enabled, the daemon posts to **user-configured URLs only** (Slack, Discord, or any HTTP endpoint you control); no data is sent to any other service. Each payload carries critical/warning counts plus every critical issue and every alarm/event warning from that scan — host-log warnings go to `scan.log` only, and `info` rows (unreadable or partly-read host logs) are never sent. Each issue carries the entity name and one of: the alarm name, vCenter event message (sanitized, ≤500 chars), ESXi log line matching critical/panic/corrupt (sanitized, ≤200 chars), or the error text for a target the daemon could not connect to. Event, log, and error text can contain host names, IP addresses, and user names — treat the webhook destination as receiving operational data. No credentials from the skill's config or `.env` are included.
+- **Daemon host-log reads**: the scanner daemon reads the ESXi `hostd`, `vmkernel` and `vpxa` logs, which needs the `Global.Diagnostics` privilege — vCenter's built-in Read-Only role does not include it. Without it each log is recorded in `scan.log` as an `info` row with the reason instead of being scanned; grant it only if you want host-log scanning.
 - **Prompt Injection Protection**: All vSphere-sourced content (event messages, host logs) is truncated, stripped of control characters, and wrapped in boundary markers (`[VSPHERE_EVENT]`/`[VSPHERE_HOST_LOG]`) before output to prevent prompt injection when consumed by LLM agents.
-- **Least Privilege**: Use a dedicated vCenter service account with minimal permissions. For monitoring-only use cases, prefer the read-only [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor) skill which has zero destructive code paths.
+- **Least Privilege**: MCP write tools act on the first call — 36 of 43 have no confirmation or dry-run, and the other 7 (host-network/DRS) only default to a preview that one `confirm=True` call skips. The enforcement boundary is the RBAC of the vCenter/ESXi account in `.env`, so use a dedicated service account scoped to what the agent may change. For monitoring-only use cases, prefer the read-only [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor) skill which has zero destructive code paths. The CLI's double confirmation and `--dry-run` do not apply to MCP calls.
+- **Guest Credentials**: Guest operations run with whatever guest account is passed to them — the `username` is required (there is no default account) and over MCP the password is a tool argument the agent sees (the audit row redacts it). A read-only vCenter role does not limit what they do inside a VM. Pass a least-privilege guest account; avoid root unless the task needs it. `vm_guest_upload` reads any local file the server process can read.
+- **Policy & Audit**: Optional `deny` rules in `~/.vmware/rules.yaml` refuse matching operations before every MCP call and every guarded CLI write (see `environment:` above); they run in-process and are a guardrail, not a substitute for RBAC. Every MCP call is recorded in `~/.vmware/audit.db` with credentials redacted (best-effort: an audit write failure warns and does not block).
 
-To run the agent read-only, give it a read-only vCenter/NSX service account (RBAC) — enforced at the platform.
+To run the agent read-only, give it a read-only vCenter/ESXi service account (RBAC) — enforced at the platform.
 
 ## Supported AI Platforms
 
@@ -159,7 +175,7 @@ For Claude Code / Cursor users who prefer structured tool calls, add to `~/.clau
 ```
 
 > v1.5.15+ recommends the single-command form `vmware-aiops mcp`. Pre-1.5.15 used
-> `uvx --from vmware-aiops vmware-aiops-mcp`, which still works but re-resolves from
+> `uvx --from vmware-aiops vmware-aiops-mcp`, which still works but re-resolves from <!-- install-pin: historical -->
 > PyPI on each launch and breaks behind corporate TLS proxies. The legacy
 > `vmware-aiops-mcp` entry point is also kept for backward compatibility.
 

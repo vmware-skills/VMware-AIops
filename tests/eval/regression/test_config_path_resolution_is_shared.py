@@ -19,8 +19,8 @@ at the other, cannot find the VM that moved. And the doctor — which is what
 people run when something is wrong — reported on the CLI's file, so it could
 green-light a configuration no tool would open.
 
-``VMWARE_AIOPS_CONFIG`` is this skill's advertised ``primaryEnv`` in its
-OpenClaw metadata, so the CLI honouring it is the documented behaviour; ignoring
+``VMWARE_AIOPS_CONFIG`` is declared in this skill's
+OpenClaw metadata (``optional.env``), so the CLI honouring it is the documented behaviour; ignoring
 it was the bug.
 
 The precedence now lives in exactly one function, ``resolve_config_path``, that

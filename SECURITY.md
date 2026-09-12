@@ -72,8 +72,10 @@ client can ask its user before calling them.
 
 - Webhooks are **disabled by default**
 - When enabled, they send only to **user-configured URLs** (Slack, Discord, or custom HTTP endpoints)
-- Payloads contain **aggregated alert metadata only** (alarm counts, event types, host status summaries)
-- Payloads **never** contain: credentials, IP addresses, personally identifiable information, or raw vSphere API responses
+- Each payload carries critical/warning counts plus every critical issue and every alarm/event warning from that scan — host-log warnings stay in the local scan log, and `info` rows are never sent
+- Each issue carries the entity name and one of: the alarm name, vCenter event message (sanitized, ≤500 chars), ESXi log line matching critical/panic/corrupt (sanitized, ≤200 chars), or the error text for a target the daemon could not connect to
+- That event, log, and error text **can contain host names, IP addresses, and user names** — treat the webhook destination as receiving operational data
+- Payloads never contain credentials from the skill's config or `.env`
 
 ### SSL/TLS Verification
 
