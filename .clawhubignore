@@ -1,0 +1,19 @@
+# What `clawhub package publish` uploads from this folder.
+#
+# The CLI does not read .gitignore — only this file. Without it, publishing from
+# the repo root uploads everything on disk: .venv/, dist/, and any untracked
+# credential file (mcp-publisher leaves .mcpregistry_*_token here). So this is an
+# allowlist: ignore every top-level entry, then re-include only the plugin.
+/*
+!/openclaw.plugin.json
+!/package.json
+!/.claude-plugin/
+!/.mcp.json
+!/skills/
+!/README.md
+!/LICENSE
+
+# Never ship these even inside an allowed directory.
+.DS_Store
+__pycache__/
+*.pyc
