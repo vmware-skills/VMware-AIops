@@ -663,7 +663,7 @@ vmware-aiops mcp-config list                          # 列出所有支持的 Ag
 # 虚拟机操作
 vmware-aiops vm power-on|power-off|reset|suspend <vm-name>
 vmware-aiops vm create <name> --cpu 4 --memory 8192 --disk 100
-vmware-aiops vm delete <name> --confirm
+vmware-aiops vm delete <name>
 vmware-aiops vm reconfigure <name> --cpu 4 --memory 8192
 vmware-aiops vm snapshot-create|snapshot-list|snapshot-revert|snapshot-delete <name>
 vmware-aiops vm snapshot-delete <name> --name <snap> --no-wait   # 异步发起，立即返回 task id

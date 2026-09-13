@@ -949,7 +949,7 @@ vmware-aiops vm power-on my-vm                                 # Power on
 vmware-aiops vm power-off my-vm                                # Graceful shutdown (2x confirm)
 vmware-aiops vm power-off my-vm --force                        # Force power off (2x confirm)
 vmware-aiops vm create my-new-vm --cpu 4 --memory 8192 --disk 100  # Create VM
-vmware-aiops vm delete my-vm --confirm                         # Delete VM (2x confirm)
+vmware-aiops vm delete my-vm                                   # Delete VM (asks twice; --dry-run previews)
 vmware-aiops vm reconfigure my-vm --cpu 4 --memory 8192        # Reconfigure (2x confirm)
 vmware-aiops vm snapshot-create my-vm --name "before-upgrade"  # Create snapshot
 vmware-aiops vm snapshot-list my-vm                            # List snapshots
