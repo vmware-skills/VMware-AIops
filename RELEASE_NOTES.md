@@ -1,4 +1,4 @@
-## Unreleased
+## v1.9.1 — the event sweep and scanner read and rank real events
 
 **The event sweep and the daemon's event scan rank real vCenter events.** AIops compared its bare-name
 event sets (`HostConnectionLostEvent`) with `type(event).__name__`, which on a real pyVmomi event is

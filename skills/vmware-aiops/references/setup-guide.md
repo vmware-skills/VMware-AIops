@@ -6,13 +6,13 @@ All install methods fetch from the same source: [github.com/vmware-skills/VMware
 
 ```bash
 # Via PyPI (recommended for version pinning)
-uv tool install vmware-aiops==1.9.0
+uv tool install vmware-aiops==1.9.1
 
 # Via Skills.sh (fetches from GitHub)
-npx skills add vmware-skills/VMware-AIops#v1.9.0
+npx skills add vmware-skills/VMware-AIops#v1.9.1
 
 # Via ClawHub (fetches from ClawHub registry snapshot of GitHub)
-clawhub install @zw008/vmware-aiops --version 1.9.0
+clawhub install @zw008/vmware-aiops --version 1.9.1
 ```
 
 ### Claude Code
@@ -35,7 +35,7 @@ claude mcp add vmware-aiops -- vmware-aiops mcp
 
 ```bash
 # 1. Install from PyPI (source: github.com/vmware-skills/VMware-AIops)
-uv tool install vmware-aiops==1.9.0
+uv tool install vmware-aiops==1.9.1
 
 # 2. Verify installation source
 vmware-aiops --version  # confirms installed version
@@ -73,7 +73,7 @@ The `vmware-aiops` package installs a Python CLI binary and its dependencies (py
 ## Development Install
 
 ```bash
-git clone --branch v1.9.0 https://github.com/vmware-skills/VMware-AIops.git
+git clone --branch v1.9.1 https://github.com/vmware-skills/VMware-AIops.git
 cd VMware-AIops
 uv venv && source .venv/bin/activate
 # --no-sources: pyproject's [tool.uv.sources] points vmware-monitor at a sibling
