@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from xml.parsers.expat import ExpatError
 
 from pyVmomi import vim, vmodl
+from vmware_monitor.ops.health import query_events
 from vmware_policy import sanitize
 
 from vmware_aiops.config import ScannerConfig
@@ -89,7 +90,9 @@ def scan_logs(
         time=vim.event.EventFilterSpec.ByTime(beginTime=begin, endTime=now)
     )
 
-    events = event_mgr.QueryEvents(filter_spec)
+    # Not QueryEvents, which hands back only the oldest 1000 events in the window
+    # on vCenter; the shared read goes newest first (see ops/health.py).
+    events = query_events(event_mgr, filter_spec)
     threshold = scanner_config.severity_threshold
     severity_rank = {"critical": 0, "warning": 1, "info": 2}
     min_rank = severity_rank.get(threshold, 1)

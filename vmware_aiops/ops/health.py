@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
+from vmware_monitor.ops.health import query_events
 from vmware_policy import sanitize
 
 from vmware_aiops.ops.inventory import _collect, _collect_object
@@ -109,7 +110,10 @@ def get_recent_events(
         time=vim.event.EventFilterSpec.ByTime(beginTime=begin, endTime=now)
     )
 
-    events = event_mgr.QueryEvents(filter_spec)
+    # Not QueryEvents: on vCenter it returns only the OLDEST 1000 events in the
+    # window (measured 2026-09-14), so a busy day hid its latest hours. The shared
+    # read walks an event history collector newest first.
+    events = query_events(event_mgr, filter_spec)
     min_level = SEVERITY_ORDER.get(severity, 1)
 
     results = []

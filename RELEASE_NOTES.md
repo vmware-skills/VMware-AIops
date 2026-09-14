@@ -1,3 +1,12 @@
+## Unreleased
+
+**The event sweep and the scanner read the newest events.** `ops/health.get_recent_events` and
+`scanner/log_scanner.scan_logs` called `QueryEvents`, which on vCenter returns only the oldest 1000
+events in the window (measured on vCenter 8.0.3), so a busy window hid its latest hours. Both now
+use vmware-monitor's shared read, which walks an event history collector newest first. **Release
+note for packaging:** this needs the vmware-monitor release that ships `read_events` — raise the
+`vmware-monitor` lower bound in `pyproject.toml` to that version when both are published.
+
 ## v1.9.0 — guest operations name their account; CLI writes answer to the same rules
 
 **BREAKING: guest operations require `username`.** `vm_guest_exec`, `vm_guest_exec_output`,
