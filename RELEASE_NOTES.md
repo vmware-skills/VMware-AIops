@@ -1,5 +1,11 @@
 ## Unreleased
 
+**The event sweep and the daemon's event scan rank real vCenter events.** AIops compared its bare-name
+event sets (`HostConnectionLostEvent`) with `type(event).__name__`, which on a real pyVmomi event is
+`vim.event.HostConnectionLostEvent`; nothing matched, so every event ranked "info" and the event scan,
+which keeps critical and warning only, found nothing. Found on a lab vCenter 8.0.3; the tests had used
+stand-ins named with the bare name.
+
 **The event sweep and the scanner read the newest events.** `ops/health.get_recent_events` and
 `scanner/log_scanner.scan_logs` called `QueryEvents`, which on vCenter returns only the oldest 1000
 events in the window (measured on vCenter 8.0.3), so a busy window hid its latest hours. Both now

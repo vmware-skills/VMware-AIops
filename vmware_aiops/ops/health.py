@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
-from vmware_monitor.ops.health import query_events
+from vmware_monitor.ops.health import query_events, short_event_type
 from vmware_policy import sanitize
 
 from vmware_aiops.ops.inventory import _collect, _collect_object
@@ -119,11 +119,13 @@ def get_recent_events(
     results = []
     for event in events:
         event_type = type(event).__name__
-        if event_type in CRITICAL_EVENTS:
+        # The sets spell bare names; a real pyVmomi class is vim.event.<Name>.
+        name = short_event_type(event_type)
+        if name in CRITICAL_EVENTS:
             sev = "critical"
-        elif event_type in WARNING_EVENTS:
+        elif name in WARNING_EVENTS:
             sev = "warning"
-        elif event_type in INFO_EVENTS:
+        elif name in INFO_EVENTS:
             sev = "info"
         else:
             sev = "info"

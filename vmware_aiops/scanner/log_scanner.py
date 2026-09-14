@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from xml.parsers.expat import ExpatError
 
 from pyVmomi import vim, vmodl
-from vmware_monitor.ops.health import query_events
+from vmware_monitor.ops.health import query_events, short_event_type
 from vmware_policy import sanitize
 
 from vmware_aiops.config import ScannerConfig
@@ -101,9 +101,10 @@ def scan_logs(
     for event in events:
         event_type = type(event).__name__
 
-        if event_type in CRITICAL_EVENTS:
+        # The sets spell bare names; a real pyVmomi class is vim.event.<Name>.
+        if short_event_type(event_type) in CRITICAL_EVENTS:
             severity = "critical"
-        elif event_type in WARNING_EVENTS:
+        elif short_event_type(event_type) in WARNING_EVENTS:
             severity = "warning"
         else:
             continue  # Skip info-level for scanner
