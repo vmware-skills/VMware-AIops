@@ -1,4 +1,4 @@
-## Unreleased — the scanner daemon's calls are audited, the TTL delete first
+## v1.9.4 — the scanner daemon's calls are audited, the TTL delete first
 
 A family survey on 2026-09-15 found that the scanner daemon deleted VMs whose TTL had expired with no row in
 either audit trail, on success or failure, and without the `guard()` that stops the same deletion over MCP or the
