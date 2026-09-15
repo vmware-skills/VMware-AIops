@@ -36,10 +36,11 @@ def cluster_health_summary(
 ) -> dict:
     """[READ] One-glance health rollup for every cluster — "is anything on fire?".
 
-    Aggregates hosts, VM power state, live CPU/memory pressure, and triggered alarms
-    per cluster, assigns each a status ("ok"/"warn"/"critical"), and flattens the
-    anomalies into a ranked ``top_issues`` focus list — the fast triage view for
-    "what's wrong right now?". Read-only (delegates to the vmware-monitor library).
+    Aggregates hosts, VM power state, live CPU/memory pressure, triggered alarms and
+    datastores thin-provisioned past 100% of capacity per cluster, assigns each a
+    status ("ok"/"warn"/"critical"), and flattens the anomalies into a ranked
+    ``top_issues`` focus list — the fast triage view for "what's wrong right now?".
+    Read-only (delegates to the vmware-monitor library).
     Use it FIRST for a cross-cluster glance, then drill in with
     vm_investigation_bundle or host_investigation_bundle.
 

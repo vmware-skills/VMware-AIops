@@ -1,3 +1,14 @@
+## v1.9.2 — the health summary names over-committed datastores
+
+`cluster_health_summary` and `vmware-aiops summary` delegate to vmware-monitor, and vmware-monitor 1.13.0 adds
+datastores thin-provisioned past 100% of capacity to `top_issues`, moving the owning row's status with it. This release
+requires `vmware-monitor>=1.13.0` so that behaviour is the one installed, and the tool description now says datastores
+are included — it listed hosts, VM power, CPU/memory and alarms only.
+
+The SKILL.md sentence about where the service account's password is kept is reworded. ClawHub's static scanner read
+"Its password: `~/.vmware-aiops/.env`" as a hardcoded secret (`suspicious.exposed_secret_literal`, the only static
+finding behind the bundle's `suspicious` rating). No secret was ever in the file; the guidance is unchanged.
+
 ## v1.9.1 — the event sweep and scanner read and rank real events
 
 **The event sweep and the daemon's event scan rank real vCenter events.** AIops compared its bare-name

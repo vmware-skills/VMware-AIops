@@ -53,7 +53,7 @@ VMware family entry point — AI-powered VM lifecycle, deployment, and alarm man
 Read before connecting an agent. Per-tool inventory: `references/capabilities.md`.
 
 - **MCP write tools act on the first call, by design (HLD D-2).** 36 of 43 have no confirmation or dry-run; 7 host-network/DRS tools default to a `confirm=False` preview that one `confirm=True` call skips. "Confirm with the user" steps here instruct the agent; the server does not enforce them.
-- **The enforcement boundary is vCenter/ESXi RBAC**: an agent can do whatever the configured account can. Use a dedicated, least-privilege service account scoped to what the agent may change (a read-only role makes the skill read-only). Its password: `~/.vmware-aiops/.env` (0600), or `VMWARE_<TARGET>_PASSWORD` injected from a secret manager.
+- **The enforcement boundary is vCenter/ESXi RBAC**: an agent can do whatever the configured account can. Use a dedicated, least-privilege service account scoped to what the agent may change (a read-only role makes the skill read-only). Store its password in `~/.vmware-aiops/.env` (0600) or a secret manager (`VMWARE_<TARGET>_PASSWORD`).
 - **CLI only**: destructive commands require double confirmation; most CLI writes take `--dry-run`. Neither applies to MCP.
 - **Policy**: deny rules and a maintenance window in `~/.vmware/rules.yaml` are checked before every MCP call and CLI write (e.g. deny writes to `environment: production` targets). The shipped baseline denies nothing. An in-process guardrail, not a substitute for RBAC.
 - **Audit**: every MCP call is recorded in `~/.vmware/audit.db`, credentials redacted (`vmware-audit log --last 20`). Best-effort: a failed audit write warns, never blocks.
@@ -62,7 +62,7 @@ Read before connecting an agent. Per-tool inventory: `references/capabilities.md
 ## Quick Install
 
 ```bash
-uv tool install vmware-aiops==1.9.1
+uv tool install vmware-aiops==1.9.2
 vmware-aiops doctor
 vmware-aiops hub status   # see which family members are installed
 ```
@@ -298,7 +298,7 @@ Run `vmware-aiops plan list` to see failed plan status. Ask user if they want to
 ## Setup
 
 ```bash
-uv tool install vmware-aiops==1.9.1
+uv tool install vmware-aiops==1.9.2
 mkdir -p ~/.vmware-aiops
 vmware-aiops init  # generates config.yaml and .env templates
 chmod 600 ~/.vmware-aiops/.env
