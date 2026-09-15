@@ -57,6 +57,9 @@ def _ttl_entry(vm_name: str = "ttl-vm", target: str | None = "lab-vc"):
 def ttl(monkeypatch):
     from vmware_aiops.scanner import scheduler
 
+    # The daemon remembers each entry's last recorded outcome for its lifetime;
+    # every test starts a fresh daemon.
+    monkeypatch.setattr(scheduler, "_last_ttl_outcome", {}, raising=False)
     removed: list[str] = []
     monkeypatch.setattr(scheduler, "get_expired_entries", lambda: [_ttl_entry()])
     monkeypatch.setattr(scheduler, "remove_entry", removed.append)
@@ -136,6 +139,48 @@ def test_a_ttl_delete_refused_by_policy_never_runs(ttl, monkeypatch):
     assert removed == [], "a denied delete keeps the entry for when the rule is lifted"
 
 
+def test_a_refused_ttl_entry_writes_one_row_per_outcome_not_one_per_minute(ttl, monkeypatch):
+    """The TTL check runs every minute. A review on 2026-09-15 found a denied or
+    failing entry wrote a vm_delete row on every run — 1,440 a day per entry, on
+    this lab whose rules.yaml denies vm_delete — burying real calls."""
+    scheduler, removed = ttl
+    monkeypatch.setattr(scheduler, "delete_vm", lambda si, name: None)
+
+    def deny(skill, tool, params=None, *, risk_level="low", target=""):
+        raise PolicyDenied(
+            PolicyResult(allowed=False, rule="no-deletes", reason="deletes are frozen")
+        )
+
+    monkeypatch.setattr(scheduler, "guard", deny)
+
+    for _ in range(3):
+        scheduler._run_ttl_check(MagicMock())
+
+    found = rows("vm_delete")
+    assert [r["status"] for r in found] == ["denied"], found
+    assert removed == []
+
+
+def test_a_failing_ttl_delete_writes_again_only_when_its_outcome_changes(ttl, monkeypatch):
+    scheduler, removed = ttl
+    attempts: list[str] = []
+
+    def flaky(si, name):
+        attempts.append(name)
+        if len(attempts) <= 3:
+            raise RuntimeError("vCenter task timeout")
+        return f"VM '{name}' deleted"
+
+    monkeypatch.setattr(scheduler, "delete_vm", flaky)
+
+    for _ in range(4):
+        scheduler._run_ttl_check(MagicMock())
+
+    assert len(attempts) == 4, "every run must still retry the delete"
+    assert [r["status"] for r in rows("vm_delete")] == ["error", "ok"]
+    assert removed == ["ttl-vm"]
+
+
 # ── Scan cycle and webhook ───────────────────────────────────────────────────
 
 
@@ -207,6 +252,43 @@ def test_a_failed_webhook_send_is_recorded_as_error(quiet_scan, monkeypatch):
     assert "T0K3N" not in found[0]["params"], (
         "the webhook URL can carry a token; it must not be recorded"
     )
+
+
+def test_an_interrupted_scan_cycle_is_recorded_as_interrupted(quiet_scan, monkeypatch):
+    """Ctrl+C during the first scan (before the signal handlers are installed)
+    used to leave a daemon_scan row that said ok."""
+
+    def interrupted(si):
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(quiet_scan, "scan_alarms", interrupted)
+    conn = MagicMock()
+    conn.list_targets.return_value = ["lab-vc"]
+
+    with pytest.raises(KeyboardInterrupt):
+        quiet_scan._run_scan(_config(), conn)
+
+    found = rows("daemon_scan")
+    assert len(found) == 1 and found[0]["status"] == "interrupted", rows()
+
+
+def test_an_interrupted_webhook_send_is_recorded_as_interrupted(quiet_scan, monkeypatch):
+    class _InterruptedWebhook:
+        def __init__(self, url=None, timeout=None):
+            pass
+
+        def send(self, issues):
+            raise KeyboardInterrupt()
+
+    monkeypatch.setattr(quiet_scan, "WebhookNotifier", _InterruptedWebhook)
+    conn = MagicMock()
+    conn.list_targets.return_value = ["lab-vc"]
+    conn.connect.side_effect = ConnectionError("lab-vc unreachable")
+
+    with pytest.raises(KeyboardInterrupt):
+        quiet_scan._run_scan(_config(webhook_url="https://hooks.example.invalid/x"), conn)
+
+    assert [r["status"] for r in rows("webhook_send")] == ["interrupted"], rows()
 
 
 # ── daemon start ─────────────────────────────────────────────────────────────

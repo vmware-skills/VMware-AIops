@@ -14,9 +14,14 @@ CLI. Its scan cycles against vCenter and its webhook sends left no row either, a
   passes in the result.
 * **Webhook.** One `webhook_send` row per send, `error` when it was not delivered. The URL is not recorded — it can
   carry a token.
-* `daemon start` is `@audited` (`daemon_start`).
+* **No row flood.** The TTL check runs every minute, so a refused or failing entry records its outcome once and
+  again only when it changes (a different status, refusing rule or error class); every successful delete is
+  recorded. Retries still happen every minute. Without this, an entry refused by a deny rule wrote 1,440 rows a day.
+* **Interrupts are `interrupted`.** Ctrl+C during a scan or a webhook send (the first scan runs before the signal
+  handlers are installed) records `interrupted` instead of `ok`.
+* `daemon start` is `@audited` (`daemon_start`). Its row is written when the daemon stops.
 
-Tests: `tests/eval/regression/test_daemon_calls_are_audited.py` (8 red before; suite 590 passed after). Works with
+Tests: `tests/eval/regression/test_daemon_calls_are_audited.py` (12 tests, each red before its fix; suite 594 passed). Works with
 `vmware-policy` 1.15.0: the daemon passes each status explicitly.
 
 ## v1.9.3 — CLI reads are audited

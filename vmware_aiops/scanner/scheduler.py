@@ -137,6 +137,36 @@ def _audit(
     )
 
 
+#: The last TTL outcome recorded per VM, for the life of the daemon. The TTL
+#: check runs every minute, so a refused or failing entry would otherwise write
+#: the same row 1,440 times a day (review, 2026-09-15; HLD §8.1: volume is part of
+#: the contract). Replaced, never mutated in place.
+_last_ttl_outcome: dict[str, str] = {}
+
+
+def _audit_ttl(
+    vm_name: str, params: dict, status: str, result: object, started: float,
+    risk_level: str = "critical",
+) -> None:
+    """Record a TTL delete attempt when its outcome changes; every success is recorded.
+
+    The outcome is the status plus the refusing rule or the error's class, so a
+    different reason for the same status is recorded again.
+    """
+    global _last_ttl_outcome
+    detail = ""
+    if isinstance(result, dict):
+        detail = str(result.get("rule") or result.get("error") or "")
+    signature = f"{status}:{detail.split(':', 1)[0][:80]}"
+    if status != "ok" and _last_ttl_outcome.get(vm_name) == signature:
+        return
+    if status == "ok":
+        _last_ttl_outcome = {k: v for k, v in _last_ttl_outcome.items() if k != vm_name}
+    else:
+        _last_ttl_outcome = {**_last_ttl_outcome, vm_name: signature}
+    _audit("vm_delete", params, status, result, started, risk_level)
+
+
 def _send_webhook(webhook: WebhookNotifier, paged: list[dict]) -> None:
     """Send the paged issues and record the send.
 
@@ -153,6 +183,10 @@ def _send_webhook(webhook: WebhookNotifier, paged: list[dict]) -> None:
             }
     except Exception as exc:
         status, result = "error", {"error": sanitize(f"{type(exc).__name__}: {exc}", 500)}
+        raise
+    except BaseException as exc:
+        # Ctrl+C / shutdown mid-send: not delivered, and not a plain failure.
+        status, result = "interrupted", {"error": f"send interrupted ({type(exc).__name__})"}
         raise
     finally:
         _audit("webhook_send", params, status, result, started)
@@ -219,12 +253,18 @@ def _run_scan(
     except Exception as exc:
         status, outcome = "error", {"error": sanitize(f"{type(exc).__name__}: {exc}", 500)}
         raise
+    except BaseException as exc:
+        # Ctrl+C during the first scan (before signal handlers are installed) or a
+        # shutdown mid-cycle used to leave an `ok` row (review, 2026-09-15).
+        status, outcome = "interrupted", {"error": f"scan interrupted ({type(exc).__name__})"}
+        raise
     finally:
         _audit("daemon_scan", {"targets": targets}, status, outcome, started)
 
 
 def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
     """Check for expired VM TTLs and delete them."""
+    global _last_ttl_outcome
     expired = get_expired_entries()
     if not expired:
         return
@@ -239,14 +279,14 @@ def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
         try:
             guard(_SKILL, "vm_delete", params, risk_level="critical", target=target or "")
         except PolicyDenied as exc:
-            _audit("vm_delete", params, "denied",
+            _audit_ttl(vm_name, params, "denied",
                    {"error": exc.result.reason, "rule": exc.result.rule}, started, "critical")
             logger.warning("TTL deletion of VM '%s' refused by policy (%s); keeping entry",
                            vm_name, exc.result.reason)
             continue
         except Exception as exc:
             # An unreadable rule set must not turn into an unchecked delete.
-            _audit("vm_delete", params, "error",
+            _audit_ttl(vm_name, params, "error",
                    {"error": sanitize(f"policy check failed: {exc}", 500)}, started, "critical")
             logger.warning("TTL deletion of VM '%s' skipped: policy check failed: %s", vm_name, exc)
             continue
@@ -258,13 +298,13 @@ def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
             # VM already gone — entry is stale, safe to drop. The delete itself
             # did not happen, so the row says error with why.
             reason = f"not deleted, already gone; stale TTL entry removed: {exc}"
-            _audit("vm_delete", params, "error",
+            _audit_ttl(vm_name, params, "error",
                    {"error": sanitize(reason, 500)}, started, "critical")
             logger.info("TTL VM '%s' no longer exists; removing entry", vm_name)
         except Exception as e:
             # Transient failure (connection, task error): keep the entry so
             # the next cycle retries instead of silently orphaning the VM.
-            _audit("vm_delete", params, "error",
+            _audit_ttl(vm_name, params, "error",
                    {"error": sanitize(f"{type(e).__name__}: {e}", 500)}, started, "critical")
             logger.warning(
                 "TTL deletion failed for VM '%s'; keeping entry for retry: %s",
@@ -272,9 +312,10 @@ def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
             )
             continue
         else:
-            _audit("vm_delete", params, "ok",
+            _audit_ttl(vm_name, params, "ok",
                    {"result": sanitize(str(result), 500)}, started, "critical")
         remove_entry(vm_name)
+        _last_ttl_outcome = {k: v for k, v in _last_ttl_outcome.items() if k != vm_name}
 
 
 def start_scheduler(config_path: Path | None = None) -> None:
