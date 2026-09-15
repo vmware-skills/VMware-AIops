@@ -16,7 +16,7 @@ metadata: {"openclaw":{"requires":{"anyBins":["vmware-aiops","uvx"]},"optional":
 compatibility: >
   vmware-policy auto-installed as Python dependency (provides @vmware_tool decorator and audit logging). All write operations audited to ~/.vmware/audit.db.
   Credentials: Each vCenter/ESXi target requires a per-target password env var in ~/.vmware-aiops/.env following the pattern VMWARE_<TARGET_NAME_UPPER>_PASSWORD. Passwords are never logged or echoed.
-  Destructive operations: All write tools require explicit parameters and pass through the @vmware_tool decorator (policy check + audit + sanitize). MCP write tools act on the first call: 36 of 43 have no confirmation or dry-run, and the 7 host-network/DRS tools default to a no-write preview that a single confirm=True call skips. The enforcement boundary is the RBAC of the vCenter/ESXi account the server connects with, so run it under a dedicated least-privilege service account (a read-only role makes it read-only). Optional deny rules in ~/.vmware/rules.yaml are checked before every MCP call and every guarded CLI write; the shipped baseline denies nothing. CLI destructive commands additionally require double confirmation and most CLI writes support --dry-run; neither applies to MCP calls.
+  Destructive operations: All write tools require explicit parameters and pass through the @vmware_tool decorator (policy check + audit + sanitize). MCP write tools act on the first call: 36 of 43 have no confirmation or dry-run, and the 7 host-network/DRS tools default to a no-write preview that a single confirm=True call skips. The enforcement boundary is the RBAC of the vCenter/ESXi account the server connects with, so run it under a dedicated least-privilege service account (a read-only role makes it read-only). Optional deny rules in ~/.vmware/rules.yaml are checked before every MCP call and remote CLI command; the shipped baseline denies nothing. CLI destructive commands additionally require double confirmation and most CLI writes support --dry-run; neither applies to MCP calls.
   Guest operations: vm_name and command are required; no implicit or background execution. The command is unbounded and runs with the guest credentials supplied — the username is required on MCP and CLI alike (no root default) and over MCP the password is a tool argument the agent sees (redacted from the audit row). The guest account is a second authorization boundary that a read-only vCenter role does not limit; pass a least-privilege guest account. vm_guest_upload reads any local file the server process can read.
   Webhooks: Disabled by default. When enabled, the daemon posts to user-configured URLs only: issue counts plus every critical issue and every alarm/event warning (host-log warnings and info rows are not sent), each with its entity name and the sanitized alarm, event, or ESXi log text, or a connection error — which can include host names, IPs, and user names. No credentials from the skill's config are sent. Reading host logs needs the Global.Diagnostics privilege; an unreadable log is recorded, not skipped.
   TLS verification is on by default (verify_ssl: true); set verify_ssl: false only for self-signed certs in isolated lab environments.
@@ -55,14 +55,14 @@ Read before connecting an agent. Per-tool inventory: `references/capabilities.md
 - **MCP write tools act on the first call, by design (HLD D-2).** 36 of 43 have no confirmation or dry-run; 7 host-network/DRS tools default to a `confirm=False` preview that one `confirm=True` call skips. "Confirm with the user" steps here instruct the agent; the server does not enforce them.
 - **The enforcement boundary is vCenter/ESXi RBAC**: an agent can do whatever the configured account can. Use a dedicated, least-privilege service account scoped to what the agent may change (a read-only role makes the skill read-only). Store its password in `~/.vmware-aiops/.env` (0600) or a secret manager (`VMWARE_<TARGET>_PASSWORD`).
 - **CLI only**: destructive commands require double confirmation; most CLI writes take `--dry-run`. Neither applies to MCP.
-- **Policy**: deny rules and a maintenance window in `~/.vmware/rules.yaml` are checked before every MCP call and CLI write (e.g. deny writes to `environment: production` targets). The shipped baseline denies nothing. An in-process guardrail, not a substitute for RBAC.
+- **Policy**: deny rules and a maintenance window in `~/.vmware/rules.yaml` are checked before every MCP and remote CLI call (e.g. deny writes to `environment: production` targets). The shipped baseline denies nothing. An in-process guardrail, not a substitute for RBAC.
 - **Audit**: every MCP call is recorded in `~/.vmware/audit.db`, credentials redacted (`vmware-audit log --last 20`). Best-effort: a failed audit write warns, never blocks.
 - **Guest ops** run any command or file write the guest account allows — a read-only vCenter role does not limit this. `username` is required (no default account) and over MCP the password is a tool argument the agent sees; pass a minimal guest account. `vm_guest_upload` reads any local file the server can read.
 
 ## Quick Install
 
 ```bash
-uv tool install vmware-aiops==1.9.2
+uv tool install vmware-aiops==1.9.3
 vmware-aiops doctor
 vmware-aiops hub status   # see which family members are installed
 ```
@@ -298,7 +298,7 @@ Run `vmware-aiops plan list` to see failed plan status. Ask user if they want to
 ## Setup
 
 ```bash
-uv tool install vmware-aiops==1.9.2
+uv tool install vmware-aiops==1.9.3
 mkdir -p ~/.vmware-aiops
 vmware-aiops init  # generates config.yaml and .env templates
 chmod 600 ~/.vmware-aiops/.env

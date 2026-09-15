@@ -10,6 +10,7 @@ import typer
 from rich.table import Table
 
 from vmware_aiops.cli._common import cli_errors, console
+from vmware_policy import cli_local
 
 mcp_config_app = typer.Typer(help="Generate MCP server config for local AI agents.")
 
@@ -39,6 +40,7 @@ _AGENT_INSTALL_PATHS: dict[str, Path] = {
 
 @mcp_config_app.command("generate")
 @cli_errors
+@cli_local("writes or lists local MCP client config files")
 def mcp_config_generate(
     agent: Annotated[
         str,
@@ -101,6 +103,7 @@ def mcp_config_generate(
 
 @mcp_config_app.command("list")
 @cli_errors
+@cli_local("writes or lists local MCP client config files")
 def mcp_config_list() -> None:
     """List all supported agents."""
     table = Table(title="Supported Agents")
@@ -113,6 +116,7 @@ def mcp_config_list() -> None:
 
 @mcp_config_app.command("install")
 @cli_errors
+@cli_local("writes or lists local MCP client config files")
 def mcp_config_install(
     agent: Annotated[
         str,

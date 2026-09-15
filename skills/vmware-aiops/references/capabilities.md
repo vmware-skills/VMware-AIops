@@ -43,7 +43,7 @@ blocking the call. Nothing in this skill will stop `vm_delete` deleting a VM the
 account is allowed to delete.
 
 The one skill-side control that can refuse a call is optional: `deny` rules and a maintenance window in
-`~/.vmware/rules.yaml` (vmware-policy) are evaluated before every MCP call and every guarded CLI write, and
+`~/.vmware/rules.yaml` (vmware-policy) are evaluated before every MCP call and every CLI command that reaches vCenter, and
 can refuse operations — for example, writes to targets whose `config.yaml` entry
 declares `environment: production`. The shipped baseline denies nothing, and an
 unreadable rules file fails closed. It runs in the same process as the tools
@@ -297,7 +297,7 @@ MCP-only (no CLI subcommand). Seven tools for distributed-switch portgroup and h
 | Plan → Confirm → Execute → Log | CLI workflow: show current state, confirm changes, execute, audit log |
 | Double Confirmation (**CLI only**) | CLI destructive and deploy commands (`vm` power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate, set-ttl, clean-slate, guest-exec, guest-upload; `deploy` ova, template, linked-clone, batch, batch-clone, mark-template; `cluster` delete, add-host, remove-host, configure, drs-rule-set/create/delete; `alarm reset`) require 2 sequential prompts and take no bypass flag. **The MCP tools have no confirmation step at all** — see [What gates a write](#what-gates-a-write) |
 | Rejection Logging | Declined CLI confirmations are recorded in the audit trail for security review |
-| Audit Trail | Every MCP call and every guarded CLI write logged to `~/.vmware/audit.db` (SQLite WAL, via vmware-policy; parameters, result, status, caller — credentials redacted). Most CLI writes also append to `~/.vmware-aiops/audit.log`, with before/after state where the command captures it (power, delete, reconfigure, snapshot-revert, clone, migrate, clean-slate, cluster delete/configure, DRS rule delete) |
+| Audit Trail | Every MCP call and every CLI command that reaches vCenter logged to `~/.vmware/audit.db` (SQLite WAL, via vmware-policy; parameters, result, status, caller — credentials redacted). Most CLI writes also append to `~/.vmware-aiops/audit.log`, with before/after state where the command captures it (power, delete, reconfigure, snapshot-revert, clone, migrate, clean-slate, cluster delete/configure, DRS rule delete) |
 | Input Validation | VM name length/format, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated before execution |
 | Password Protection | `.env` file loading, never in command line or shell history; file permission check at startup |
 | SSL Self-signed Support | `verify_ssl: false` — **only** for ESXi hosts with self-signed certificates in isolated lab/home environments. Production environments should use CA-signed certificates with full TLS verification enabled. |

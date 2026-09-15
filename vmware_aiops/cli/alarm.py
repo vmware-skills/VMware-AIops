@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 from rich.table import Table
-from vmware_policy import guarded
+from vmware_policy import audited, guarded
 
 from vmware_aiops.cli._common import (
     ConfigOption,
@@ -26,6 +26,7 @@ alarm_app = typer.Typer(help="vCenter alarm management: list, acknowledge, reset
 
 @alarm_app.command("list")
 @cli_errors
+@audited("list_vcenter_alarms")
 def alarm_list(
     target: TargetOption = None,
     config: ConfigOption = None,

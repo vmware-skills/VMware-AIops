@@ -6,12 +6,14 @@ import typer
 from rich.table import Table
 
 from vmware_aiops.cli._common import cli_errors, console
+from vmware_policy import cli_local
 
 hub_app = typer.Typer(help="VMware skill family management.")
 
 
 @hub_app.command("status")
 @cli_errors
+@cli_local("lists which family skills are installed on this machine")
 def hub_status() -> None:
     """Show installed VMware skill family members and available modules."""
     import shutil

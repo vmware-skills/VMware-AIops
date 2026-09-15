@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 from rich.table import Table
-from vmware_policy import guarded
+from vmware_policy import audited, guarded
 
 from vmware_aiops.cli._common import (
     ConfigOption,
@@ -302,6 +302,7 @@ def vm_snapshot_create(
 
 @vm_app.command("snapshot-list")
 @cli_errors
+@audited("vm_list_snapshots")
 def vm_snapshot_list(
     vm_name: str,
     target: TargetOption = None,
@@ -417,6 +418,7 @@ def vm_snapshot_delete(
 
 @vm_app.command("task-status")
 @cli_errors
+@audited("vm_task_status")
 def vm_task_status(
     task_id: Annotated[str, typer.Argument(help="Task id from a --no-wait operation")],
     target: TargetOption = None,
@@ -601,6 +603,7 @@ def vm_cancel_ttl(vm_name: str) -> None:
 
 @vm_app.command("list-ttl")
 @cli_errors
+@audited("vm_list_ttl")
 def vm_list_ttl() -> None:
     """List all VMs with TTLs registered."""
     from vmware_aiops.ops.ttl import list_ttl

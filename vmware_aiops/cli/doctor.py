@@ -7,9 +7,11 @@ from typing import Annotated
 import typer
 
 from vmware_aiops.cli._common import cli_errors
+from vmware_policy import audited
 
 
 @cli_errors
+@audited("doctor")
 def doctor_cmd(
     skip_auth: Annotated[
         bool,

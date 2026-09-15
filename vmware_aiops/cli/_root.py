@@ -18,6 +18,7 @@ from vmware_aiops.cli.plan import plan_app
 from vmware_aiops.cli.scan import daemon_app, scan_app
 from vmware_aiops.cli.summary import cluster_summary_cmd
 from vmware_aiops.cli.vm import vm_app
+from vmware_policy import audited, cli_local
 
 app = typer.Typer(
     name="vmware-aiops",
@@ -45,6 +46,7 @@ app.command("doctor")(doctor_cmd)
 
 
 @app.command("init")
+@audited("init")
 def init_cmd(
     force: Annotated[
         bool, typer.Option("--force", help="Overwrite an existing config without asking")
@@ -61,6 +63,7 @@ def init_cmd(
 
 @app.command("mcp")
 @cli_errors
+@cli_local("starts the MCP server; its tools audit themselves")
 def mcp_cmd() -> None:
     """Start the MCP server (stdio transport).
 

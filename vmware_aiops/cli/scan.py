@@ -14,6 +14,7 @@ from vmware_aiops.cli._common import (
     console,
 )
 from vmware_aiops.config import CONFIG_DIR
+from vmware_policy import audited, cli_local
 
 scan_app = typer.Typer(help="Log and alarm scanning.")
 daemon_app = typer.Typer(help="Scanner daemon management.")
@@ -24,6 +25,7 @@ daemon_app = typer.Typer(help="Scanner daemon management.")
 
 @scan_app.command("now")
 @cli_errors
+@audited("scan_now")
 def scan_now(target: TargetOption = None, config: ConfigOption = None) -> None:
     """Run a one-time scan of alarms and events."""
     from vmware_aiops.scanner.alarm_scanner import scan_alarms
@@ -52,6 +54,7 @@ def scan_now(target: TargetOption = None, config: ConfigOption = None) -> None:
 
 @daemon_app.command("start")
 @cli_errors
+@cli_local("controls the local scanner daemon process")
 def daemon_start(config: ConfigOption = None) -> None:
     """Start the scanner daemon."""
     from vmware_aiops.scanner.scheduler import start_scheduler
@@ -62,6 +65,7 @@ def daemon_start(config: ConfigOption = None) -> None:
 
 @daemon_app.command("status")
 @cli_errors
+@cli_local("controls the local scanner daemon process")
 def daemon_status() -> None:
     """Check scanner daemon status."""
     pid_file = CONFIG_DIR / "daemon.pid"
@@ -74,6 +78,7 @@ def daemon_status() -> None:
 
 @daemon_app.command("stop")
 @cli_errors
+@cli_local("controls the local scanner daemon process")
 def daemon_stop() -> None:
     """Stop the scanner daemon."""
     import os as _os

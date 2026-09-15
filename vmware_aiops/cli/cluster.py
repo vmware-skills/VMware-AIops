@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from vmware_policy import guarded
+from vmware_policy import audited, guarded
 
 from vmware_aiops.cli._common import (
     ConfigOption,
@@ -25,6 +25,7 @@ cluster_app = typer.Typer(help="Cluster management: create, delete, configure HA
 
 @cluster_app.command("info")
 @cli_errors
+@audited("cluster_info")
 def cluster_info_cmd(
     name: str,
     target: TargetOption = None,
@@ -250,6 +251,7 @@ def _print_rule(rule: dict) -> None:
 
 @cluster_app.command("drs-rules")
 @cli_errors
+@audited("list_drs_rules")
 def cluster_drs_rules_cmd(
     name: str,
     target: TargetOption = None,

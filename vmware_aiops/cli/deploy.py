@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 from rich.table import Table
-from vmware_policy import guarded
+from vmware_policy import audited, guarded
 
 from vmware_aiops.cli._common import (
     ConfigOption,
@@ -30,6 +30,7 @@ datastore_app = typer.Typer(help="Datastore browsing and image discovery.")
 
 @datastore_app.command("browse")
 @cli_errors
+@audited("browse_datastore")
 def ds_browse(
     name: Annotated[str, typer.Argument(help="Datastore name")],
     path: Annotated[str, typer.Option(help="Subdirectory path")] = "",
@@ -58,6 +59,7 @@ def ds_browse(
 
 @datastore_app.command("scan-images")
 @cli_errors
+@audited("scan_datastore_images")
 def ds_scan_images(
     target: TargetOption = None,
     config: ConfigOption = None,
