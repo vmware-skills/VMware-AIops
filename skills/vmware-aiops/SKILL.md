@@ -62,7 +62,7 @@ Read before connecting an agent. Per-tool inventory: `references/capabilities.md
 ## Quick Install
 
 ```bash
-uv tool install vmware-aiops==1.9.4
+uv tool install vmware-aiops==1.9.5
 vmware-aiops doctor
 vmware-aiops hub status   # see which family members are installed
 ```
@@ -298,7 +298,7 @@ Run `vmware-aiops plan list` to see failed plan status. Ask user if they want to
 ## Setup
 
 ```bash
-uv tool install vmware-aiops==1.9.4
+uv tool install vmware-aiops==1.9.5
 mkdir -p ~/.vmware-aiops
 vmware-aiops init  # generates config.yaml and .env templates
 chmod 600 ~/.vmware-aiops/.env

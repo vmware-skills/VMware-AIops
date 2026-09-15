@@ -79,9 +79,46 @@ from vmware_aiops.policy_environment import _cached_config, _environment_for  # 
 # ---------------------------------------------------------------------------
 
 
+def _exit_on_stop_signals() -> None:
+    """Turn the signals a client stops this server with into a normal exit.
+
+    Claude Code stops a stdio MCP server with SIGINT and then SIGTERM about a
+    millisecond later (measured 2026-09-15). Python's default SIGTERM ends the
+    process on the spot, before ``atexit`` runs, so the ``Disconnect`` the
+    connection layer registered never happened and every conversation left its
+    vCenter/ESXi session open. ``SystemExit`` is not enough: raised from the
+    handler it unwinds the event loop, but interpreter shutdown then waits for
+    anyio's worker thread blocked
+    reading stdin, which the client keeps open, so ``atexit`` still never ran
+    (independent review, 2026-09-15; a test driving the real stdio loop hung in
+    all five skills). So the first stop signal ignores the rest, runs the
+    ``atexit`` callbacks here, and leaves with ``os._exit`` — nothing waits on
+    that thread, and a second signal cannot cut a logout short.
+    """
+    import atexit
+    import os
+    import signal
+
+    stop_signals = [
+        getattr(signal, name) for name in ("SIGINT", "SIGTERM", "SIGHUP") if hasattr(signal, name)
+    ]
+
+    def _stop(signum: int, _frame: object) -> None:
+        for sig in stop_signals:
+            signal.signal(sig, signal.SIG_IGN)
+        try:
+            atexit._run_exitfuncs()
+        finally:
+            os._exit(128 + signum)
+
+    for sig in stop_signals:
+        signal.signal(sig, _stop)
+
+
 def main() -> None:
     """Run the MCP server over stdio."""
     logging.basicConfig(level=logging.INFO)
+    _exit_on_stop_signals()
     mcp.run(transport="stdio")
 
 # The docstrings above are the schema. `describe_tool_parameters` copies each
