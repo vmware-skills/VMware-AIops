@@ -54,7 +54,7 @@ def scan_now(target: TargetOption = None, config: ConfigOption = None) -> None:
 
 @daemon_app.command("start")
 @cli_errors
-@cli_local("controls the local scanner daemon process")
+@audited("daemon_start")
 def daemon_start(config: ConfigOption = None) -> None:
     """Start the scanner daemon."""
     from vmware_aiops.scanner.scheduler import start_scheduler

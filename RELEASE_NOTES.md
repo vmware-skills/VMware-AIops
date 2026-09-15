@@ -1,3 +1,24 @@
+## Unreleased — the scanner daemon's calls are audited, the TTL delete first
+
+A family survey on 2026-09-15 found that the scanner daemon deleted VMs whose TTL had expired with no row in
+either audit trail, on success or failure, and without the `guard()` that stops the same deletion over MCP or the
+CLI. Its scan cycles against vCenter and its webhook sends left no row either, and `daemon start` was marked
+`@cli_local`, so the family's CLI gate could not see it.
+
+* **TTL delete.** Before deleting, the daemon passes `guard()` as `vm_delete` (risk `critical`), so a deny rule on
+  `vm_delete` now stops an expiry too; the entry is kept for when the rule is lifted. Each attempt writes one
+  `vm_delete` row with `trigger: ttl_expiry`: `ok` when deleted, `denied` when refused, `error` when the delete
+  failed (entry kept for retry) or the VM was already gone (stale entry dropped). A policy check that fails is an
+  `error` and skips the delete.
+* **Scan cycle.** One `daemon_scan` row per cycle, `error` when a connection or a pass failed, with the failed
+  passes in the result.
+* **Webhook.** One `webhook_send` row per send, `error` when it was not delivered. The URL is not recorded — it can
+  carry a token.
+* `daemon start` is `@audited` (`daemon_start`).
+
+Tests: `tests/eval/regression/test_daemon_calls_are_audited.py` (8 red before; suite 590 passed after). Works with
+`vmware-policy` 1.15.0: the daemon passes each status explicitly.
+
 ## v1.9.3 — CLI reads are audited
 
 No CLI read wrote `~/.vmware/audit.db` — only MCP calls and CLI writes (`@guarded`) did. A live

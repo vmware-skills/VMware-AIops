@@ -6,11 +6,15 @@ import logging
 import os
 import signal
 import sys
+import time
 from collections.abc import Mapping
 from pathlib import Path
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from vmware_policy.guard import audit_call, guard
+from vmware_policy.policy import PolicyDenied
+from vmware_policy.sanitize import sanitize
 
 from vmware_aiops.config import AppConfig, load_config
 from vmware_aiops.connection import ConnectionManager
@@ -24,6 +28,8 @@ from vmware_aiops.scanner.log_scanner import scan_host_logs_since, scan_logs
 logger = logging.getLogger("vmware-aiops.scheduler")
 
 PID_FILE = Path.home() / ".vmware-aiops" / "daemon.pid"
+
+_SKILL = "aiops"
 
 _UNREADABLE_SOURCE = "host_log:unavailable"
 _SKIPPED_SOURCE = "host_log:skipped"
@@ -110,6 +116,48 @@ def _log_summary(all_issues: list[dict], paged: list[dict], failed: list[str]) -
         logger.info("Scan complete: %s", summary)
 
 
+def _audit(
+    tool: str, params: dict, status: str, result: object, started: float, risk_level: str = "low"
+) -> None:
+    """Write one audit row for a call the daemon made (HLD §8.1 / I-8).
+
+    The daemon is neither an MCP tool nor a CLI command, so no decorator writes
+    its rows. Until 2026-09-15 nothing did: a TTL delete, a scan cycle against
+    vCenter and a webhook send left no row in either audit trail. The status is
+    passed explicitly, so this needs nothing newer than vmware-policy 1.15.0.
+    """
+    audit_call(
+        _SKILL,
+        tool,
+        params=params,
+        result=result,
+        status=status,
+        duration_ms=int((time.time() - started) * 1000),
+        risk_level=risk_level,
+    )
+
+
+def _send_webhook(webhook: WebhookNotifier, paged: list[dict]) -> None:
+    """Send the paged issues and record the send.
+
+    The URL is never recorded: it can carry a token.
+    """
+    started = time.time()
+    params = {"issues": len(paged)}
+    status, result = "ok", {"issues": len(paged)}
+    try:
+        if not webhook.send(paged):
+            status = "error"
+            result = {
+                "error": "webhook send failed; the daemon log has the HTTP status or exception"
+            }
+    except Exception as exc:
+        status, result = "error", {"error": sanitize(f"{type(exc).__name__}: {exc}", 500)}
+        raise
+    finally:
+        _audit("webhook_send", params, status, result, started)
+
+
 def _run_scan(
     config: AppConfig,
     conn_mgr: ConnectionManager,
@@ -122,42 +170,57 @@ def _run_scan(
     every log's last lines are read.
     """
     cursors = cursors if cursors is not None else HostLogCursors()
-    scan_logger = ScanLogger(config.notify.log_file)
-    webhook = WebhookNotifier(
-        url=config.notify.webhook_url,
-        timeout=config.notify.webhook_timeout,
-    )
+    started = time.time()
+    targets: list[str] = []
+    status, outcome = "ok", {}
+    try:
+        scan_logger = ScanLogger(config.notify.log_file)
+        webhook = WebhookNotifier(
+            url=config.notify.webhook_url,
+            timeout=config.notify.webhook_timeout,
+        )
 
-    all_issues: list[dict] = []
-    failed: list[str] = []
+        all_issues: list[dict] = []
+        failed: list[str] = []
+        targets = list(conn_mgr.list_targets())
 
-    for target_name in conn_mgr.list_targets():
-        try:
-            si = conn_mgr.connect(target_name)
-        except Exception as e:
-            issue = {
-                "severity": "critical",
-                "source": "connection",
-                "message": f"Failed to connect to {target_name}: {e}",
-                "time": "",
-                "entity": target_name,
-            }
-            all_issues.append(issue)
-            failed.append(f"{target_name}: connect")
-            continue
-        issues, target_failed = _scan_target(si, target_name, config, cursors)
-        all_issues.extend(issues)
-        failed.extend(target_failed)
+        for target_name in targets:
+            try:
+                si = conn_mgr.connect(target_name)
+            except Exception as e:
+                issue = {
+                    "severity": "critical",
+                    "source": "connection",
+                    "message": f"Failed to connect to {target_name}: {e}",
+                    "time": "",
+                    "entity": target_name,
+                }
+                all_issues.append(issue)
+                failed.append(f"{target_name}: connect")
+                continue
+            issues, target_failed = _scan_target(si, target_name, config, cursors)
+            all_issues.extend(issues)
+            failed.extend(target_failed)
 
-    # Log all issues
-    for issue in all_issues:
-        scan_logger.log_issue(issue)
+        # Log all issues
+        for issue in all_issues:
+            scan_logger.log_issue(issue)
 
-    paged = [i for i in all_issues if _pages(i)]
-    if paged and config.notify.webhook_url:
-        webhook.send(paged)
+        paged = [i for i in all_issues if _pages(i)]
+        if paged and config.notify.webhook_url:
+            _send_webhook(webhook, paged)
 
-    _log_summary(all_issues, paged, failed)
+        _log_summary(all_issues, paged, failed)
+        outcome = {"findings": len(all_issues), "paged": len(paged), "failed": failed}
+        if failed:
+            # A cycle with a pass that did not run is not a clean cycle.
+            status = "error"
+            outcome["error"] = sanitize("incomplete scan: " + "; ".join(failed), 500)
+    except Exception as exc:
+        status, outcome = "error", {"error": sanitize(f"{type(exc).__name__}: {exc}", 500)}
+        raise
+    finally:
+        _audit("daemon_scan", {"targets": targets}, status, outcome, started)
 
 
 def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
@@ -169,21 +232,48 @@ def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
     for entry in expired:
         target = entry.target
         vm_name = entry.vm_name
+        params = {"vm_name": vm_name, "target": target, "trigger": "ttl_expiry"}
+        started = time.time()
+        # The same authorization as the vm_delete MCP tool and CLI command
+        # (HLD I-3): a deny rule on vm_delete must stop an expiry too.
+        try:
+            guard(_SKILL, "vm_delete", params, risk_level="critical", target=target or "")
+        except PolicyDenied as exc:
+            _audit("vm_delete", params, "denied",
+                   {"error": exc.result.reason, "rule": exc.result.rule}, started, "critical")
+            logger.warning("TTL deletion of VM '%s' refused by policy (%s); keeping entry",
+                           vm_name, exc.result.reason)
+            continue
+        except Exception as exc:
+            # An unreadable rule set must not turn into an unchecked delete.
+            _audit("vm_delete", params, "error",
+                   {"error": sanitize(f"policy check failed: {exc}", 500)}, started, "critical")
+            logger.warning("TTL deletion of VM '%s' skipped: policy check failed: %s", vm_name, exc)
+            continue
         try:
             si = conn_mgr.connect(target)
             result = delete_vm(si, vm_name)
             logger.info("TTL expired: %s", result)
-        except VMNotFoundError:
-            # VM already gone — entry is stale, safe to drop.
+        except VMNotFoundError as exc:
+            # VM already gone — entry is stale, safe to drop. The delete itself
+            # did not happen, so the row says error with why.
+            reason = f"not deleted, already gone; stale TTL entry removed: {exc}"
+            _audit("vm_delete", params, "error",
+                   {"error": sanitize(reason, 500)}, started, "critical")
             logger.info("TTL VM '%s' no longer exists; removing entry", vm_name)
         except Exception as e:
             # Transient failure (connection, task error): keep the entry so
             # the next cycle retries instead of silently orphaning the VM.
+            _audit("vm_delete", params, "error",
+                   {"error": sanitize(f"{type(e).__name__}: {e}", 500)}, started, "critical")
             logger.warning(
                 "TTL deletion failed for VM '%s'; keeping entry for retry: %s",
                 vm_name, e,
             )
             continue
+        else:
+            _audit("vm_delete", params, "ok",
+                   {"result": sanitize(str(result), 500)}, started, "critical")
         remove_entry(vm_name)
 
 
