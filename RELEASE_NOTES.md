@@ -1,3 +1,50 @@
+## v1.9.7 — structured results say which target answered, and the server says which targets exist
+
+Found in a scenario test on 2026-09-16: asked for a VM's investigation bundle *and* to say where the data came
+from, the answer named `home-vcenter` — but the tool result carried no target at all. The model had read the name
+off the argument it chose itself. A call that omits `target` reaches whichever target the config lists first, and
+its result was indistinguishable from one read anywhere else; vmware-monitor fixed the same thing in 1.15.0.
+
+* Results from a tool that takes `target` now carry `target: {name, type}` — added by the shared tool
+  registration rather than declared per tool, because a per-tool marker is one some tool always forgets. Dict
+  results carry it at the top level; `batch_*` results carry it on each row. Error payloads that are dicts carry
+  it too: which target was tried is most of the diagnosis.
+* **The 24 tools that answer in prose do not carry it**, and are not rewritten to: their return value is a
+  sentence for a person (`"Powered on VM 'web-01'."`), and prefixing a label would change the output contract of
+  every write in this skill. For those, the rule now lives in the server instructions below.
+* **The server instructions list the configured targets** (name, type, host, which is the default), tell the
+  agent to choose one from the question rather than by accident, to ask when the request is ambiguous and the
+  targets would answer differently, and to say in its answer which target replied. Half of vmware-monitor 1.15.0
+  was the payload and half was this; only the payload half shipped in the first draft of this release
+  (independent review, same day).
+* **`create_plan` / `apply_plan` already returned a top-level `target`** — the raw argument, `null` when the call
+  omitted it. That is now the resolved `{name, type}` like everywhere else, so the key holds one type across
+  sibling tools; the plan file on disk is unchanged.
+* **Tool schemas are unchanged.** The label is added to results, never to the call signature: a test pins every
+  registered tool's parameters against its own function signature, and the 60 tools' schemas, output schemas and
+  annotations were diffed against the previous release.
+* A result that already names its target is left alone, as are non-dict results and tools with no `target`
+  parameter. A config too broken to resolve a name costs the label, not the answer.
+
+## v1.9.6 — a stopped MCP server exits within five seconds, even if its logout hangs
+
+> Never published on its own — this fix ships in 1.9.7 (there is no `vmware-aiops==1.9.6` on PyPI).
+
+A correction to 1.9.5, from an independent review on 2026-09-15. 1.9.5 made the server log out when Claude Code
+stops it: the first stop signal ignored further stop signals and ran the `atexit` logout. The logout had no time
+limit. pyVmomi connects with `httpConnectionTimeout=None`, so a logout to a vCenter that stopped answering, or
+one waiting on the SOAP connection lock a tool call held when the signal arrived, kept the server running and
+deaf to every further stop signal until something sent SIGKILL. Before 1.9.5, SIGTERM at least ended it.
+
+* The logout now runs on a worker thread and gets 5 seconds. If it has not finished, the server writes one line
+  to stderr without blocking (a full pipe cannot hold the exit) and exits with 128 + signal anyway; vCenter or
+  ESXi ends that session when it idles out.
+* New test: the real server with stdin held open, an `atexit` callback that blocks for ten minutes, then SIGINT
+  and SIGTERM. The server must exit within 15 seconds and say it gave up on the logout. It failed on 1.9.5.
+* Lab, on this code: a conversation that called this server's `list_vcenter_alarms` and `vm_list_snapshots`
+  against vCenter 8.0.3 left no session behind; afterwards both session lists held only the counting call's own
+  session.
+
 ## v1.9.5 — stopping the MCP server logs out its vCenter session
 
 Measured in real Claude Code conversations against the lab vCenter 8.0.3 / ESXi 8.0.3 on 2026-09-15:

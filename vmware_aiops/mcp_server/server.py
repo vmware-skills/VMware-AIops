@@ -79,6 +79,11 @@ from vmware_aiops.policy_environment import _cached_config, _environment_for  # 
 # ---------------------------------------------------------------------------
 
 
+#: How long a stop signal waits for the session logout before exiting anyway.
+#: A logout to a vCenter that answers takes well under a second.
+_STOP_LOGOUT_SECONDS = 5.0
+
+
 def _exit_on_stop_signals() -> None:
     """Turn the signals a client stops this server with into a normal exit.
 
@@ -92,12 +97,17 @@ def _exit_on_stop_signals() -> None:
     reading stdin, which the client keeps open, so ``atexit`` still never ran
     (independent review, 2026-09-15; a test driving the real stdio loop hung in
     all five skills). So the first stop signal ignores the rest, runs the
-    ``atexit`` callbacks here, and leaves with ``os._exit`` — nothing waits on
-    that thread, and a second signal cannot cut a logout short.
+    ``atexit`` callbacks, and leaves with ``os._exit`` — nothing waits on that
+    thread. The callbacks run on a worker thread with a deadline: pyVmomi
+    connects with ``httpConnectionTimeout=None``, so a logout to a vCenter that
+    stopped answering, or one waiting on the SOAP stub lock a tool call held
+    when the signal landed, otherwise left a server that ignored every stop
+    signal and only SIGKILL ended (second independent review, 2026-09-15).
     """
     import atexit
     import os
     import signal
+    import threading
 
     stop_signals = [
         getattr(signal, name) for name in ("SIGINT", "SIGTERM", "SIGHUP") if hasattr(signal, name)
@@ -107,7 +117,26 @@ def _exit_on_stop_signals() -> None:
         for sig in stop_signals:
             signal.signal(sig, signal.SIG_IGN)
         try:
-            atexit._run_exitfuncs()
+            logout = threading.Thread(
+                target=atexit._run_exitfuncs, name="logout-on-stop", daemon=True
+            )
+            logout.start()
+            logout.join(_STOP_LOGOUT_SECONDS)
+            if logout.is_alive():
+                # Non-blocking, straight to fd 2: a client that keeps stderr open
+                # but stops reading it would otherwise park this write, and the
+                # exit, on a full pipe (independent review, 2026-09-15). A
+                # message that cannot be written is dropped — exiting matters more.
+                message = (
+                    f"Session logout did not finish within {_STOP_LOGOUT_SECONDS:.0f}s; "
+                    "exiting without it. vCenter or ESXi ends the session when it "
+                    "idles out.\n"
+                )
+                try:
+                    os.set_blocking(2, False)
+                    os.write(2, message.encode("utf-8", "replace"))
+                except OSError:
+                    pass
         finally:
             os._exit(128 + signum)
 

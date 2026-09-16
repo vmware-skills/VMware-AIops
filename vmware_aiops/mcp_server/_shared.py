@@ -12,6 +12,7 @@ tool signature — on Python 3.10 with older mcp/pydantic the union is eval'd to
 
 import contextvars
 import functools
+import inspect
 import logging
 import ssl
 from typing import Any, Callable, Optional
@@ -296,18 +297,166 @@ def tool_errors(shape: str = "str") -> Callable:
     return decorator
 
 
-mcp = _FrameErrorFastMCP(
-    "vmware-aiops",
-    instructions=(
-        "VMware vCenter/ESXi VM lifecycle and deployment operations. "
-        "Manage VM power state, deploy VMs (OVA/template/clone/batch), "
-        "browse datastores, manage clusters, execute guest commands, "
-        "and plan multi-step operations. "
-        "For read-only monitoring (inventory/alarms/events/VM info), "
-        "use vmware-monitor. For storage/iSCSI/vSAN, use vmware-storage. "
-        "For Tanzu Kubernetes, use vmware-vks."
-    ),
+_BASE_INSTRUCTIONS = (
+    "VMware vCenter/ESXi VM lifecycle and deployment operations. "
+    "Manage VM power state, deploy VMs (OVA/template/clone/batch), "
+    "browse datastores, manage clusters, execute guest commands, "
+    "and plan multi-step operations. "
+    "For read-only monitoring (inventory/alarms/events/VM info), "
+    "use vmware-monitor. For storage/iSCSI/vSAN, use vmware-storage. "
+    "For Tanzu Kubernetes, use vmware-vks."
 )
+
+#: The half of this that is not the payload. Results carry the target they came
+#: from, but 24 tools answer in prose and cannot, and nothing told the agent
+#: which targets exist — so a call that omitted ``target`` reached whichever one
+#: the config lists first and said nothing about it (scenario test, 2026-09-16).
+_TARGET_RULE = (
+    " Choosing a target: every tool that reaches vSphere takes `target`. Choose "
+    "it from what the user asked. A vCenter, the whole environment, clusters or "
+    "several hosts: a vcenter target. One ESXi host the user names: the vcenter "
+    "target that manages it, because vCenter holds that host's VMs, tasks and "
+    "alarms; use the host's own esxi target only when the user asks about that "
+    "host directly or no vCenter manages it. If the request does not say which, "
+    "and targets of different types could answer differently, ask the user "
+    "before acting — doubly so before a write. Structured results name the "
+    "`target` that answered; say it in your answer, and for the tools that reply "
+    "in prose say which target you sent the call to."
+)
+
+
+def _target_instructions() -> str:
+    """Server instructions that name the configured targets and how to choose one.
+
+    Never raises: a missing or broken config must not stop the server from
+    starting — the tools report that error themselves, with the remedy. The
+    first configured target is the default because this skill has no
+    ``default_target`` key; saying so beats implying a choice nobody made.
+    """
+    try:
+        targets = load_config().targets
+    except Exception:  # noqa: BLE001 — instructions must not gate startup
+        targets = ()
+    listed = "; ".join(
+        f"{t.name} ({t.type}, {t.host}{', default' if i == 0 else ''})"
+        for i, t in enumerate(targets)
+    )
+    configured = f" Configured targets: {listed}." if listed else ""
+    return f"{_BASE_INSTRUCTIONS}{configured}{_TARGET_RULE}"
+
+
+mcp = _FrameErrorFastMCP("vmware-aiops", instructions=_target_instructions())
+
+
+# `Optional[dict]`, not `dict | None`: this module is scanned whole by the
+# family's PEP 604 gate (踩坑 #33 — FastMCP/Pydantic eval'ing a union in a
+# reflected signature crashes on older stacks). ruff wants the modern form and
+# is overruled here by the gate, which is the stronger authority.
+def _resolved_target(signature: inspect.Signature, args: tuple, kwargs: dict) -> Optional[dict]:  # noqa: UP045
+    """``{name, type}`` for the target this call reached, or None if unresolvable.
+
+    Resolved the same way ``ConnectionManager.connect`` resolves it — the named
+    target, else the default (this skill has no ``default_target`` key, so that
+    is ``targets[0]``).
+    """
+    try:
+        name = signature.bind_partial(*args, **kwargs).arguments.get("target")
+        cfg = _ensure_conn_mgr()._config
+        resolved = cfg.get_target(name) if name else cfg.default_target
+    except Exception:  # noqa: BLE001 — naming the target must never break the answer
+        return None
+    return {"name": resolved.name, "type": resolved.type}
+
+
+def _names_a_target(value: Any) -> bool:
+    """True when a result's ``target`` already holds a resolved ``{name, type}``."""
+    return isinstance(value, dict) and "name" in value and "type" in value
+
+
+def _stamp_target(result: Any, stamp: dict) -> Any:
+    """Return ``result`` with the target named, for the shapes that can carry it.
+
+    A dict is stamped at the top level; a list of dicts row by row (the
+    ``batch_*`` tools). A string is returned untouched: 24 write tools answer
+    with a sentence for a person, and prefixing a label there would change the
+    output contract of every write in this skill — the server instructions carry
+    the rule for those instead.
+
+    An existing ``target`` that is already ``{name, type}`` wins: a tool that
+    knows better than the argument (it looked at the connection) keeps its
+    answer. A raw string or ``None`` under that key is REPLACED — ``create_plan``
+    and ``apply_plan`` echo the argument back there, which made one key hold two
+    types across sibling tools and reported ``target: null`` for a call that did
+    reach a target (independent review, 2026-09-16).
+    """
+    if isinstance(result, dict):
+        if _names_a_target(result.get("target")):
+            return result
+        if "target" in result:
+            return {**result, "target": stamp}
+        return {"target": stamp, **result}
+    if isinstance(result, list) and result and all(isinstance(row, dict) for row in result):
+        return [_stamp_target(row, stamp) for row in result]
+    return result
+
+
+def _with_target(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Name the target in what a target-taking tool returns.
+
+    vmware-monitor grew this in 1.15.0 for a failure this server has too: a
+    result that does not say where it came from cannot be told apart, and a call
+    that omits ``target`` reaches whichever target the config happens to list
+    first. In a scenario test on 2026-09-16 the answer named the right vCenter
+    only because the model had chosen it itself — the payload said nothing.
+
+    Tools without a ``target`` parameter (those that span every target, or reach
+    no target at all) are returned unchanged. Error payloads that are dicts are
+    stamped too: which target was tried is most of the diagnosis.
+    """
+    signature = inspect.signature(fn)
+    if "target" not in signature.parameters:
+        return fn
+
+    if inspect.iscoroutinefunction(fn):
+        # None registered today. A sync wrapper around one would return the
+        # coroutine unstamped and make FastMCP treat the tool as synchronous,
+        # which is a failure nobody would attribute to this decorator.
+        @functools.wraps(fn)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            result = await fn(*args, **kwargs)
+            stamp = _resolved_target(signature, args, kwargs)
+            return result if stamp is None else _stamp_target(result, stamp)
+
+        async_wrapper._names_target = True  # type: ignore[attr-defined]
+        return async_wrapper
+
+    @functools.wraps(fn)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        result = fn(*args, **kwargs)
+        stamp = _resolved_target(signature, args, kwargs)
+        return result if stamp is None else _stamp_target(result, stamp)
+
+    wrapper._names_target = True  # type: ignore[attr-defined]
+    return wrapper
+
+
+_register_tool = mcp.tool
+
+
+def _tool_naming_its_target(*args: Any, **kwargs: Any) -> Any:
+    """``mcp.tool`` that wraps every registered function with :func:`_with_target`.
+
+    Installed here rather than asked of each tool module: a per-tool opt-in is a
+    marker some tool always forgets (形态 #7), and this server registers 60 of
+    them across ten modules.
+    """
+    if args and callable(args[0]):
+        return _register_tool(**kwargs)(_with_target(args[0]))
+    decorator = _register_tool(*args, **kwargs)
+    return lambda fn: decorator(_with_target(fn))
+
+
+mcp.tool = _tool_naming_its_target  # type: ignore[method-assign]
 
 # FastMCP takes no version argument and leaves the lowlevel server's at
 # None, which makes `initialize` answer with the MCP SDK's version rather
