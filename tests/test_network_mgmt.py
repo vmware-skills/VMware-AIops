@@ -175,3 +175,10 @@ def test_list_unknown_dvs_scope_raises_with_available(env, monkeypatch):
     monkeypatch.setattr(network_mgmt, "_collect", _make_fake_collect([env.dvs]))
     with pytest.raises(NetworkError, match="not found"):
         list_dvs_portgroups(env.si, dvs_name="nope-vds")
+
+
+def test_preview_carries_blockers_and_unmeasured(env):
+    """Review L2: the portgroup preview says what stands in the way (nothing)."""
+    out = create_dvs_portgroup(env.si, "pg-app", "DSwitch", 100)
+    assert out["blast_radius"]["blockers"] == []
+    assert out["blast_radius"]["unmeasured"] == []

@@ -436,17 +436,59 @@ def list_snapshots(si: ServiceInstance, vm_name: str) -> list[dict]:
     return results
 
 
+def snapshot_nodes(vm: vim.VirtualMachine) -> list:
+    """Every snapshot tree node of ``vm``, depth first; [] when it has none."""
+    found: list = []
+
+    def _walk(snap_list) -> None:
+        for snap in snap_list or []:
+            found.append(snap)
+            _walk(snap.childSnapshotList)
+
+    if vm.snapshot:
+        _walk(vm.snapshot.rootSnapshotList)
+    return found
+
+
+def matching_snapshots(nodes: list, snap_name: str) -> list:
+    """The nodes ``snap_name`` could mean.
+
+    ``list_snapshots`` shows ``sanitize(name)``, so a caller who copies a name
+    from it may pass the sanitized form of a raw name that carries control or
+    invisible characters. A node matches on its raw name or its shown name; two
+    nodes that match the same string — duplicates, or names that differ only by
+    stripped characters — are ambiguous, and every executor and the MCP gate
+    refuse them rather than pick one.
+    """
+    return [n for n in nodes if n.name == snap_name or sanitize(n.name) == snap_name]
+
+
+def resolve_snapshot(vm: vim.VirtualMachine, snap_name: str) -> tuple[object | None, str | None]:
+    """The one snapshot node ``snap_name`` means, or why there is not exactly one."""
+    nodes = snapshot_nodes(vm)
+    matches = matching_snapshots(nodes, snap_name)
+    if len(matches) == 1:
+        return matches[0], None
+    shown = sanitize(snap_name, 200)
+    if not matches:
+        available = ", ".join(sanitize(n.name) for n in nodes) or "none"
+        return None, f"Snapshot '{shown}' not found. Available: {available}"
+    return None, (
+        f"Snapshot '{shown}' not changed: {len(matches)} snapshots on VM "
+        f"'{sanitize(vm.name, 200)}' match that name (duplicates, or names that differ "
+        "only by control/invisible characters). Rename one in vCenter, then retry."
+    )
+
+
 def revert_to_snapshot(
     si: ServiceInstance, vm_name: str, snap_name: str
 ) -> str:
     """Revert VM to a named snapshot."""
-    snaps = list_snapshots(si, vm_name)
-    target = next((s for s in snaps if s["name"] == snap_name), None)
-    if target is None:
-        available = ", ".join(s["name"] for s in snaps) or "none"
-        return f"Snapshot '{snap_name}' not found. Available: {available}"
+    node, refusal = resolve_snapshot(_require_vm(si, vm_name), snap_name)
+    if node is None:
+        return refusal
 
-    task = target["snapshot_ref"].RevertToSnapshot_Task()
+    task = node.snapshot.RevertToSnapshot_Task()
     _wait_for_task(task)
     return f"VM '{vm_name}' reverted to snapshot '{snap_name}'."
 
@@ -468,13 +510,11 @@ def delete_snapshot(
     and the task id returned immediately (use ``get_task_status`` to poll) — this
     avoids blocking an agent's context window on a long consolidation.
     """
-    snaps = list_snapshots(si, vm_name)
-    target = next((s for s in snaps if s["name"] == snap_name), None)
-    if target is None:
-        available = ", ".join(s["name"] for s in snaps) or "none"
-        return f"Snapshot '{snap_name}' not found. Available: {available}"
+    node, refusal = resolve_snapshot(_require_vm(si, vm_name), snap_name)
+    if node is None:
+        return refusal
 
-    task = target["snapshot_ref"].RemoveSnapshot_Task(removeChildren=remove_children)
+    task = node.snapshot.RemoveSnapshot_Task(removeChildren=remove_children)
     task_id = _task_moid(task)
 
     if not wait:
@@ -690,12 +730,16 @@ def clean_slate(
         snapshot_name: Snapshot to revert to (default: "baseline").
     """
     vm = _require_vm(si, vm_name)
+    # Resolved before anything changes: a missing or ambiguous snapshot used to
+    # be found out only after the VM had been powered off.
+    node, refusal = resolve_snapshot(vm, snapshot_name)
+    if node is None:
+        return f"Clean Slate: not reverted, VM left as it was. {refusal}"
 
     # Power off if running — revert is more predictable on a powered-off VM
     if vm.runtime.powerState == vim.VirtualMachine.PowerState.poweredOn:
         task = vm.PowerOff()
         _wait_for_task(task)
 
-    # Revert to named snapshot
-    result = revert_to_snapshot(si, vm_name, snapshot_name)
-    return f"Clean Slate: {result}"
+    _wait_for_task(node.snapshot.RevertToSnapshot_Task())
+    return f"Clean Slate: VM '{vm_name}' reverted to snapshot '{snapshot_name}'."

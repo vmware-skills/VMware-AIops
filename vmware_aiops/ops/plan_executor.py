@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
@@ -29,22 +30,86 @@ def _delete_acknowledged(si: ServiceInstance, vm_name: str, ack: Any) -> str:
     )
 
 
+def _created_instance_uuid(si: ServiceInstance, vm_name: str) -> str | None:
+    """The instance UUID of the VM a step just created; None if it cannot be read."""
+    from vmware_aiops.ops.inventory import find_vm_by_name
+
+    try:
+        vm = find_vm_by_name(si, vm_name)
+        uuid = vm.config.instanceUuid if vm is not None else None
+    except Exception:  # noqa: BLE001 - not recorded; rollback then refuses this step
+        logger.warning("Could not read the instance UUID of created VM '%s'", vm_name,
+                       exc_info=True)
+        return None
+    return uuid if isinstance(uuid, str) and uuid else None
+
+
+def _delete_created_vm(si: ServiceInstance, params: dict[str, Any]) -> str:
+    """Delete the VM a plan step created — only if it is still that VM.
+
+    The name alone is not identity: the VM could have been deleted and another
+    created under its name since. The instance UUID recorded when the step ran
+    must match, or nothing is deleted.
+    """
+    from pyVmomi import vim
+
+    from vmware_aiops.ops.gate import GateRefusedError
+    from vmware_aiops.ops.vm_lifecycle import _require_vm, _wait_for_task
+
+    name, recorded = params["vm_name"], params.get("instance_uuid")
+    if not recorded:
+        raise GateRefusedError(
+            f"Not deleted: this plan did not record the instance UUID of the VM it "
+            f"created as '{name}', so the VM now named that cannot be shown to be it. "
+            "Check it in vCenter and delete it with vm_delete if it is."
+        )
+    vm = _require_vm(si, name)
+    actual = vm.config.instanceUuid
+    if actual != recorded:
+        raise GateRefusedError(
+            f"Not deleted: the VM named '{name}' has instance UUID {actual}, but the VM "
+            f"this plan created had {recorded}. It is a different VM; check it in vCenter."
+        )
+    if vm.runtime.powerState == vim.VirtualMachine.PowerState.poweredOn:
+        _wait_for_task(vm.PowerOff())
+    _wait_for_task(vm.Destroy_Task())
+    return f"VM '{name}' (instance UUID {recorded}) deleted."
+
+
 def _rollback_dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
     """Rollback of a step this plan itself executed.
 
     Undoing a ``create_vm`` / clone / deploy deletes the VM that step created,
-    which is the rollback contract the user invoked explicitly; it keeps the
-    ungated executor. Every other rollback action goes through ``_dispatch``.
+    which is the rollback contract the user invoked explicitly — but only after
+    checking it is still that VM (``_delete_created_vm``). Every other rollback
+    action goes through ``_dispatch``.
     """
     if action == "delete_vm":
-        from vmware_aiops.ops.vm_lifecycle import delete_vm
-
-        return delete_vm(si, params["vm_name"])
+        return _delete_created_vm(si, params)
     return _dispatch(si, action, params)
+
+
+def dispatch_actions() -> frozenset[str]:
+    """Every action the executor can run — what ``plan_gate`` must classify."""
+    return frozenset(_dispatch_table(None, {}))
 
 
 def _dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
     """Execute a single action. Returns result string."""
+    dispatch_table = _dispatch_table(si, params)
+    handler = dispatch_table.get(action)
+    if handler is None:
+        raise ValueError(
+            f"Unknown plan action: '{action}'. Supported: {sorted(dispatch_table)}. "
+            f"Edit the plan to use one of those exact action names, then re-run "
+            f"vm_apply_plan (CLI: vmware-aiops plan list shows pending plans)."
+        )
+    result = handler()
+    return str(result) if result is not None else "OK"
+
+
+def _dispatch_table(si: Any, params: dict[str, Any]) -> dict[str, Callable[[], Any]]:
+    """The action → executor table; building it runs nothing."""
     from vmware_aiops.ops.vm_lifecycle import (
         clone_vm,
         create_snapshot,
@@ -67,7 +132,7 @@ def _dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
         linked_clone,
     )
 
-    dispatch_table: dict[str, Any] = {
+    return {
         "power_on": lambda: power_on_vm(si, params["vm_name"]),
         "power_off": lambda: power_off_vm(si, params["vm_name"], force=params.get("force", False)),
         "reset": lambda: reset_vm(si, params["vm_name"]),
@@ -163,16 +228,6 @@ def _dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
         "storage_rescan": lambda: _storage_rescan(si, params),
     }
 
-    handler = dispatch_table.get(action)
-    if handler is None:
-        raise ValueError(
-            f"Unknown plan action: '{action}'. Supported: {sorted(dispatch_table)}. "
-            f"Edit the plan to use one of those exact action names, then re-run "
-            f"vm_apply_plan (CLI: vmware-aiops plan list shows pending plans)."
-        )
-    result = handler()
-    return str(result) if result is not None else "OK"
-
 
 # ---------------------------------------------------------------------------
 # Cluster dispatch helpers
@@ -245,13 +300,25 @@ def _storage_rescan(si: ServiceInstance, params: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def apply_plan(si: ServiceInstance, plan_id: str) -> dict:
+def apply_plan(
+    si: ServiceInstance,
+    plan_id: str,
+    step_check: Callable[[ServiceInstance, dict[str, Any]], None] | None = None,
+) -> dict:
     """Execute a plan step by step.
 
     Returns the final plan state dict with per-step results.
     On success, the plan file is deleted.
     On failure, the plan file is kept with status info and rollback_available flag.
+
+    ``step_check`` runs immediately before each step and stops the plan by
+    raising (the MCP tool passes ``plan_gate.check_step``, which re-measures
+    every destructive step the way its own tool would). A step that creates a
+    VM records that VM's instance UUID in its rollback parameters, so rollback
+    deletes that VM and no other.
     """
+    from vmware_aiops.ops.gate import GateRefusedError
+
     plan = load_plan(plan_id)
     if plan is None:
         return {"error": f"Plan '{plan_id}' not found"}
@@ -267,9 +334,17 @@ def apply_plan(si: ServiceInstance, plan_id: str) -> dict:
         now = datetime.now(timezone.utc).isoformat()
         step["executed_at"] = now
         try:
+            if step_check is not None:
+                step_check(si, step)
             result = _dispatch(si, step["action"], step["params"])
             step["status"] = "success"
             step["result"] = result
+            if step.get("rollback_action") == "delete_vm":
+                step["rollback_params"] = {
+                    **step["rollback_params"],
+                    "instance_uuid": _created_instance_uuid(
+                        si, step["rollback_params"]["vm_name"]),
+                }
             logger.info(
                 "Plan %s step %d (%s): success",
                 plan_id, step["index"], step["action"],
@@ -277,6 +352,7 @@ def apply_plan(si: ServiceInstance, plan_id: str) -> dict:
         except Exception as exc:
             step["status"] = "failed"
             step["result"] = str(exc)
+            step["refused_by_gate"] = isinstance(exc, GateRefusedError)
             failed_index = step["index"]
             logger.error(
                 "Plan %s step %d (%s): FAILED — %s",
@@ -306,12 +382,54 @@ def apply_plan(si: ServiceInstance, plan_id: str) -> dict:
     return plan
 
 
-def rollback_plan(si: ServiceInstance, plan_id: str) -> dict:
+def _stop_refused(
+    plan: dict, step: dict, rollback_results: list[dict], exc: Exception,
+) -> dict:
+    """Stop a rollback at a refused step; the plan stays ``failed`` so it can be rerun."""
+    rollback_results.append({
+        "step_index": step["index"],
+        "action": step["action"],
+        "rollback_action": step.get("rollback_action"),
+        "rollback_status": "refused",
+        "error": str(exc),
+    })
+    logger.error(
+        "Plan %s step %d rollback (%s): REFUSED — %s",
+        plan["plan_id"], step["index"], step.get("rollback_action"), exc,
+    )
+    plan["rollback_results"] = rollback_results
+    save_plan(plan)
+    return {
+        "plan_id": plan["plan_id"],
+        "status": "failed",
+        "stopped_at_step": step["index"],
+        "rollback_results": rollback_results,
+    }
+
+
+def rollback_plan(
+    si: ServiceInstance,
+    plan_id: str,
+    step_check: Callable[[ServiceInstance, dict[str, Any]], None] | None = None,
+) -> dict:
     """Rollback already-executed steps of a failed plan in reverse order.
 
     Only rolls back steps that have a rollback_action defined.
     Steps marked irreversible are skipped with a warning.
+
+    ``step_check`` runs immediately before each rollback action, given the
+    rollback as a step (``index`` of the step it undoes, ``action`` and
+    ``params`` of the rollback). If it raises, the rollback stops there: that
+    step is reported ``refused`` with the check's message, nothing after it
+    runs, and the plan stays ``failed`` so rollback can be run again once the
+    cause is resolved (steps already undone are marked and not undone twice).
+    A rollback that its own identity check refuses (``GateRefusedError`` from
+    ``_delete_created_vm``: no instance UUID recorded, or a different VM under
+    that name) stops the same way. Any other failing rollback action does not
+    stop the others.
     """
+    from vmware_aiops.ops.gate import GateRefusedError
+
     plan = load_plan(plan_id)
     if plan is None:
         return {"error": f"Plan '{plan_id}' not found"}
@@ -346,6 +464,13 @@ def rollback_plan(si: ServiceInstance, plan_id: str) -> dict:
             )
             continue
 
+        if step_check is not None:
+            try:
+                step_check(si, {"index": step["index"], "action": rollback_action,
+                                "params": rollback_params or {}, "rollback": True})
+            except Exception as exc:
+                return _stop_refused(plan, step, rollback_results, exc)
+
         try:
             result = _rollback_dispatch(si, rollback_action, rollback_params)
             step["status"] = "rolled_back"
@@ -361,6 +486,11 @@ def rollback_plan(si: ServiceInstance, plan_id: str) -> dict:
                 "Plan %s step %d rollback (%s): success",
                 plan_id, step["index"], rollback_action,
             )
+        except GateRefusedError as exc:
+            # Refused by the rollback's own identity check (no instance UUID
+            # recorded, or a different VM under that name): the same stop as a
+            # refused check, as the preview said.
+            return _stop_refused(plan, step, rollback_results, exc)
         except Exception as exc:
             entry = {
                 "step_index": step["index"],

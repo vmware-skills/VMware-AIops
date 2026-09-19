@@ -27,9 +27,13 @@ Do **not** open a public GitHub issue for security vulnerabilities.
 ### Destructive Operation Safeguards
 
 Layers 1, 4 and 5 apply to every write on every surface. **Layers 2 and 3 are
-CLI-only.** Over MCP, most write tools act on the first call; `vm_delete` and seven
-host-network/DRS tools take `confirm` (default false), which returns a no-write
-preview. `vm_delete` also refuses unless the preview's `acknowledge_with` is echoed
+CLI-only.** Over MCP, the 22 write tools annotated destructive (power-off, delete,
+migrate, snapshot revert/delete, Clean Slate, TTL, guest exec/upload/provision,
+cluster delete/remove-host, plan apply/rollback, host-network and DRS) take
+`confirm` (default false), which returns a no-write blast-radius preview;
+`confirm=True` is refused, and audited as a failure, on a blocker or an
+unreadable measurement. The other 21 write tools (create, clone, deploy,
+power-on, reconfigure) act on the first call. `vm_delete` also refuses unless the preview's `acknowledge_with` is echoed
 back and still matches, and refuses powered-on or suspended VMs:
 
 1. **`@vmware_tool` decorator** — mandatory on every MCP tool; provides pre-checks, audit logging, data sanitization, and timeout control
@@ -57,11 +61,15 @@ Guest command execution (`vm_guest_exec`) requires:
 
 No implicit or background command execution occurs.
 
-**This is the widest blast radius in the skill, and it is ungated over MCP.**
-The command string is caller-supplied and unbounded, and it runs with the guest
-credentials passed to the call — which the documented example makes `root`. The
-CLI form double-confirms; the MCP tool does not, and neither do
-`vm_guest_exec_output` or the `exec` steps inside `vm_guest_provision`.
+**This is the widest blast radius in the skill.** The command string is
+caller-supplied and unbounded, and it runs with the guest credentials passed to
+the call — which the documented example makes `root`. The CLI form
+double-confirms. Over MCP, `vm_guest_exec`, `vm_guest_exec_output`,
+`vm_guest_upload` and `vm_guest_provision` return a no-write preview (VM, guest
+account, command or files) unless called with `confirm=True`, and refuse a VM
+that is not powered on or has no running VMware Tools. The preview describes the
+command; it does not judge it — once confirmed, nothing in the skill bounds what
+the command may be.
 
 The **guest** account is a second authorization boundary, independent of the
 vCenter one: a read-only vCenter role does not constrain what these tools do

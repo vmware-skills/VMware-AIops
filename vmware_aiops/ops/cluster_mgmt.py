@@ -209,14 +209,13 @@ def add_host_to_cluster(
     return f"Host '{host_name}' moved into cluster '{cluster_name}'."
 
 
-def remove_host_from_cluster(
-    si: ServiceInstance,
-    cluster_name: str,
-    host_name: str,
-) -> str:
-    """Remove a host from a cluster by moving it to standalone in the datacenter host folder.
+def require_member_host(
+    si: ServiceInstance, cluster_name: str, host_name: str
+) -> tuple[vim.ClusterComputeResource, vim.HostSystem]:
+    """The cluster and its member host, or a teaching ClusterError.
 
-    The host must be in maintenance mode before removal.
+    Shared by ``remove_host_from_cluster`` and the MCP gate that measures a
+    removal before it happens, so both refuse the same things the same way.
     """
     cluster = _require_cluster(si, cluster_name)
     host = find_host_by_name(si, host_name)
@@ -236,6 +235,19 @@ def remove_host_from_cluster(
             f"with name='{cluster_name}' to see its actual members, then retry with a "
             f"host from that list."
         )
+    return cluster, host
+
+
+def remove_host_from_cluster(
+    si: ServiceInstance,
+    cluster_name: str,
+    host_name: str,
+) -> str:
+    """Remove a host from a cluster by moving it to standalone in the datacenter host folder.
+
+    The host must be in maintenance mode before removal.
+    """
+    cluster, host = require_member_host(si, cluster_name, host_name)
 
     if not host.runtime.inMaintenanceMode:
         raise ClusterError(
@@ -425,7 +437,9 @@ def set_drs_rule_enabled(
         return {
             "action": "preview",
             "would_set": change,
-            "hint": "Re-run with confirm=True to apply.",
+            "blast_radius": {**change, "blockers": [], "unmeasured": []},
+            "hint": "Nothing was changed. Show blast_radius to the user; re-run with "
+                    "confirm=True only after they agree.",
         }
     rule.enabled = enabled
     _apply_rule_spec(cluster, "edit", rule=rule)
@@ -498,7 +512,9 @@ def create_drs_rule(
         return {
             "action": "preview",
             "would_create": would,
-            "hint": "Re-run with confirm=True to create.",
+            "blast_radius": {**would, "blockers": [], "unmeasured": []},
+            "hint": "Nothing was changed. Show blast_radius to the user; re-run with "
+                    "confirm=True only after they agree.",
         }
 
     info = _CREATABLE_RULE_TYPES[rule_type](
@@ -524,13 +540,14 @@ def delete_drs_rule(
     """
     cluster = _require_cluster(si, cluster_name)
     rule = _require_rule(cluster, rule_name)
-    if not isinstance(rule, tuple(_VM_VM_RULE_CLASSES)):
-        raise ClusterError(
-            f"REFUSED: '{sanitize(rule_name, 100)}' is a "
-            f"{_rule_type_label(rule)} rule, not VM-VM. VM-Host and other "
-            "rule types can carry licensing/compliance placement constraints "
-            "- manage them in the vSphere UI."
-        )
+    blockers = [] if isinstance(rule, tuple(_VM_VM_RULE_CLASSES)) else [
+        f"REFUSED: '{sanitize(rule_name, 100)}' is a "
+        f"{_rule_type_label(rule)} rule, not VM-VM. VM-Host and other "
+        "rule types can carry licensing/compliance placement constraints "
+        "- manage them in the vSphere UI."
+    ]
+    if confirm and blockers:
+        raise ClusterError(blockers[0])
     doomed = {
         "cluster": sanitize(cluster.name, 200),
         "rule": _rule_summary(rule),
@@ -539,8 +556,10 @@ def delete_drs_rule(
         return {
             "action": "preview",
             "would_delete": doomed,
-            "hint": "Re-run with confirm=True to delete. The definition "
-                    "above is what you would recreate it from.",
+            "blast_radius": {**doomed, "blockers": blockers, "unmeasured": []},
+            "hint": "Nothing was changed. Show blast_radius to the user (it is "
+                    "the definition you would recreate the rule from); re-run "
+                    "with confirm=True only after they agree.",
         }
     _apply_rule_spec(cluster, "remove", remove_key=rule.key)
     remaining = [r.name for r in _cluster_rules(cluster) if r.name == rule_name]

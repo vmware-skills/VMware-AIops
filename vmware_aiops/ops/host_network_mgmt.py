@@ -391,7 +391,9 @@ def add_host_vmk(
         return {
             "action": "preview",
             "would_create": planned,
-            "hint": "Re-run with confirm=True to create.",
+            "blast_radius": {**planned, "blockers": [], "unmeasured": []},
+            "hint": "Nothing was changed. Show blast_radius to the user; re-run with "
+                    "confirm=True only after they agree.",
         }
 
     spec = vim.host.VirtualNic.Specification()
@@ -437,53 +439,65 @@ def remove_host_vmk(
         )
     vnic = existing[vmk]
 
-    protections: list[str] = []
+    # Each protection is (text, what could not be read or None). A preview
+    # reports them as blockers / unmeasured; a confirmed call refuses on them
+    # exactly as before.
+    protections: list[tuple[str, str | None]] = []
+    absolute: str | None = None
 
     services = _vmk_services(host)
     if services is None:
-        protections.append(
+        protections.append((
             "the host's service map cannot be read (virtualNicManager "
             "unavailable) - this vmk may carry management/vMotion/other "
-            "critical services and that cannot be ruled out right now"
-        )
+            "critical services and that cannot be ruled out right now",
+            "service_map",
+        ))
     else:
         in_use = services.get(vmk, [])
         if "management" in in_use:
             mgmt_vmks = [d for d, svcs in services.items() if "management" in svcs]
             if len(mgmt_vmks) <= 1:
-                raise HostNetworkError(
+                absolute = (
                     f"REFUSED (no override): {vmk} is the ONLY "
                     f"management-enabled vmk on '{host_name}'. Removing it "
                     "severs the API path this call rides on; after it "
                     "succeeded, nothing could reach the host to undo it."
                 )
         if in_use:
-            protections.append(f"selected for host services {in_use}")
+            protections.append((f"selected for host services {in_use}", None))
 
     netstack = getattr(vnic.spec, "netStackInstanceKey", None)
     if netstack and netstack != _DEFAULT_NETSTACK:
-        protections.append(
+        protections.append((
             f"lives on netstack '{sanitize(netstack, 80)}' - non-default "
             "netstacks (NSX TEPs on vxlan, dedicated vmotion/provisioning "
-            "stacks) are system-owned and never appear in the service map"
-        )
+            "stacks) are system-owned and never appear in the service map",
+            None,
+        ))
 
     carries_gw = _vmk_carries_default_route(host, vmk)
     if carries_gw is None:
-        protections.append(
+        protections.append((
             "the host routing table cannot be read - this vmk may carry "
-            "a default gateway route and that cannot be ruled out right now"
-        )
+            "a default gateway route and that cannot be ruled out right now",
+            "routing_table",
+        ))
     elif carries_gw:
-        protections.append("carries a default (prefix-0) gateway route")
+        protections.append(("carries a default (prefix-0) gateway route", None))
 
-    if protections and not force_unprotected:
+    texts = [text for text, _ in protections]
+    override = (
+        "If you are certain this interface is safe to remove, re-run "
+        "with force_unprotected=True AND confirm=True - the override and "
+        "every bypassed protection are recorded in the result."
+    )
+    if confirm and absolute:
+        raise HostNetworkError(absolute)
+    if confirm and protections and not force_unprotected:
         raise HostNetworkError(
             f"REFUSED: removing {vmk} on '{host_name}' is blocked: "
-            + "; ".join(protections)
-            + ". If you are certain this interface is safe to remove, re-run "
-            "with force_unprotected=True AND confirm=True - the override and "
-            "every bypassed protection are recorded in the result."
+            + "; ".join(texts) + ". " + override
         )
 
     target_ip = vnic.spec.ip
@@ -493,20 +507,30 @@ def remove_host_vmk(
         "ip": target_ip.ipAddress if target_ip else None,
     }
     if not confirm:
+        held = [] if force_unprotected else protections
         preview: dict = {
             "action": "preview",
             "would_remove": doomed,
-            "hint": "Re-run with confirm=True to remove.",
+            "blast_radius": {
+                **doomed,
+                "blockers": ([absolute] if absolute else []) + [
+                    f"REFUSED: removing {vmk} on '{host_name}' is blocked: {text}. {override}"
+                    for text, unread in held if unread is None
+                ],
+                "unmeasured": [unread for _, unread in held if unread is not None],
+            },
+            "hint": "Nothing was changed. Show blast_radius to the user; re-run with "
+                    "confirm=True only after they agree.",
         }
-        if protections:
-            preview["protections_bypassed_by_force"] = protections
+        if protections and force_unprotected:
+            preview["protections_bypassed_by_force"] = texts
         return preview
 
     host.configManager.networkSystem.RemoveVirtualNic(vmk)
     result: dict = {"action": "removed", "removed": doomed}
     if protections:
         result["forced"] = True
-        result["protections_bypassed"] = protections
+        result["protections_bypassed"] = texts
     return result
 
 
@@ -555,32 +579,43 @@ def set_vmk_service(
         )
 
     services = _vmk_services(host)
+    change = {
+        "host": sanitize(host.name, 200),
+        "device": vmk,
+        "service": service,
+        "enabled": enabled,
+        "current_services": sorted(services.get(vmk, [])) if services is not None else None,
+    }
     if services is None:
+        if not confirm:
+            # Unverifiable is never safe: shown as unmeasured, refused on confirm.
+            return {
+                "action": "preview",
+                "would_set": change,
+                "blast_radius": {**change, "blockers": [], "unmeasured": ["service_map"]},
+                "hint": "The host's service map cannot be read, so this change would "
+                        "be refused. Retry when the host is reachable/healthy.",
+            }
         raise HostNetworkError(
             "REFUSED: the host's service map cannot be read (virtualNicManager "
             "unavailable), so the current selections cannot be verified and "
             "this change cannot be made safely. Retry when the host is "
             "reachable/healthy."
         )
-    current = sorted(services.get(vmk, []))
+    current = change["current_services"]
 
+    blockers: list[str] = []
     if not enabled and service == "management" and "management" in current:
         mgmt_vmks = [d for d, svcs in services.items() if "management" in svcs]
         if len(mgmt_vmks) <= 1:
-            raise HostNetworkError(
+            blockers.append(
                 f"REFUSED (no override): {vmk} is the ONLY management-enabled "
                 f"vmk on '{host_name}'. Untagging management severs the API "
                 "path this call rides on; after it succeeded, nothing could "
                 "reach the host to undo it."
             )
-
-    change = {
-        "host": sanitize(host.name, 200),
-        "device": vmk,
-        "service": service,
-        "enabled": enabled,
-        "current_services": current,
-    }
+    if confirm and blockers:
+        raise HostNetworkError(blockers[0])
 
     if (service in current) == enabled:
         return {
@@ -594,7 +629,9 @@ def set_vmk_service(
         return {
             "action": "preview",
             "would_set": change,
-            "hint": "Re-run with confirm=True to apply.",
+            "blast_radius": {**change, "blockers": blockers, "unmeasured": []},
+            "hint": "Nothing was changed. Show blast_radius to the user; re-run with "
+                    "confirm=True only after they agree.",
         }
 
     mgr = host.configManager.virtualNicManager

@@ -75,7 +75,9 @@ def create_dvs_portgroup(
         vlan_id: VLAN ID to tag (0-4094; 0 = none).
         binding: "earlyBinding" (default) or "ephemeral".
         num_ports: Port count for earlyBinding portgroups (default 8).
-        confirm: False previews; True creates.
+        confirm: False (default) returns the blast radius and changes nothing.
+            True creates it. Do not set True because the user asked
+            earlier; they have not seen the preview yet.
         target: vCenter target name from config.yaml; omit to use the default target.
 
     Returns:
@@ -169,7 +171,9 @@ def add_host_vmk(
         ip: Static IPv4 address for the vmk.
         netmask: Subnet mask (e.g. 255.255.255.0).
         mtu: MTU for the vmk (default 1500; 9000 for jumbo tests).
-        confirm: False previews; True creates.
+        confirm: False (default) returns the blast radius and changes nothing.
+            True creates it. Do not set True because the user asked
+            earlier; they have not seen the preview yet.
         target: vCenter target name from config.yaml; omit to use the default target.
 
     Returns:
@@ -213,7 +217,9 @@ def remove_host_vmk(
     Args:
         host_name: ESXi host the vmk lives on.
         vmk: Device name to remove (e.g. "vmk2").
-        confirm: False previews; True removes.
+        confirm: False (default) returns the blast radius and changes nothing.
+            True removes it. Do not set True because the user asked
+            earlier; they have not seen the preview yet.
         force_unprotected: True bypasses the non-absolute protections above.
         target: vCenter target name from config.yaml; omit to use the default target.
 
@@ -261,7 +267,9 @@ def set_vmk_service(
         vmk: Device name to change (e.g. "vmk3").
         service: Service/nicType name to enable or disable.
         enabled: True selects the vmk for the service; False deselects.
-        confirm: False previews; True applies.
+        confirm: False (default) returns the blast radius and changes nothing.
+            True applies it. Do not set True because the user asked
+            earlier; they have not seen the preview yet.
         target: vCenter target name from config.yaml; omit to use the default target.
 
     Returns:

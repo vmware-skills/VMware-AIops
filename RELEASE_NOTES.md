@@ -1,3 +1,96 @@
+## v1.11.0 — destructive MCP tools preview by default
+
+HLD §7, second batch. `vm_delete` (v1.10.0) and the seven host-network/DRS tools already previewed; now every
+MCP write tool annotated `destructiveHint: true` does. 22 of the 43 write tools take `confirm: bool = False`; the
+other 21 still act on the first call: creates, clones and deploys (`vm_create`, `vm_clone`, `batch_*`, `deploy_*`,
+`cluster_create`), `vm_power_on`, `vm_reconfigure`, `vm_create_snapshot`, `cluster_add_host`, `cluster_configure`,
+`convert_vm_to_template`, `attach_iso_to_vm`, `vm_guest_download`, `vm_cancel_ttl`, `vm_create_plan`, and the two
+alarm tools. Six of the 22 are not annotated destructive but take `confirm` anyway (`vm_migrate` and the five
+network/DRS authoring tools).
+
+### Breaking changes (MCP callers)
+
+* **14 more tools preview by default**: `vm_power_off`, `vm_migrate`, `vm_revert_snapshot`, `vm_delete_snapshot`,
+  `vm_clean_slate`, `vm_set_ttl`, `vm_guest_exec`, `vm_guest_exec_output`, `vm_guest_upload`,
+  `vm_guest_provision`, `cluster_delete`, `cluster_remove_host`, `vm_apply_plan`, `vm_rollback_plan`. A bare call
+  measures with reads only and returns `{"action": "preview", "blast_radius": {...}}` without changing anything.
+  They used to act on the first call. A vmware-pilot step calling one of them now previews unless it passes
+  `confirm=True`.
+* **Return type changed from string to dict**: `vm_power_off`, `vm_migrate`, `vm_revert_snapshot`,
+  `vm_delete_snapshot`, `cluster_delete`, `cluster_remove_host`, `vm_set_ttl`, `vm_clean_slate`, `vm_guest_upload`.
+* **`confirm=True` re-measures and refuses** — a teaching error, audited as a failure — when the measurement found a
+  blocker or could not read a field it needs:
+  * guest tools: VM not powered on; VMware Tools not running; a local upload source missing or unreadable; a
+    malformed `vm_guest_provision` step; a `service` step on a Windows guest (it runs `systemctl`).
+  * VM tools: graceful shutdown without running VMware Tools, or of a suspended VM (`force=True` is a hard
+    power-off — preview it); a migration target host that is missing, disconnected, in maintenance mode, outside a
+    cluster (no resource pool) or cannot reach the VM's storage; a `to_datastore` that is not found; a VM with no
+    current host; a snapshot that is not found or whose name is duplicated.
+  * cluster tools: hosts or VMs still in the cluster; a host that is not in maintenance mode or still runs
+    powered-on VMs.
+  * `vm_clean_slate`: the baseline snapshot missing or ambiguous — refused before anything happens, so a failed
+    Clean Slate no longer powers the VM off first and then fails.
+  * plans: `target` not matching the plan's; a `delete_vm` step without `acknowledge_blast_radius`, refused before
+    step 0 rather than half-applied.
+  Only `vm_delete` additionally requires `acknowledge_blast_radius`.
+
+### Other changes
+
+* `vm_apply_plan` is annotated `destructiveHint: true` (a plan can delete VMs).
+* The gated tools file undo tokens only when the call actually changed something — never for a preview, a no-op,
+  or a shutdown that did not finish. Ungated tools are unchanged (`vm_power_on` still files one on every success).
+* Requires `vmware-policy>=1.17.0`, which audits a `confirm=False` preview as `dry_run` and redacts long audit
+  text in linear time.
+* `vm_set_ttl` now connects to vCenter to measure the VM it will delete and refuses when it cannot read it; it
+  used to only write the local TTL file.
+* Blast radius and blockers live in `vmware_aiops/ops/{vm_gate,guest_gate,cluster_gate,plan_gate,vm_delete_gate}.py`
+  and `ops/ttl.py`.
+* The CLI keeps its double confirmation and `--dry-run`. It shares the ops layer, so it now also refuses a
+  duplicated snapshot name in revert/delete, `clean-slate` refuses a missing baseline before powering the VM off,
+  and the TTL daemon deletes only a VM whose recorded instance UUID still matches.
+* **Review fixes (2026-09-19)**:
+  * A plan created without `target` is refused on a named target (the default was treated as a wildcard).
+  * `vm_apply_plan`'s preview shows every step's full parameters, secrets redacted. Each destructive step is
+    measured by its own tool's gate and refuses the plan on that tool's blockers; a step on something an earlier
+    step creates or changes is shown `check: "deferred"`, and every destructive step is re-checked immediately
+    before it runs — a failed check stops the plan.
+  * Guest commands, arguments and paths longer than the preview shows are refused (they used to be shown cut and
+    run whole); previews carry `command_length` / `arguments_length` and `truncated`.
+  * Refusal messages lead with the first blocker and its remedy, count the rest, and stay within 480 characters.
+  * `vm_clean_slate` reports an error when the revert did not happen. A snapshot name now matches its raw or
+    displayed (sanitized) form in the gate and the executors alike, and a name matching two snapshots is refused
+    by `revert_to_snapshot` / `delete_snapshot` (CLI and plans too) instead of taking the first.
+  * TTL entries record `instance_uuid`; the daemon deletes only a VM that still has it (older entries without
+    one behave as before). `vm_set_ttl` keeps every `vm_delete` blocker except the power state.
+  * Plan rollback deletes a created VM only if its instance UUID matches the one recorded when the step ran.
+  * `vm_create_plan` / `vm_apply_plan` responses redact step passwords.
+* **Narrow-review fixes (2026-09-19)** — a plan is never a way around a tool's gate:
+  * **Breaking for plans**: a plan containing `iscsi_enable`, `iscsi_add_target`, `iscsi_remove_target` or
+    `storage_rescan` is refused at preview, apply and rollback (those tools are gated in vmware-storage, which
+    AIops cannot measure; `iscsi_remove_target` used to run "not measured"). Use `storage_iscsi_*` /
+    `storage_rescan` in vmware-storage. The actions stay loadable so existing plan files still open.
+  * A plan `migrate` step is measured as `vm_migrate` measures it and re-checked just before it runs.
+  * Every executor action is classified (measured, refused, or non-destructive with a reason); the step check
+    fails closed on anything else. A test walks the dispatch table.
+  * `vm_rollback_plan` measures each destructive rollback step in its preview (`check`, `measured`, blockers
+    prefixed `Step N (rollback action):`) and again just before it runs. A refused check stops the rollback:
+    the step is reported `refused`, nothing after it runs, the response carries `stopped_at_step` and a hint,
+    and the plan stays `failed` so rollback can be run again.
+  * Step-parameter redaction matches key tokens (`pwd`, `auth`, `db_pwd`, `authToken` now redacted;
+    `bypass`, `passthrough` no longer hidden).
+  * Network and DRS previews carry `blockers` / `unmeasured`; `remove_host_vmk`, `set_vmk_service` and
+    `delete_drs_rule` report their refusals there instead of raising on a preview (they still raise on confirm).
+* **Final-review fixes (2026-09-19)** — plan rollback can always undo what the plan itself made:
+  * The rollback of a plan `power_on` step is a **hard** power-off (`force: true`). A graceful one needs VMware
+    Tools, which a VM the plan just created never runs, so a `create_vm` → `power_on` plan used to stop its
+    rollback before the `delete_vm` that removes the VM.
+  * A plan step (forward or rollback) whose measurement says `noop` — a `power_off` of a VM already off, a
+    `migrate` to the host it is on — passes its check, as the tool itself returns `noop`; the preview shows
+    it `check: "measured"` with a `check_note`.
+  * A created VM whose instance UUID was not recorded (or whose name now belongs to a different VM) stops the
+    rollback at that step as `refused`, with `stopped_at_step`; the plan stays `failed`, as the preview said.
+    It used to be reported `failed`, the rollback continued and the plan ended `rolled_back`.
+
 ## v1.10.0 — `vm_delete` previews what it destroys, and a duplicated VM name is refused
 
 The family security HLD §7 was revised on 2026-09-16: every MCP tool that destroys something not restorable

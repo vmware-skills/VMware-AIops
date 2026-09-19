@@ -190,7 +190,9 @@ def create_dvs_portgroup(
         return {
             "action": "preview",
             "would_create": planned,
-            "hint": "Re-run with confirm=True to create.",
+            "blast_radius": {**planned, "blockers": [], "unmeasured": []},
+            "hint": "Nothing was changed. Show blast_radius to the user; re-run with "
+                    "confirm=True only after they agree.",
         }
 
     spec = vim.dvs.DistributedVirtualPortgroup.ConfigSpec()

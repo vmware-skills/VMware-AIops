@@ -222,6 +222,12 @@ def test_falsy_error_key_is_not_a_failure(monkeypatch) -> None:
         "vmware_aiops.mcp_server.tools.guest.guest_provision",
         lambda *a, **k: {"success": True, "completed_steps": 1, "error": None},
     )
+    # Behind the HLD §7 gate the run needs confirm=True; the measurement is
+    # stubbed clean so this stays about the falsy error key.
+    monkeypatch.setattr(
+        "vmware_aiops.mcp_server.tools.guest.measure_guest_provision",
+        lambda *a, **k: {"blockers": [], "unmeasured": []},
+    )
 
     result = call(
         "vm_guest_provision",
@@ -229,6 +235,7 @@ def test_falsy_error_key_is_not_a_failure(monkeypatch) -> None:
         username="root",
         password="pw",
         steps=[{"type": "exec", "command": "true"}],
+        confirm=True,
     )
 
     assert result.isError is False

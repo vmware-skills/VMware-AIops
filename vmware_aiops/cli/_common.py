@@ -38,6 +38,7 @@ def _cli_error_types() -> tuple[type[BaseException], ...]:
 
     from vmware_aiops.ops.cluster_mgmt import ClusterError, ClusterNotFoundError
     from vmware_aiops.ops.guest_ops import GuestOpsError
+    from vmware_aiops.ops.gate import GateRefusedError
     from vmware_aiops.ops.inventory import AmbiguousVMError
     from vmware_aiops.ops.vm_lifecycle import (
         TaskFailedError,
@@ -48,6 +49,7 @@ def _cli_error_types() -> tuple[type[BaseException], ...]:
     return (
         VMNotFoundError,
         AmbiguousVMError,
+        GateRefusedError,
         GuestOpsError,
         TaskFailedError,
         TaskStillRunning,

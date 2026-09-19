@@ -98,16 +98,22 @@ your agent's instruction block.
 
 ## Writes in vmware-aiops
 
-- Most write tools act on the first call: the call you make is the change that
-  happens. Eight do not. vm_delete and seven host-network and DRS tools
-  (create_dvs_portgroup, add_host_vmk, remove_host_vmk, set_vmk_service,
-  create_drs_rule, set_drs_rule_enabled, delete_drs_rule) default to
-  confirm=false, which returns a preview and writes nothing. Show the preview;
-  pass confirm=true only after the user has seen it and agreed — a request to
-  "delete X" made before the preview is not that agreement. vm_delete also needs
+- 22 of the 43 write tools — every destructive one: vm_power_off, vm_delete,
+  vm_migrate, vm_revert_snapshot, vm_delete_snapshot, vm_clean_slate,
+  vm_set_ttl, the four guest tools (vm_guest_exec, vm_guest_exec_output,
+  vm_guest_upload, vm_guest_provision), cluster_delete, cluster_remove_host,
+  vm_apply_plan, vm_rollback_plan and the seven host-network and DRS tools —
+  default to confirm=false, which returns {"action": "preview",
+  "blast_radius": ...} and writes nothing. Show the blast radius; pass
+  confirm=true only after the user has seen it and agreed — a request to
+  "delete X" made before the preview is not that agreement. confirm=true is
+  refused when the preview listed blockers or could not read something: fix
+  the cause and preview again, do not retry blindly. vm_delete also needs
   acknowledge_blast_radius set to the preview's acknowledge_with, and refuses if
-  the VM changed since. For every other write tool, the "restate the object and
-  wait" rule above is the only confirmation step, and it is yours to keep.
+  the VM changed since. The other 21 write tools (create, clone, deploy,
+  power-on, reconfigure, snapshot create, alarms) act on the first call; for
+  them the "restate the object and wait" rule above is the only confirmation
+  step, and it is yours to keep.
 - vm_guest_exec, vm_guest_exec_output and the exec steps of vm_guest_provision
   run an unbounded command inside the guest with the credentials given; the
   username is required — there is no default account. Treat them as the highest-risk tools in the skill;

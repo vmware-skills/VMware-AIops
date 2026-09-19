@@ -21,7 +21,12 @@ from vmware_aiops.connection import ConnectionManager
 from vmware_aiops.notify.logger import ScanLogger
 from vmware_aiops.notify.webhook import WebhookNotifier
 from vmware_aiops.ops.inventory import AmbiguousVMError
-from vmware_aiops.ops.ttl import get_expired_entries, remove_entry
+from vmware_aiops.ops.ttl import (
+    TTLIdentityError,
+    get_expired_entries,
+    remove_entry,
+    verify_ttl_identity,
+)
 from vmware_aiops.ops.vm_lifecycle import VMNotFoundError, delete_vm
 from vmware_aiops.scanner.alarm_scanner import scan_alarms
 from vmware_aiops.scanner.log_scanner import scan_host_logs_since, scan_logs
@@ -273,7 +278,8 @@ def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
     for entry in expired:
         target = entry.target
         vm_name = entry.vm_name
-        params = {"vm_name": vm_name, "target": target, "trigger": "ttl_expiry"}
+        params = {"vm_name": vm_name, "target": target, "trigger": "ttl_expiry",
+                  "instance_uuid": entry.instance_uuid}
         started = time.time()
         # The same authorization as the vm_delete MCP tool and CLI command
         # (HLD I-3): a deny rule on vm_delete must stop an expiry too.
@@ -293,8 +299,18 @@ def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
             continue
         try:
             si = conn_mgr.connect(target)
+            # The VM must still be the one the TTL was set on, not another
+            # that has since taken its name.
+            verify_ttl_identity(si, entry)
             result = delete_vm(si, vm_name)
             logger.info("TTL expired: %s", result)
+        except TTLIdentityError as exc:
+            # Not transient: the entry's VM is gone and another holds its name.
+            # Nothing is deleted; the entry goes, and the row says why.
+            _audit_ttl(vm_name, params, "error",
+                   {"error": sanitize(str(exc), 500)}, started, "critical")
+            logger.warning("TTL VM '%s' is a different VM now; removing entry without "
+                           "deleting: %s", vm_name, exc)
         except VMNotFoundError as exc:
             # VM already gone — entry is stale, safe to drop. The delete itself
             # did not happen, so the row says error with why.

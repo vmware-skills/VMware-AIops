@@ -23,6 +23,7 @@ from pyVmomi import vim, vmodl
 from vmware_policy import sanitize
 
 from vmware_aiops.ops import vm_lifecycle
+from vmware_aiops.ops.gate import GateRefusedError
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -36,7 +37,7 @@ MAX_LISTED_DISKS = 16
 _READ_ERRORS = (vmodl.MethodFault, AttributeError, TypeError)
 
 
-class DeleteRefusedError(Exception):
+class DeleteRefusedError(GateRefusedError):
     """Raised when a confirmed deletion is refused (blocker, unmeasured, stale)."""
 
 
@@ -66,6 +67,26 @@ def _read(fn, fallback=None):
         return fallback
 
 
+def power_blockers(power_state: Any) -> list[str]:
+    """The blockers a VM's power state puts in front of deleting it now.
+
+    Separate so a caller that powers the VM off itself before deleting (the TTL
+    daemon) can drop exactly these and keep every other blocker.
+    """
+    if power_state == vim.VirtualMachine.PowerState.poweredOn:
+        return [
+            "The VM is powered on. Power it off first with vm_power_off, "
+            "then preview the deletion again."
+        ]
+    if power_state == vim.VirtualMachine.PowerState.suspended:
+        return [
+            "The VM is suspended: its memory holds a paused running workload that "
+            "deleting would discard. Power it off first with vm_power_off, then "
+            "preview the deletion again."
+        ]
+    return []
+
+
 def measure_vm_delete(vm: vim.VirtualMachine) -> dict[str, Any]:
     """What deleting ``vm`` would destroy, and what stands in the way."""
     instance_uuid = _read(lambda: vm.config.instanceUuid)
@@ -83,18 +104,7 @@ def measure_vm_delete(vm: vim.VirtualMachine) -> dict[str, Any]:
             ("power_state", power_state),
         ) if value is None
     ]
-    blockers = []
-    if power_state == vim.VirtualMachine.PowerState.poweredOn:
-        blockers.append(
-            "The VM is powered on. Power it off first with vm_power_off, "
-            "then preview the deletion again."
-        )
-    elif power_state == vim.VirtualMachine.PowerState.suspended:
-        blockers.append(
-            "The VM is suspended: its memory holds a paused running workload that "
-            "deleting would discard. Power it off first with vm_power_off, then "
-            "preview the deletion again."
-        )
+    blockers = power_blockers(power_state)
 
     disk_count = len(disks) if disks is not None else None
     radius: dict[str, Any] = {

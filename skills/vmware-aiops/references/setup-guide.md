@@ -6,13 +6,13 @@ All install methods fetch from the same source: [github.com/vmware-skills/VMware
 
 ```bash
 # Via PyPI (recommended for version pinning)
-uv tool install vmware-aiops==1.10.0
+uv tool install vmware-aiops==1.11.0
 
 # Via Skills.sh (fetches from GitHub)
-npx skills add vmware-skills/VMware-AIops#v1.10.0
+npx skills add vmware-skills/VMware-AIops#v1.11.0
 
 # Via ClawHub (fetches from ClawHub registry snapshot of GitHub)
-clawhub install @zw008/vmware-aiops --version 1.10.0
+clawhub install @zw008/vmware-aiops --version 1.11.0
 ```
 
 ### Claude Code
@@ -35,7 +35,7 @@ claude mcp add vmware-aiops -- vmware-aiops mcp
 
 ```bash
 # 1. Install from PyPI (source: github.com/vmware-skills/VMware-AIops)
-uv tool install vmware-aiops==1.10.0
+uv tool install vmware-aiops==1.11.0
 
 # 2. Verify installation source
 vmware-aiops --version  # confirms installed version
@@ -73,7 +73,7 @@ The `vmware-aiops` package installs a Python CLI binary and its dependencies (py
 ## Development Install
 
 ```bash
-git clone --branch v1.10.0 https://github.com/vmware-skills/VMware-AIops.git
+git clone --branch v1.11.0 https://github.com/vmware-skills/VMware-AIops.git
 cd VMware-AIops
 uv venv && source .venv/bin/activate
 # --no-sources: pyproject's [tool.uv.sources] points vmware-monitor at a sibling
@@ -117,7 +117,7 @@ whitespace are handled correctly).
 - **Webhook Data Scope**: Webhook notifications are **disabled by default**. When enabled, the daemon posts to **user-configured URLs only** (Slack, Discord, or any HTTP endpoint you control); no data is sent to any other service. Each payload carries critical/warning counts plus every critical issue and every alarm/event warning from that scan — host-log warnings go to `scan.log` only, and `info` rows (unreadable or partly-read host logs) are never sent. Each issue carries the entity name and one of: the alarm name, vCenter event message (sanitized, ≤500 chars), ESXi log line matching critical/panic/corrupt (sanitized, ≤200 chars), or the error text for a target the daemon could not connect to. Event, log, and error text can contain host names, IP addresses, and user names — treat the webhook destination as receiving operational data. No credentials from the skill's config or `.env` are included.
 - **Daemon host-log reads**: the scanner daemon reads the ESXi `hostd`, `vmkernel` and `vpxa` logs, which needs the `Global.Diagnostics` privilege — vCenter's built-in Read-Only role does not include it. Without it each log is recorded in `scan.log` as an `info` row with the reason instead of being scanned; grant it only if you want host-log scanning.
 - **Prompt Injection Protection**: All vSphere-sourced content (event messages, host logs) is truncated, stripped of control characters, and wrapped in boundary markers (`[VSPHERE_EVENT]`/`[VSPHERE_HOST_LOG]`) before output to prevent prompt injection when consumed by LLM agents.
-- **Least Privilege**: 35 of the 43 MCP write tools act on the first call. `vm_delete` previews its blast radius and deletes only when that preview is echoed back and still matches; 7 host-network/DRS tools default to a no-write preview. The enforcement boundary is the RBAC of the vCenter/ESXi account in `.env`, so use a dedicated service account scoped to what the agent may change. For monitoring-only use cases, prefer the read-only [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor) skill which has zero destructive code paths. The CLI's double confirmation and `--dry-run` do not apply to MCP calls.
+- **Least Privilege**: 22 of the 43 MCP write tools — every destructive one — return a no-write blast-radius preview unless called with `confirm=True`, which is refused on a blocker or an unreadable measurement; `vm_delete` also requires the preview's acknowledgement echoed back. The other 21 (create, clone, deploy, power-on, reconfigure) act on the first call. A preview is not authorization. The enforcement boundary is the RBAC of the vCenter/ESXi account in `.env`, so use a dedicated service account scoped to what the agent may change. For monitoring-only use cases, prefer the read-only [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor) skill which has zero destructive code paths. The CLI's double confirmation and `--dry-run` do not apply to MCP calls.
 - **Guest Credentials**: Guest operations run with whatever guest account is passed to them — the `username` is required (there is no default account) and over MCP the password is a tool argument the agent sees (the audit row redacts it). A read-only vCenter role does not limit what they do inside a VM. Pass a least-privilege guest account; avoid root unless the task needs it. `vm_guest_upload` reads any local file the server process can read.
 - **Policy & Audit**: Optional `deny` rules in `~/.vmware/rules.yaml` refuse matching operations before every MCP call and every CLI command that reaches vCenter (see `environment:` above); they run in-process and are a guardrail, not a substitute for RBAC. Every such call is recorded in `~/.vmware/audit.db` with credentials redacted (best-effort: an audit write failure warns and does not block).
 

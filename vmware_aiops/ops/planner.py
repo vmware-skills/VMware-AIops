@@ -249,7 +249,10 @@ def _build_rollback(action: str, params: dict[str, Any]) -> tuple[str | None, di
     elif rollback_action == "power_on":
         return rollback_action, {"vm_name": vm_name}
     elif rollback_action == "power_off":
-        return rollback_action, {"vm_name": vm_name}
+        # Undoes a power-on this plan made: a hard power-off. A graceful one needs
+        # VMware Tools, which a VM the plan just created (no OS) never runs, so
+        # the gate would refuse it and rollback would never reach the delete_vm.
+        return rollback_action, {"vm_name": vm_name, "force": True}
     elif rollback_action == "delete_snapshot":
         return rollback_action, {
             "vm_name": params["vm_name"],

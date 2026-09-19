@@ -16,7 +16,7 @@ metadata: {"openclaw":{"requires":{"anyBins":["vmware-aiops","uvx"]},"optional":
 compatibility: >
   vmware-policy auto-installed as Python dependency (provides @vmware_tool decorator and audit logging). All write operations audited to ~/.vmware/audit.db.
   Credentials: Each vCenter/ESXi target requires a per-target password env var in ~/.vmware-aiops/.env following the pattern VMWARE_<TARGET_NAME_UPPER>_PASSWORD. Passwords are never logged or echoed.
-  Destructive operations: All write tools require explicit parameters and pass through the @vmware_tool decorator (policy check + audit + sanitize). MCP destructive tools are moving to one confirm argument whose default is a no-write preview (HLD section 7): vm_delete previews its blast radius and deletes only when the preview's acknowledgement is echoed back and still matches; the 7 host-network/DRS tools default to a no-write preview; the other 35 write tools still act on the first call. The enforcement boundary is the RBAC of the vCenter/ESXi account the server connects with, so run it under a dedicated least-privilege service account (a read-only role makes it read-only). Optional deny rules in ~/.vmware/rules.yaml are checked before every MCP call and remote CLI command; the shipped baseline denies nothing. CLI destructive commands additionally require double confirmation and most CLI writes support --dry-run; neither applies to MCP calls.
+  Destructive operations: All write tools require explicit parameters and pass through the @vmware_tool decorator (policy check + audit + sanitize). Every MCP write tool annotated destructive (22 of 43: power-off, delete, migrate, snapshot revert/delete, guest exec/upload/provision, cluster delete/remove-host, TTL, Clean Slate, plan apply/rollback, host-network and DRS) takes one confirm argument whose default returns a no-write blast-radius preview (HLD section 7); confirm=True is refused, and audited as a failure, on a blocker or an unreadable measurement, and vm_delete also requires the preview's acknowledgement echoed back and still matching; the other 21 write tools (create, clone, deploy, power-on, reconfigure) act on the first call. The enforcement boundary is the RBAC of the vCenter/ESXi account the server connects with, so run it under a dedicated least-privilege service account (a read-only role makes it read-only). Optional deny rules in ~/.vmware/rules.yaml are checked before every MCP call and remote CLI command; the shipped baseline denies nothing. CLI destructive commands additionally require double confirmation and most CLI writes support --dry-run; neither applies to MCP calls.
   Guest operations: vm_name and command are required; no implicit or background execution. The command is unbounded and runs with the guest credentials supplied — the username is required on MCP and CLI alike (no root default) and over MCP the password is a tool argument the agent sees (redacted from the audit row). The guest account is a second authorization boundary that a read-only vCenter role does not limit; pass a least-privilege guest account. vm_guest_upload reads any local file the server process can read.
   Webhooks: Disabled by default. When enabled, the daemon posts to user-configured URLs only: issue counts plus every critical issue and every alarm/event warning (host-log warnings and info rows are not sent), each with its entity name and the sanitized alarm, event, or ESXi log text, or a connection error — which can include host names, IPs, and user names. No credentials from the skill's config are sent. Reading host logs needs the Global.Diagnostics privilege; an unreadable log is recorded, not skipped.
   TLS verification is on by default (verify_ssl: true); set verify_ssl: false only for self-signed certs in isolated lab environments.
@@ -52,7 +52,7 @@ VMware family entry point — AI-powered VM lifecycle, deployment, and alarm man
 
 Read before connecting an agent. Per-tool inventory: `references/capabilities.md`.
 
-- **MCP gates default to a no-write preview.** `vm_delete` returns its blast radius and deletes only when `acknowledge_blast_radius` echoes that preview; 7 host-network/DRS tools preview under `confirm=False`. The other 35 write tools act on the first call; for them, "confirm with the user" steps instruct the agent and the server does not enforce them.
+- **MCP gates default to a no-write preview.** 22 write tools — every destructive one — return their blast radius unless `confirm=True`, which is refused on a blocker or unreadable measurement; `vm_delete` also needs `acknowledge_blast_radius` echoing the preview. The other 21 (create, clone, deploy, power-on, reconfigure) act on the first call.
 - **The enforcement boundary is vCenter/ESXi RBAC**: an agent can do whatever the configured account can. Use a dedicated, least-privilege service account scoped to what the agent may change (a read-only role makes the skill read-only). Store its password in `~/.vmware-aiops/.env` (0600) or a secret manager (`VMWARE_<TARGET>_PASSWORD`).
 - **CLI only**: destructive commands require double confirmation; most CLI writes take `--dry-run`. Neither applies to MCP.
 - **Policy**: deny rules and a maintenance window in `~/.vmware/rules.yaml` are checked before every MCP and remote CLI call (e.g. deny writes to `environment: production` targets). The shipped baseline denies nothing. An in-process guardrail, not a substitute for RBAC.
@@ -62,7 +62,7 @@ Read before connecting an agent. Per-tool inventory: `references/capabilities.md
 ## Quick Install
 
 ```bash
-uv tool install vmware-aiops==1.10.0
+uv tool install vmware-aiops==1.11.0
 vmware-aiops doctor
 vmware-aiops hub status   # see which family members are installed
 ```
@@ -217,7 +217,7 @@ Start here when the ask is "is anything on fire?" before diving into a specific 
 
 **Read/write split**: 17 tools are read-only (per `[READ]` docstring marker), 43 modify state — gating in [Audit & Safety](#audit--safety). `vm_set_ttl` schedules an unattended auto-delete.
 
-**Network write gating**: `create_dvs_portgroup`, `add_host_vmk`, and `set_vmk_service` are preview/confirm-gated — `confirm=False` (default) returns the exact spec that would be applied without writing. `remove_host_vmk` is **fail-closed**: it refuses when the vmk is selected for a host service (management/vMotion/vSAN), lives on a non-default netstack (NSX TEPs, dedicated vMotion stacks), carries a default gateway route, or when any of that cannot be verified — pass `force_unprotected=True` to override the non-absolute protections. The host's only management-enabled vmk is never removable (no override). `set_vmk_service` is **fail-closed** too: it refuses both directions when the host's service map is unreadable, and refuses (no override) to untag `management` from the host's only management-enabled vmk — the call rides the interface it would untag.
+**Network write gating**: all four network writes are preview/confirm-gated — `confirm=False` (default) returns the exact spec without writing. `remove_host_vmk` is **fail-closed**: it refuses when the vmk is selected for a host service (management/vMotion/vSAN), lives on a non-default netstack (NSX TEPs, dedicated vMotion stacks), carries a default gateway route, or when any of that cannot be verified — pass `force_unprotected=True` to override the non-absolute protections. The host's only management-enabled vmk is never removable (no override). `set_vmk_service` is **fail-closed** too: it refuses both directions when the host's service map is unreadable, and refuses (no override) to untag `management` from the host's only management-enabled vmk — the call rides the interface it would untag.
 
 **DRS rule gating**: `set_drs_rule_enabled`, `create_drs_rule`, `delete_drs_rule` are preview/confirm-gated and idempotent (matching state returns a no-write noop). `create_drs_rule` handles VM-VM affinity/anti-affinity only (≥2 distinct VMs, all cluster members); VM-Host rules are read via `list_drs_rules` but managed in the vSphere UI. `delete_drs_rule` **refuses non-VM-VM rules** (they can carry licensing/compliance placement constraints) and records the full rule definition in both preview and result so a mistaken delete can be recreated from the audit trail.
 
@@ -298,7 +298,7 @@ Run `vmware-aiops plan list` to see failed plan status. Ask user if they want to
 ## Setup
 
 ```bash
-uv tool install vmware-aiops==1.10.0
+uv tool install vmware-aiops==1.11.0
 mkdir -p ~/.vmware-aiops
 vmware-aiops init  # generates config.yaml and .env templates
 chmod 600 ~/.vmware-aiops/.env

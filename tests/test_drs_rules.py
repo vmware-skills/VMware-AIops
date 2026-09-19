@@ -215,3 +215,36 @@ def test_delete_preview_records_definition_then_confirm(env):
     assert spec.operation == "remove"
     assert spec.removeKey == 42
     assert list_drs_rules(env.si, "ANC-UCS-PROD")["count"] == 1
+
+
+def test_drs_previews_state_their_blast_radius_without_inviting_a_retry(env):
+    """HLD §7 L1: delete_drs_rule's preview carries blast_radius, and the hint
+    does not read as an instruction to re-run with confirm=True."""
+    out = delete_drs_rule(env.si, "ANC-UCS-PROD", "Aruba_Wirless_Servers")
+    assert out["action"] == "preview"
+    assert out["blast_radius"].items() >= out["would_delete"].items()
+    assert "only after they agree" in out["hint"]
+
+
+def test_drs_previews_carry_blockers_and_unmeasured(env, monkeypatch):
+    """Review L2: every DRS preview says what stands in the way (none here)."""
+    _patch_resolve(monkeypatch, [_vm_ref("vm-101"), _vm_ref("vm-102")])
+    outs = [
+        set_drs_rule_enabled(env.si, "ANC-UCS-PROD", "Aruba_Wirless_Servers", False),
+        create_drs_rule(env.si, "ANC-UCS-PROD", "keep", "affinity", ["cppm1", "amm-2"]),
+        delete_drs_rule(env.si, "ANC-UCS-PROD", "Aruba_Wirless_Servers"),
+    ]
+    for out in outs:
+        assert out["action"] == "preview"
+        assert out["blast_radius"]["blockers"] == []
+        assert out["blast_radius"]["unmeasured"] == []
+
+
+def test_delete_vmhost_rule_preview_shows_the_refusal_as_a_blocker(env):
+    """Review L2: the existing refusal is a blocker in the preview, and still
+    raises with confirm=True (test_delete_refuses_vmhost_rules)."""
+    out = delete_drs_rule(env.si, "ANC-UCS-PROD", "oracle-must-run")
+    assert out["action"] == "preview"
+    (blocker,) = out["blast_radius"]["blockers"]
+    assert "REFUSED" in blocker and "vmHost" in blocker
+    assert env.cluster.applied_specs == []

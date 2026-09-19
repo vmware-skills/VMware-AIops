@@ -36,10 +36,19 @@ from vmware_aiops.ops.vm_lifecycle import (
 )
 
 
-def _fake_target(task) -> dict:
+def _fake_target(task) -> SimpleNamespace:
+    """The snapshot node ``resolve_snapshot`` would hand the executor."""
     ref = MagicMock()
     ref.RemoveSnapshot_Task.return_value = task
-    return {"name": "baseline", "snapshot_ref": ref}
+    return SimpleNamespace(name="baseline", snapshot=ref)
+
+
+def _resolved(target):
+    """Patch the lookup: the VM, and the one snapshot the name resolves to."""
+    return (
+        patch.object(vm_lifecycle, "_require_vm", return_value=MagicMock()),
+        patch.object(vm_lifecycle, "resolve_snapshot", return_value=(target, None)),
+    )
 
 
 # ── Fix 1: generous default timeout, not the 300s metadata default ──
@@ -60,8 +69,8 @@ def test_delete_snapshot_no_wait_returns_task_id_without_waiting() -> None:
     task = SimpleNamespace(_moId="task-9001", info=SimpleNamespace(state="running"))
     target = _fake_target(task)
 
-    with patch.object(vm_lifecycle, "list_snapshots", return_value=[target]), \
-            patch.object(vm_lifecycle, "_wait_for_task") as waited:
+    vm_patch, snap_patch = _resolved(target)
+    with vm_patch, snap_patch, patch.object(vm_lifecycle, "_wait_for_task") as waited:
         out = delete_snapshot(MagicMock(), "vm1", "baseline", wait=False)
 
     waited.assert_not_called()
@@ -90,8 +99,8 @@ def test_delete_snapshot_wait_timeout_returns_not_failed_string() -> None:
     task = SimpleNamespace(_moId="task-5555", info=SimpleNamespace(state="running"))
     target = _fake_target(task)
 
-    with patch.object(vm_lifecycle, "list_snapshots", return_value=[target]), \
-            patch.object(
+    vm_patch, snap_patch = _resolved(target)
+    with vm_patch, snap_patch, patch.object(
                 vm_lifecycle, "_wait_for_task",
                 side_effect=TaskStillRunning("task-5555", 1800),
             ):

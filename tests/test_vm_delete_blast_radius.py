@@ -369,10 +369,13 @@ def test_a_plan_accepts_the_acknowledgement_parameter():
 
 
 def test_rolling_back_a_created_vm_still_deletes_it(inventory_of, monkeypatch):
-    """Rollback undoes what the plan itself created; it keeps the executor."""
+    """Rollback undoes what the plan itself created, once it is shown to be that VM
+    (the instance UUID recorded when the step ran; see test_gate_review_fixes)."""
     from vmware_aiops.ops import plan_executor
 
     monkeypatch.setattr(vm_lifecycle, "_wait_for_task", lambda _t, **_k: None)
     (vm,) = inventory_of(_vm(power=ON))
-    plan_executor._rollback_dispatch(MagicMock(), "delete_vm", {"vm_name": "web-01"})
+    plan_executor._rollback_dispatch(
+        MagicMock(), "delete_vm",
+        {"vm_name": "web-01", "instance_uuid": vm.config.instanceUuid})
     vm.Destroy_Task.assert_called_once()

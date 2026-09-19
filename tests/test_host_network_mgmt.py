@@ -607,3 +607,59 @@ def test_set_service_confirm_enable_and_disable_roundtrip(monkeypatch):
     assert out["action"] == "set"
     assert out["services_now"] == []
     assert mgr.calls == [("select", "vmotion", "vmk3"), ("deselect", "vmotion", "vmk3")]
+
+
+def test_previews_state_their_blast_radius(env):
+    """HLD §7 L1: every gated preview carries ``blast_radius`` (remove_host_vmk,
+    add_host_vmk), and its hint does not invite stepping over the gate."""
+    added = add_host_vmk(env.si, env.host.name, "pg-tep-test", "198.51.100.1", "255.255.255.0")
+    assert added["blast_radius"].items() >= added["would_create"].items()
+    removed = remove_host_vmk(env.si, env.host.name, "vmk1")
+    assert removed["action"] == "preview"
+    assert removed["blast_radius"].items() >= removed["would_remove"].items()
+    for out in (added, removed):
+        assert "only after they agree" in out["hint"]
+
+
+def test_vmk_previews_carry_blockers_and_unmeasured(env):
+    """Review L2: add/remove previews carry blockers and unmeasured."""
+    added = add_host_vmk(env.si, env.host.name, "pg-tep-test", "198.51.100.1", "255.255.255.0")
+    removed = remove_host_vmk(env.si, env.host.name, "vmk1")
+    for out in (added, removed):
+        assert out["blast_radius"]["blockers"] == []
+        assert out["blast_radius"]["unmeasured"] == []
+
+
+def test_remove_vmk_preview_reports_refusals_as_blockers(env):
+    """Review L2: the refusals are blockers in the preview; confirm still raises."""
+    env.host.config.network.vnic[1].spec.netStackInstanceKey = "vxlan"
+    out = remove_host_vmk(env.si, env.host.name, "vmk1")
+    assert out["action"] == "preview"
+    assert any("netstack" in b for b in out["blast_radius"]["blockers"])
+    last = remove_host_vmk(env.si, env.host.name, "vmk0")
+    assert any("no override" in b for b in last["blast_radius"]["blockers"])
+    assert env.ns.removed == []
+
+
+def test_remove_vmk_preview_reports_an_unreadable_map_as_unmeasured(env):
+    env.host.configManager.virtualNicManager = None
+    out = remove_host_vmk(env.si, env.host.name, "vmk1")
+    assert out["blast_radius"]["unmeasured"] == ["service_map"]
+    forced = remove_host_vmk(env.si, env.host.name, "vmk1", force_unprotected=True)
+    assert forced["blast_radius"]["unmeasured"] == []
+    assert forced["protections_bypassed_by_force"]
+
+
+def test_set_service_preview_reports_refusals(monkeypatch):
+    host, mgr = _svc_env(monkeypatch, {"vmk0": ["management"], "vmk3": []})
+    out = hnm.set_vmk_service(object(), host.name, "vmk3", "vmotion", True)
+    assert out["blast_radius"]["blockers"] == [] and out["blast_radius"]["unmeasured"] == []
+    out = hnm.set_vmk_service(object(), host.name, "vmk0", "management", False)
+    assert any("ONLY management-enabled" in b for b in out["blast_radius"]["blockers"])
+    host.configManager.virtualNicManager = types.SimpleNamespace(
+        info=None, SelectVnicForNicType=mgr.SelectVnicForNicType,
+        DeselectVnicForNicType=mgr.DeselectVnicForNicType,
+    )
+    out = hnm.set_vmk_service(object(), host.name, "vmk3", "vmotion", True)
+    assert out["blast_radius"]["unmeasured"] == ["service_map"]
+    assert mgr.calls == []

@@ -5,6 +5,7 @@ from typing import Literal, Optional
 from vmware_policy import vmware_tool
 
 from vmware_aiops.mcp_server._shared import _get_connection, mcp, tool_errors
+from vmware_aiops.ops.gate import preview, refuse_on
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -44,20 +45,39 @@ def cluster_create(
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
-@tool_errors("str")
-def cluster_delete(name: str, target: Optional[str] = None) -> str:
+@tool_errors("dict")
+def cluster_delete(
+    name: str,
+    confirm: bool = False,
+    target: Optional[str] = None,
+) -> dict:
     """[WRITE] Delete an empty cluster (no hosts must remain).
 
-    Returns a status string. Check cluster_info first and evacuate any members
-    with cluster_remove_host, or vCenter rejects the call.
+    Without confirm=True this only previews: it returns blast_radius (cluster
+    name and id, host/VM/datastore counts and names, blockers) and deletes
+    nothing. Show that to the user and get their explicit decision. Do not set
+    confirm=True on your own because the user asked earlier: they have not
+    seen the preview yet.
+
+    Refused: a cluster that still has hosts or VMs (evacuate members with
+    cluster_remove_host first), or one whose members could not be read.
+    Check cluster_info first. Returns a dict (action, blast_radius).
 
     Args:
         name: Name of the cluster to delete.
+        confirm: False (default) returns the blast radius and changes nothing. True applies it.
         target: Optional vCenter target name from config.
     """
+    from vmware_aiops.ops.cluster_gate import measure_cluster_delete
     from vmware_aiops.ops.cluster_mgmt import delete_cluster
     si = _get_connection(target)
-    return delete_cluster(si, name)
+    radius = measure_cluster_delete(si, name)
+    if not confirm:
+        return preview(radius)
+    refuse_on(radius, "cluster_delete")
+    result = delete_cluster(si, name)
+    return {"action": "deleted", "deleted": radius["cluster"], "result": result,
+            "blast_radius": radius}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -90,26 +110,42 @@ def cluster_add_host(
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
-@tool_errors("str")
+@tool_errors("dict")
 def cluster_remove_host(
     cluster_name: str,
     host_name: str,
+    confirm: bool = False,
     target: Optional[str] = None,
-) -> str:
+) -> dict:
     """[WRITE] Remove a host from a cluster (host must be in maintenance mode).
 
-    Returns a status string. Run cluster_info first for the exact member host
-    names and their maintenance_mode state. The host is not deleted — it stays
-    in vCenter inventory standalone; use cluster_add_host to move it back.
+    Without confirm=True this only previews: it returns blast_radius (host
+    name and id, maintenance mode, VM count, powered-on VM count, blockers)
+    and moves nothing. Show that to the user and get their explicit decision.
+    Do not set confirm=True on your own because the user asked earlier: they
+    have not seen the preview yet.
+
+    Refused: a host not in maintenance mode, a host with powered-on VMs, and
+    a host whose state could not be read. Run cluster_info first for the exact
+    member host names. The host is not deleted — it stays in vCenter inventory
+    standalone; use cluster_add_host to move it back. Returns a dict.
 
     Args:
         cluster_name: Cluster to remove the host from.
         host_name: ESXi host name to remove (from cluster_info output).
+        confirm: False (default) returns the blast radius and changes nothing. True applies it.
         target: Optional vCenter target name from config.
     """
+    from vmware_aiops.ops.cluster_gate import measure_host_removal
     from vmware_aiops.ops.cluster_mgmt import remove_host_from_cluster
     si = _get_connection(target)
-    return remove_host_from_cluster(si, cluster_name=cluster_name, host_name=host_name)
+    radius = measure_host_removal(si, cluster_name, host_name)
+    if not confirm:
+        return preview(radius)
+    refuse_on(radius, "cluster_remove_host")
+    result = remove_host_from_cluster(si, cluster_name=cluster_name, host_name=host_name)
+    return {"action": "removed", "removed": radius["host"], "result": result,
+            "blast_radius": radius}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -210,7 +246,9 @@ def set_drs_rule_enabled(
         cluster: Exact cluster name.
         rule_name: Exact rule name (see list_drs_rules).
         enabled: True enables the rule; False disables it.
-        confirm: False previews; True applies.
+        confirm: False (default) returns the blast radius and changes nothing.
+            True applies it. Do not set True because the user asked earlier; they
+            have not seen the preview yet.
         target: vCenter target name from config.yaml; omit to use the default target.
 
     Returns:
@@ -248,7 +286,9 @@ def create_drs_rule(
         rule_type: "affinity" or "antiAffinity".
         vm_names: VM names the rule governs (>=2, all in the cluster).
         enabled: Create the rule enabled (default) or disabled.
-        confirm: False previews; True creates.
+        confirm: False (default) returns the blast radius and changes nothing.
+            True creates it. Do not set True because the user asked earlier; they
+            have not seen the preview yet.
         target: vCenter target name from config.yaml; omit to use the default target.
 
     Returns:
@@ -284,7 +324,9 @@ def delete_drs_rule(
     Args:
         cluster: Exact cluster name.
         rule_name: Exact rule name (see list_drs_rules).
-        confirm: False previews; True deletes.
+        confirm: False (default) returns the blast radius and changes nothing.
+            True deletes it. Do not set True because the user asked earlier; they
+            have not seen the preview yet.
         target: vCenter target name from config.yaml; omit to use the default target.
 
     Returns:

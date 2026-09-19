@@ -5,9 +5,18 @@ from typing import Optional
 from vmware_policy import paginated, vmware_tool
 
 from vmware_aiops.mcp_server._shared import _get_connection, mcp, tool_errors
+from vmware_aiops.ops.gate import preview, refuse_on
 from vmware_aiops.ops.vm_delete_gate import (
     delete_vm_acknowledged,
     vm_delete_blast_radius,
+)
+from vmware_aiops.ops.vm_gate import (
+    delete_snapshot_radius,
+    did_not_act,
+    migrate_radius,
+    power_off_radius,
+    read_power_state,
+    revert_snapshot_radius,
 )
 from vmware_aiops.ops.vm_lifecycle import (
     clone_vm,
@@ -50,40 +59,73 @@ def vm_power_on(vm_name: str, target: Optional[str] = None) -> str:
     return power_on_vm(si, vm_name)
 
 
-@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(
-    risk_level="medium",
-    undo=lambda params, result: {
+def _undo_power_off(params: dict, result: object) -> Optional[dict]:
+    """Inverse of vm_power_off — only when the call actually powered the VM off.
+
+    A preview, a no-op on an already-off VM and a shutdown that did not finish
+    all return normally, and vmware-policy files an undo token for any normal
+    return. "Power it back on" for a VM this call never turned off is worse
+    than no token at all.
+    """
+    if not isinstance(result, dict) or result.get("action") != "powered_off":
+        return None
+    return {
         "tool": "vm_power_on",
         "params": {"vm_name": params.get("vm_name"), "target": params.get("target")},
         "skill": "aiops",
         "note": "Inverse of vm_power_off: power the VM back on.",
-    },
-)
-@tool_errors("str")
+    }
+
+
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
+@vmware_tool(risk_level="medium", undo=_undo_power_off)
+@tool_errors("dict")
 def vm_power_off(
     vm_name: str,
     force: bool = False,
+    confirm: bool = False,
     target: Optional[str] = None,
-) -> str:
+) -> dict:
     """[WRITE] Power off a VM — graceful guest shutdown by default, hard power-off with force=True.
 
-    Graceful mode calls VMware Tools guest shutdown and waits up to 120s; if Tools is
-    not running or shutdown stalls, the response tells you to retry with force=True.
-    An already-off VM returns success without change. Use vm_power_on to start a VM;
-    vm_delete requires the VM to be off first.
+    Without confirm=True this only previews: it returns blast_radius (VM name and
+    instance UUID, host, power state, VMware Tools status, and whether this is a
+    guest shutdown or a hard power-off) and changes nothing. Show it to the user
+    and get their decision. Do not set confirm=True on your own because the user
+    asked earlier: they have not seen the preview yet.
+
+    Graceful mode calls VMware Tools guest shutdown and waits up to 120s; if it
+    does not finish, action is "still_running". Refused: a graceful shutdown when
+    Tools is not running or the VM is suspended (preview force=True instead), and
+    a VM whose identity or power state cannot be read. An already-off VM returns
+    action "noop". Use vm_power_on to start a VM; vm_delete requires it off first.
 
     Args:
         vm_name: Exact VM name as shown in vCenter inventory (case-sensitive).
         force: False (default) = graceful guest shutdown via VMware Tools;
             True = immediate hard power-off (risks guest filesystem damage).
+        confirm: False (default) returns the blast radius and changes nothing. True applies it.
         target: vCenter/ESXi target from config.yaml; omit for the default target.
 
     Returns:
-        Status string: shut down, force powered off, already off, or a Tools hint.
+        Dict with action (preview, noop, powered_off, still_running), blast_radius,
+        and the executor's message under result.
     """
     si = _get_connection(target)
-    return power_off_vm(si, vm_name, force=force)
+    vm, radius = power_off_radius(si, vm_name, force)
+    if radius["noop"]:
+        return {"action": "noop", "blast_radius": radius,
+                "result": f"VM '{radius['vm']}' is already powered off; nothing changed."}
+    if not confirm:
+        return preview(radius)
+    refuse_on(radius, "vm_power_off")
+    message = power_off_vm(si, vm_name, force=force)
+    if read_power_state(vm) == "poweredOff":
+        return {"action": "powered_off", "result": message, "blast_radius": radius}
+    return {
+        "action": "still_running", "result": message, "blast_radius": radius,
+        "hint": "The VM is still on. Check the guest, or preview force=True with the user.",
+    }
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -205,27 +247,52 @@ def vm_clone(
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
-@tool_errors("str")
+@tool_errors("dict")
 def vm_migrate(
     vm_name: str,
     to_host: str,
     to_datastore: Optional[str] = None,
+    confirm: bool = False,
     target: Optional[str] = None,
-) -> str:
+) -> dict:
     """[WRITE] Migrate (vMotion) a VM to another host, optionally with storage vMotion.
 
-    Returns a status string. If the target host has no access to the VM's current
-    datastore, you MUST pass to_datastore — vCenter rejects cross-host vMotion
-    without shared storage. Run cluster_info first for valid destination host names.
+    Without confirm=True this only previews: it returns blast_radius (VM and
+    instance UUID, source host and datastores, target host with its connection
+    and maintenance state, target datastore, and live vMotion vs cold migration)
+    and moves nothing. Show it to the user and get their decision. Do not set
+    confirm=True on your own because the user asked earlier: they have not seen
+    the preview yet.
+
+    Refused: a target host that is not found, not connected, in maintenance mode
+    or outside a cluster; a target datastore that is not found; a target host
+    that does not mount the VM's datastores when to_datastore is omitted (vCenter
+    rejects cross-host vMotion without shared storage — pass to_datastore); and
+    anything above that cannot be read. The VM's current host with no
+    to_datastore returns action "noop". Run cluster_info first for host names.
 
     Args:
         vm_name: VM to migrate.
         to_host: Target ESXi host name.
         to_datastore: Target datastore (required for cross-storage hosts).
+        confirm: False (default) returns the blast radius and changes nothing. True applies it.
         target: vCenter/ESXi target name from config.
+
+    Returns:
+        Dict with action (preview, noop, migrated), blast_radius, and result.
     """
     si = _get_connection(target)
-    return migrate_vm(si, vm_name, to_host, target_datastore=to_datastore)
+    radius = migrate_radius(si, vm_name, to_host, to_datastore)
+    if radius["noop"]:
+        return {"action": "noop", "blast_radius": radius,
+                "result": f"VM '{radius['vm']}' is already on host '{to_host}'; nothing changed."}
+    if not confirm:
+        return preview(radius)
+    refuse_on(radius, "vm_migrate")
+    message = migrate_vm(si, vm_name, to_host, target_datastore=to_datastore)
+    if " migrated from " not in message:
+        raise did_not_act("vm_migrate", message)
+    return {"action": "migrated", "result": message, "blast_radius": radius}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -323,43 +390,75 @@ def vm_create_snapshot(
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
-@tool_errors("str")
+@tool_errors("dict")
 def vm_revert_snapshot(
     vm_name: str,
     snapshot_name: str,
+    confirm: bool = False,
     target: Optional[str] = None,
-) -> str:
+) -> dict:
     """[WRITE] Revert a VM to a named snapshot (loses changes since snapshot).
 
-    Returns a status string. Run vm_list_snapshots first for exact names.
-    Irreversible — everything written since the snapshot is lost, so confirm with
-    the user. To reclaim space without changing state use vm_delete_snapshot.
+    Without confirm=True this only previews: it returns blast_radius (VM and
+    instance UUID, the snapshot's name, id and creation time, total snapshot
+    count, current power state and the power state after the revert) and changes
+    nothing. Show it to the user and get their decision. Do not set confirm=True
+    on your own because the user asked earlier: they have not seen the preview yet.
+
+    Irreversible — everything written since the snapshot is lost. Refused: a
+    snapshot name that is not found, a name that matches more than one snapshot
+    on the VM (vSphere allows duplicates; rename one first), and a VM whose
+    snapshot tree, identity or power state cannot be read. Run vm_list_snapshots
+    first for exact names. To reclaim space without changing state use
+    vm_delete_snapshot.
 
     Args:
         vm_name: VM to revert.
         snapshot_name: Snapshot to revert to.
+        confirm: False (default) returns the blast radius and changes nothing. True applies it.
         target: vCenter/ESXi target name from config.
+
+    Returns:
+        Dict with action (preview, reverted), blast_radius, and result.
     """
     si = _get_connection(target)
-    return revert_to_snapshot(si, vm_name, snapshot_name)
+    radius = revert_snapshot_radius(si, vm_name, snapshot_name)
+    if not confirm:
+        return preview(radius)
+    refuse_on(radius, "vm_revert_snapshot")
+    message = revert_to_snapshot(si, vm_name, snapshot_name)
+    # Success is recognised, not failure: the executor answers every refusal
+    # (not found, ambiguous) with a sentence, and a new one must not read as done.
+    if " reverted to snapshot " not in message:
+        raise did_not_act("vm_revert_snapshot", message)
+    return {"action": "reverted", "result": message, "blast_radius": radius}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
-@tool_errors("str")
+@tool_errors("dict")
 def vm_delete_snapshot(
     vm_name: str,
     snapshot_name: str,
     remove_children: bool = False,
     wait: bool = False,
+    confirm: bool = False,
     target: Optional[str] = None,
-) -> str:
+) -> dict:
     """[WRITE] Permanently delete a named snapshot, consolidating its delta disk into the parent.
 
+    Without confirm=True this only previews: it returns blast_radius (VM and
+    instance UUID, the snapshot's name, id and creation time, remove_children,
+    how many child snapshots sit below it and how many snapshots would be
+    removed) and deletes nothing. Show it to the user and get their decision. Do
+    not set confirm=True on your own because the user asked earlier: they have
+    not seen the preview yet.
+
     Frees disk space and does NOT change the VM's current state (unlike
-    vm_revert_snapshot, which discards changes since the snapshot). Works while the VM
-    is powered on. Run vm_list_snapshots first for exact names. Irreversible: confirm
-    with the user before calling.
+    vm_revert_snapshot). Works while the VM is powered on. Refused: a snapshot
+    name that is not found, a name that matches more than one snapshot on the VM
+    (vSphere allows duplicates; rename one first), and a snapshot tree that cannot
+    be read. Run vm_list_snapshots first for exact names.
 
     Consolidation is slow for old/large deltas (often minutes). By default (wait=False)
     this returns a task id immediately so it does not block your context — poll it with
@@ -371,15 +470,28 @@ def vm_delete_snapshot(
         remove_children: False (default) = children are kept and consolidated;
             True = delete the entire snapshot subtree below this one as well.
         wait: False (default) = async, return task id at once; True = block.
+        confirm: False (default) returns the blast radius and changes nothing. True applies it.
         target: vCenter/ESXi target from config.yaml; omit for the default target.
 
     Returns:
-        Status string with a task id (poll via vm_task_status), or a not-found message.
+        Dict with action (preview, snapshot_delete_started, snapshot_deleted),
+        blast_radius, and result (carries the task id to poll via vm_task_status).
     """
     si = _get_connection(target)
-    return delete_snapshot(
+    radius = delete_snapshot_radius(si, vm_name, snapshot_name, remove_children)
+    if not confirm:
+        return preview(radius)
+    refuse_on(radius, "vm_delete_snapshot")
+    message = delete_snapshot(
         si, vm_name, snapshot_name, remove_children=remove_children, wait=wait
     )
+    if "deleted from VM" in message:
+        action = "snapshot_deleted"
+    elif "Snapshot delete started" in message or "is still running" in message:
+        action = "snapshot_delete_started"
+    else:
+        raise did_not_act("vm_delete_snapshot", message)
+    return {"action": action, "result": message, "blast_radius": radius}
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})

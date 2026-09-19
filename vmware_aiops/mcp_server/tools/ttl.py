@@ -5,42 +5,65 @@ from typing import Optional
 from vmware_policy import vmware_tool
 
 from vmware_aiops.mcp_server._shared import _get_connection, mcp, tool_errors
+from vmware_aiops.ops.gate import preview, refuse_on
 
 
 # destructiveHint: the deletion is deferred, not absent — the daemon carries it
 # out later, unattended. Issue #25 already settled this for the CLI (double
 # confirmation + --dry-run) and SKILL.md lists it among the destructive
 # operations; the annotation was the last place still saying otherwise.
-@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(
-    risk_level="medium",
-    undo=lambda params, result: {
+def _ttl_undo(params: dict, result: object) -> Optional[dict]:
+    """The inverse of a TTL that was actually scheduled; nothing for a preview."""
+    if not (isinstance(result, dict) and result.get("action") == "scheduled"):
+        return None
+    return {
         "tool": "vm_cancel_ttl",
         "params": {"vm_name": params.get("vm_name"), "target": params.get("target")},
         "skill": "aiops",
         "note": "Inverse of vm_set_ttl: cancel the scheduled auto-delete.",
-    },
-)
-@tool_errors("str")
+    }
+
+
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
+@vmware_tool(risk_level="medium", undo=_ttl_undo)
+@tool_errors("dict")
 def vm_set_ttl(
     vm_name: str,
     minutes: int,
+    confirm: bool = False,
     target: Optional[str] = None,
-) -> str:
+) -> dict:
     """[WRITE] Set a Time-To-Live (TTL) for a VM. The daemon auto-deletes it when expired.
 
-    Returns a status string. Use this for short-lived lab VMs so cleanup is not
-    forgotten; cancel with vm_cancel_ttl and review pending expiries with
-    vm_list_ttl. The scheduler daemon must be running (`vmware-aiops daemon
-    start`) or nothing is ever deleted. TTLs persist in ~/.vmware-aiops/ttl.json.
+    Without confirm=True this only previews: it returns blast_radius — the VM
+    that will be deleted (identity, host, disks, total size, snapshot count),
+    when (expires_at), and any TTL it replaces — and schedules nothing. Show
+    that to the user and get their explicit decision. Do not set confirm=True
+    on your own because the user asked earlier: they have not seen the
+    preview yet. Refused when the VM's identity or disks cannot be read.
+
+    Use this for short-lived lab VMs so cleanup is not forgotten; cancel with
+    vm_cancel_ttl and review pending expiries with vm_list_ttl. The scheduler
+    daemon must be running (`vmware-aiops daemon start`) or nothing is ever
+    deleted; it powers a running VM off first. TTLs persist in
+    ~/.vmware-aiops/ttl.json. Returns a dict (action, blast_radius).
 
     Args:
         vm_name: Name of the VM to auto-delete.
         minutes: Minutes until deletion (minimum 1).
+        confirm: False (default) returns the blast radius and changes nothing. True applies it.
         target: Optional vCenter/ESXi target name from config.
     """
+    from vmware_aiops.ops.ttl import measure_ttl
     from vmware_aiops.ops.ttl import set_ttl as _set_ttl
-    return _set_ttl(vm_name, minutes, target=target)
+    si = _get_connection(target)
+    radius = measure_ttl(si, vm_name, minutes)
+    if not confirm:
+        return preview(radius)
+    refuse_on(radius, "vm_set_ttl")
+    result = _set_ttl(vm_name, minutes, target=target,
+                      instance_uuid=radius["instance_uuid"])
+    return {"action": "scheduled", "result": result, "blast_radius": radius}
 
 
 # destructiveHint is False here and True on vm_set_ttl directly above, and the
@@ -82,25 +105,43 @@ def vm_list_ttl() -> dict:
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
-@tool_errors("str")
+@tool_errors("dict")
 def vm_clean_slate(
     vm_name: str,
     snapshot_name: str = "baseline",
+    confirm: bool = False,
     target: Optional[str] = None,
-) -> str:
+) -> dict:
     """[WRITE] Revert a VM to its baseline snapshot (Clean Slate).
 
-    Powers off the VM first if it is running, then reverts to the named
-    snapshot. Use this to reset a lab/dev VM to a clean starting state after
-    a task completes. Returns a status string. Irreversible — everything
-    written since the snapshot is lost; run vm_list_snapshots first if you
-    are unsure the baseline exists.
+    Without confirm=True this only previews: it returns blast_radius (VM
+    identity, power state and whether it is powered off first, the snapshot
+    and when it was taken, snapshot count, blockers) and changes nothing.
+    Show that to the user and get their explicit decision. Do not set
+    confirm=True on your own because the user asked earlier: they have not
+    seen the preview yet.
+
+    With confirm=True: powers off the VM first if it is running, then reverts
+    to the named snapshot. Use this to reset a lab/dev VM to a clean starting
+    state after a task completes. Irreversible — everything written since the
+    snapshot is lost. Refused: no snapshot of that name, more than one, or a
+    VM whose state cannot be read. Returns a dict (action, blast_radius).
 
     Args:
         vm_name: Name of the VM to revert.
         snapshot_name: Snapshot name to revert to (default: "baseline").
+        confirm: False (default) returns the blast radius and changes nothing. True applies it.
         target: Optional vCenter/ESXi target name from config.
     """
+    from vmware_aiops.ops.ttl import measure_clean_slate
+    from vmware_aiops.ops.vm_gate import did_not_act
     from vmware_aiops.ops.vm_lifecycle import clean_slate
     si = _get_connection(target)
-    return clean_slate(si, vm_name, snapshot_name=snapshot_name)
+    radius = measure_clean_slate(si, vm_name, snapshot_name)
+    if not confirm:
+        return preview(radius)
+    refuse_on(radius, "vm_clean_slate")
+    result = clean_slate(si, vm_name, snapshot_name=snapshot_name)
+    if " reverted to snapshot " not in result:
+        raise did_not_act("vm_clean_slate", result)
+    return {"action": "reverted", "result": result, "blast_radius": radius}

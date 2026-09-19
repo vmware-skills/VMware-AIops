@@ -31,7 +31,7 @@ from vmware_aiops.ops.host_network_mgmt import HostNetworkError
 from vmware_aiops.ops.inventory import InventoryError
 from vmware_aiops.ops.iscsi_config import HostNotFoundError, ISCSIError
 from vmware_aiops.ops.network_mgmt import NetworkError
-from vmware_aiops.ops.vm_delete_gate import DeleteRefusedError
+from vmware_aiops.ops.gate import GateRefusedError
 from vmware_aiops.ops.vm_lifecycle import TaskFailedError, TaskStillRunning, VMNotFoundError
 
 logger = logging.getLogger(__name__)
@@ -99,7 +99,7 @@ def _safe_error(exc: Exception, tool: str) -> str:
         ConnectionError,
         ConfigError,
         VMNotFoundError,
-        DeleteRefusedError,
+        GateRefusedError,
         GuestOpsError,
         TaskFailedError,
         TaskStillRunning,
