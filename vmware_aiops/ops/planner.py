@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 from pyVmomi import vim
 from vmware_policy import paginated
 
-from vmware_aiops.ops.inventory import find_vm_by_name
+from vmware_aiops.ops.inventory import AmbiguousVMError, find_vm_by_name
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -56,7 +56,9 @@ _ACTION_SCHEMA: dict[str, dict[str, Any]] = {
     },
     "delete_vm": {
         "required": ["vm_name"],
-        "optional": [],
+        # The same gate as the vm_delete tool: without the preview's
+        # acknowledge_with the step is refused at apply time.
+        "optional": ["acknowledge_blast_radius"],
         "rollback": None,
     },
     "reconfigure": {
@@ -330,7 +332,11 @@ def precheck_targets(si: ServiceInstance, operations: list[dict[str, Any]]) -> l
 
         # Check VM existence
         if vm_name:
-            vm = find_vm_by_name(si, vm_name)
+            try:
+                vm = find_vm_by_name(si, vm_name)
+            except AmbiguousVMError as e:
+                errors.append(f"Step {i} ({action}): {e}")
+                continue
             if vm is None:
                 errors.append(f"Step {i} ({action}): VM '{vm_name}' not found")
                 continue
@@ -344,8 +350,11 @@ def precheck_targets(si: ServiceInstance, operations: list[dict[str, Any]]) -> l
         # Check source VM for clone/template operations
         source = op.get("source_vm_name") or op.get("template_name")
         if source and action in ("clone", "linked_clone", "deploy_template"):
-            if find_vm_by_name(si, source) is None:
-                errors.append(f"Step {i} ({action}): source '{source}' not found")
+            try:
+                if find_vm_by_name(si, source) is None:
+                    errors.append(f"Step {i} ({action}): source '{source}' not found")
+            except AmbiguousVMError as e:
+                errors.append(f"Step {i} ({action}): {e}")
 
         # Check target host for migrate
         target_host = op.get("target_host")

@@ -160,10 +160,23 @@ def vm_delete(
     dry_run: DryRunOption = False,
 ) -> None:
     """Delete a VM (destructive!)."""
+    from vmware_aiops.ops.vm_delete_gate import vm_delete_blast_radius
     from vmware_aiops.ops.vm_lifecycle import delete_vm, get_vm_info
 
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
+    radius = vm_delete_blast_radius(si, name)
+    if radius["unmeasured"]:
+        console.print(
+            f"[bold yellow]Could not read {', '.join(radius['unmeasured'])}: "
+            "what this deletes is not fully known.[/]"
+        )
+    else:
+        console.print(
+            f"[bold]Destroys:[/] {radius['disk_count']} disk(s), "
+            f"{radius['total_disk_gb']} GB, {radius['snapshot_count']} snapshot(s) "
+            f"on {radius['host']} (instance {radius['instance_uuid']})"
+        )
     if dry_run:
         _dry_run_print(
             target=_resolve_target(target), vm_name=name, operation="delete_vm",
@@ -672,7 +685,7 @@ def vm_clean_slate(
 
 @vm_app.command("guest-exec")
 @cli_errors
-@guarded('vm_guest_exec', risk_level='medium', sensitive_params=['password'])
+@guarded('vm_guest_exec', risk_level='critical', sensitive_params=['password'])
 def vm_guest_exec_cmd(
     vm_name: Annotated[str, typer.Argument(help="VM name")],
     command: Annotated[str, typer.Option("--cmd", help="Full path to program (e.g. /bin/bash)")],
@@ -725,7 +738,7 @@ def vm_guest_exec_cmd(
 
 @vm_app.command("guest-upload")
 @cli_errors
-@guarded('vm_guest_upload', risk_level='medium', sensitive_params=['password'])
+@guarded('vm_guest_upload', risk_level='high', sensitive_params=['password'])
 def vm_guest_upload_cmd(
     vm_name: Annotated[str, typer.Argument(help="VM name")],
     local_path: Annotated[str, typer.Option("--local", help="Local file path")],
@@ -767,7 +780,7 @@ def vm_guest_upload_cmd(
 
 @vm_app.command("guest-download")
 @cli_errors
-@guarded('vm_guest_download', risk_level='medium', sensitive_params=['password'])
+@guarded('vm_guest_download', risk_level='high', sensitive_params=['password'])
 def vm_guest_download_cmd(
     vm_name: Annotated[str, typer.Argument(help="VM name")],
     guest_path: Annotated[str, typer.Option("--guest", help="File path inside VM")],

@@ -283,7 +283,7 @@ Plan 存储在 `~/.vmware-aiops/plans/`，成功后自动删除，超过 24 小�
 | 预演模式（Dry-Run，**仅 CLI**） | 加 `--dry-run` 只打印将要发出的 API 调用而不执行；除 `deploy iso`、`deploy mark-template`、`vm cancel-ttl`、`vm guest-download` 外，每个 CLI 写操作都支持 |
 | Plan → Confirm → Execute → Log | CLI 工作流：展示当前状态、确认变更、执行、审计日志 |
 | 双重确认（**仅 CLI**） | 破坏性与部署类 CLI 命令（`vm` power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate, set-ttl, clean-slate, guest-exec, guest-upload; `deploy` ova, template, linked-clone, batch, batch-clone, mark-template; `cluster` delete, add-host, remove-host, configure, drs-rule-set/create/delete; `alarm reset`）需连续两次确认，无绕过参数 |
-| MCP 路径没有确认环节 | agent 通过 MCP 看到的 43 个写工具**第一次调用就直接执行**——没有 `confirmed=` 握手、没有审批分级、没有只读开关。决定一次写入能否落地的是 vCenter 账号的权限，记录它的是审计日志。见[真正保护你的是什么](#真正保护你的是什么) |
+| MCP 路径确认环节很少 | agent 通过 MCP 看到的 43 个写工具里有 35 个**第一次调用就直接执行**；`vm_delete` 和 7 个网络/DRS 工具先预览。没有审批分级、没有只读开关。决定一次写入能否落地的是 vCenter 账号的权限，记录它的是审计日志。见[真正保护你的是什么](#真正保护你的是什么) |
 | 拒绝记录 | 用户在 CLI 拒绝的操作也会记录到审计日志，便于安全审计 |
 | 审计日志 | 所有操作记录到 `~/.vmware-aiops/audit.log`（JSONL），包含操作前后状态 |
 | 输入校验 | VM 名称长度/格式、CPU（1-128）、内存（128-1048576 MB）、磁盘（1-65536 GB）参数校验 |
@@ -319,13 +319,14 @@ Plan 存储在 `~/.vmware-aiops/plans/`，成功后自动删除，超过 24 小�
 `vm cancel-ttl`、`vm guest-download` 外，每个写操作都可用 `--dry-run` 预览。
 这防的是人手误敲的命令，**防不住 agent**——一个 `yes |` 就能同时满足两次确认。
 
-**MCP 上完全没有确认环节。** 全部 43 个写工具——包括 `vm_delete`、`cluster_delete`、
-`vm_guest_exec`——第一次调用就直接执行。有 7 个主机网络与 DRS 工具带 `confirm` 参数，
-默认返回不写入的预览，但那是**预览开关，不是审批闸门**：再调一次就写进去了。
-这是有意为之。2026 年 7 月评审时，`confirmed=` 握手连同更早的 `VMWARE_READ_ONLY`
-开关一并被砍掉，因为两者都不是真正的边界——只读开关只在 MCP 路径上生效，任何
-有 shell 的 agent 走 CLI 就绕过去了；而握手只是一个减速带，一个打定主意要动手的
-模型直接跨过去。
+**MCP 上**，破坏性工具正在统一到同一个参数 `confirm`，默认是不写入的预览。
+`vm_delete` 第一个落地：不带参数调用只报告会销毁什么（磁盘、总容量、快照、主机），
+什么都不删；要删除必须 `confirm=True` 并把预览里的 `acknowledge_with` 原样传回，
+如果 VM 在预览之后变了、处于开机或挂起状态、或读不全，调用会被拒绝。7 个主机网络与 DRS
+工具也默认预览。其余 35 个写工具——包括 `cluster_delete`、`vm_guest_exec`——在迁移
+之前仍然第一次调用就执行。确认不是授权，所以 `VMWARE_READ_ONLY` 开关依然不恢复
+（它只在 MCP 路径上生效，有 shell 的 agent 走 CLI 就绕过去了）。预览换来的东西更窄：
+agent 不会销毁一个它没看过的东西。
 
 **真正决定一次写入能否落地的，是 vCenter/ESXi 服务账号。** 给这个 skill 一个
 刚好够用、不多一分的账号；其余的由 vCenter 自己拒绝，对所有入口一视同仁，从

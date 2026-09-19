@@ -307,3 +307,22 @@ def test_daemon_start_is_audited_not_local():
     assert not any(getattr(f, "_is_local", False) for f in chain), (
         "daemon start is not a local command"
     )
+
+
+def test_a_ttl_vm_whose_name_is_ambiguous_is_not_deleted_and_the_entry_dropped(ttl, monkeypatch):
+    """Retrying an ambiguous name every cycle would audit the same refusal forever."""
+    from vmware_aiops.ops.inventory import AmbiguousVMError
+
+    scheduler, removed = ttl
+
+    def ambiguous(si, name):
+        raise AmbiguousVMError(f"2 VMs are named '{name}'.")
+
+    monkeypatch.setattr(scheduler, "delete_vm", ambiguous)
+
+    scheduler._run_ttl_check(MagicMock())
+
+    found = rows("vm_delete")
+    assert len(found) == 1 and found[0]["status"] == "error", rows()
+    assert "more than one VM" in found[0]["result"]
+    assert removed == ["ttl-vm"]

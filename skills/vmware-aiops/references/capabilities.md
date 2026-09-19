@@ -8,15 +8,15 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 |:-:|---|---|---|
 | **L1** | Read-only, raw data | Always auto-run | `cluster_info`, `browse_datastore`, `scan_datastore_images`, `list_vcenter_alarms`, `vm_list_snapshots`, `vm_list_ttl`, `vm_task_status` |
 | **L2** | Read + analysis / recommendation | Always auto-run | `cluster_health_summary`, `cross_vcenter_attention`, `vm_investigation_bundle`, `host_investigation_bundle`, `datastore_investigation_bundle`; scheduled scan reports, alarm/event correlation, log pattern analysis |
-| **L3** | Single write | The level is a statement about blast radius, not about an enforced gate. On the CLI the destructive ones double-confirm (`vm power-on` and `vm snapshot-create` do not); over MCP they all run on the first call — see [What gates a write](#what-gates-a-write) | `vm_power_on`, `vm_power_off`, `vm_delete`, `vm_create_snapshot`, `vm_clone`, `vm_migrate` |
+| **L3** | Single write | The level is a statement about blast radius, not about an enforced gate. On the CLI the destructive ones double-confirm (`vm power-on` and `vm snapshot-create` do not); over MCP they run on the first call except `vm_delete`, which previews its blast radius first — see [What gates a write](#what-gates-a-write) | `vm_power_on`, `vm_power_off`, `vm_delete`, `vm_create_snapshot`, `vm_clone`, `vm_migrate` |
 | **L4** | Multi-step plan / apply workflow | Plan generation auto. Review with the user before applying — an agent convention, not enforced: `vm_apply_plan` takes only a plan id | `vm_create_plan` → `vm_apply_plan` → `vm_rollback_plan`, batch-clone, batch-deploy YAML |
 | **L5** | Auto-remediation from learned pattern | Pattern library only; requires `risk:low` + `reversible:true` + `repeatable:true` + signed approval | *(roadmap — not implemented; candidates: snapshot consolidation, orphaned VM cleanup)* |
 
 **Notes**:
 - L1/L2 tools are read-only and safe for agents to call unprompted.
-- **The levels describe risk, not enforcement.** Nothing in this skill stops an agent calling an L3 or L4 tool over MCP. What decides whether the write lands is the vCenter account — see [What gates a write](#what-gates-a-write).
+- **The levels describe risk, not enforcement.** Apart from `vm_delete`'s preview-and-acknowledge gate, nothing in this skill stops an agent calling an L3 or L4 tool over MCP. What decides whether the write lands is the vCenter account — see [What gates a write](#what-gates-a-write).
 - **List envelope**: the read list tools (`browse_datastore`, `list_vcenter_alarms`, `vm_list_plans`, `vm_list_snapshots`, `vm_list_ttl`) return `{items, returned, limit, total, truncated, hint}` instead of a bare array, so an agent can tell a complete answer from a first page rather than inferring it (issue #31). All five enumerate their collection in full before any limit is applied, so `total` is always the real count; only `list_vcenter_alarms` takes a `limit` and can therefore report `truncated: true`. The write `batch_*` tools deliberately keep a bare list — each row is a per-item result of work already done, complete by construction. Errors from these read tools are `{error, hint}` (a dict, not a one-element list).
-- L3+ tools always pass through the `@vmware_tool` decorator: connection check → policy check (opt-in `deny` rules only; nothing is denied by default) → audit log. There is no confirmation step in that chain.
+- L3+ tools always pass through the `@vmware_tool` decorator: connection check → policy check (opt-in `deny` rules only; nothing is denied by default) → audit log. Confirmation is not in that chain; where a tool has one, it is the tool's own `confirm` argument (see [What gates a write](#what-gates-a-write)).
 - Multi-party approval, where it is genuinely required, is [vmware-pilot](https://github.com/vmware-skills/VMware-Pilot)'s job — it has the state machine and a real human approval step. See it also for cross-skill L4 orchestration and the Dispatcher/Subagent pattern.
 
 ## What gates a write
@@ -28,7 +28,7 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 | Surface | Confirmation | Preview |
 |---|---|---|
 | **CLI** | Two interactive `typer.confirm` prompts before every irreversible or guest-writing command. The set is derived from the MCP `destructiveHint` annotations, so a new such command fails the test suite until it has them, and a declined prompt is audited as `rejected`. *Honest limitation:* an agent with a shell satisfies both prompts by piping `yes` into the command. This defends the mistyped command, not a determined caller. | `--dry-run` on every write command except `deploy iso`, `deploy mark-template`, `vm cancel-ttl` and `vm guest-download` |
-| **MCP** | **None, by design.** A write tool acts on the first call. There is no `confirmed=` handshake, no approval tier, and no read-only switch — the switch existed in v1.8.0–1.8.6 and was removed in v1.8.7 (decision **D-2** of the family security HLD, 2026-07-21) because it was enforced on the MCP path only and any agent with a shell stepped around it. A two-step handshake was considered in the same review and cut: it is neither authorization nor accountability, only a speed-bump that a model intending to act steps over by passing `confirmed=True`. | 7 of the 43 write tools default to a no-write preview (below) |
+| **MCP** | **One argument, `confirm`, defaulting to a no-write preview** (family security HLD §7, revised 2026-09-16). Decision **D-2** (2026-07-21) cut a confirmation handshake as a speed-bump that does not authorize anything; it is superseded. The handshake still is not authorization — the account is (below) — but a preview is what stops an agent acting on a guess, and a refusal is what stops it acting on a guess that has gone stale. The read-only switch removed in v1.8.7 stays removed. `vm_delete` carries the full design: the preview states what would be destroyed, and deleting requires echoing the preview's `acknowledge_with` back in `acknowledge_blast_radius`; the VM is re-measured and the call refused if it changed, if it is powered on or suspended, or if its disks or identity cannot be read. The remaining destructive tools move to the same argument in later releases. | 8 of the 43 write tools default to a no-write preview (below) |
 
 **What actually protects the estate over MCP is the vCenter/ESXi service account.**
 Writes the account may not perform are refused by vCenter itself, whatever the
@@ -39,8 +39,8 @@ and point the skill's `.env` at that account — one decision, enforced where it
 is made. What happened is then recoverable from `~/.vmware/audit.db`, which
 records every MCP call (credentials redacted) before the caller sees a result;
 the write is best-effort, so a failing audit store warns on stderr rather than
-blocking the call. Nothing in this skill will stop `vm_delete` deleting a VM the
-account is allowed to delete.
+blocking the call. The skill's previews and refusals stop an agent acting blind;
+they do not stop one determined to delete a VM the account is allowed to delete.
 
 The one skill-side control that can refuse a call is optional: `deny` rules and a maintenance window in
 `~/.vmware/rules.yaml` (vmware-policy) are evaluated before every MCP call and every CLI command that reaches vCenter, and
@@ -51,9 +51,9 @@ unreadable rules file fails closed. It runs in the same process as the tools
 well-meaning agents, not a replacement for RBAC.
 
 - **Write tools: 43** — every tool whose description starts `[WRITE]` and whose `readOnlyHint` is `false`.
-- **Confirm-gated: 7** — `add_host_vmk`, `create_drs_rule`, `create_dvs_portgroup`, `delete_drs_rule`, `remove_host_vmk`, `set_drs_rule_enabled`, `set_vmk_service`
-  <br>These host-networking and DRS authoring tools take a `confirm` argument that defaults to false, in which case they validate everything they can and return what *would* change without writing. It is a preview switch, not an approval gate: a single call passing confirm true is all it takes, and the tool has no way to know a human saw the preview.
-- **Ungated: 36** — everything else, including `vm_delete`, `cluster_delete`, `vm_revert_snapshot`, `vm_clean_slate` and `vm_guest_exec`. These act immediately on the first call.
+- **Confirm-gated: 8** — `add_host_vmk`, `create_drs_rule`, `create_dvs_portgroup`, `delete_drs_rule`, `remove_host_vmk`, `set_drs_rule_enabled`, `set_vmk_service`, `vm_delete`
+  <br>Each takes a `confirm` argument that defaults to false, in which case it validates everything it can and returns what *would* change without writing. `vm_delete` additionally refuses `confirm=True` unless `acknowledge_blast_radius` echoes the preview's `acknowledge_with` (instance UUID, disk count, snapshot count) and those still match when re-measured. The seven host-networking and DRS tools do not yet ask for that echo.
+- **Ungated: 35** — everything else, including `cluster_delete`, `vm_revert_snapshot`, `vm_clean_slate` and `vm_guest_exec`. These act immediately on the first call.
 
 ### `vm_guest_exec` deserves naming
 

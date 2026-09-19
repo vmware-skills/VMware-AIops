@@ -20,6 +20,7 @@ from vmware_aiops.config import AppConfig, load_config
 from vmware_aiops.connection import ConnectionManager
 from vmware_aiops.notify.logger import ScanLogger
 from vmware_aiops.notify.webhook import WebhookNotifier
+from vmware_aiops.ops.inventory import AmbiguousVMError
 from vmware_aiops.ops.ttl import get_expired_entries, remove_entry
 from vmware_aiops.ops.vm_lifecycle import VMNotFoundError, delete_vm
 from vmware_aiops.scanner.alarm_scanner import scan_alarms
@@ -301,6 +302,13 @@ def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
             _audit_ttl(vm_name, params, "error",
                    {"error": sanitize(reason, 500)}, started, "critical")
             logger.info("TTL VM '%s' no longer exists; removing entry", vm_name)
+        except AmbiguousVMError as exc:
+            # Not transient: retrying every cycle would audit the same refusal
+            # forever. Nothing was deleted; the entry goes, and the row says why.
+            reason = f"not deleted, name matches more than one VM; TTL entry removed: {exc}"
+            _audit_ttl(vm_name, params, "error",
+                   {"error": sanitize(reason, 500)}, started, "critical")
+            logger.warning("TTL VM '%s' is ambiguous; removing entry without deleting", vm_name)
         except Exception as e:
             # Transient failure (connection, task error): keep the entry so
             # the next cycle retries instead of silently orphaning the VM.

@@ -1,3 +1,41 @@
+## v1.10.0 — `vm_delete` previews what it destroys, and a duplicated VM name is refused
+
+The family security HLD §7 was revised on 2026-09-16: every MCP tool that destroys something not restorable
+moves to one argument, `confirm`, whose default is a no-write preview. Decision D-2 (2026-07-21), which cut a
+confirmation handshake as a speed-bump, is superseded. A confirmation is still not authorization — the vCenter
+account is — but a preview is what stops an agent acting on a guess. `vm_delete` is the first tool on the full
+design; the other destructive tools follow in later releases.
+
+* **`vm_delete` now previews by default** (breaking for MCP callers). A bare call returns `blast_radius` — VM,
+  instance UUID, host, power state, disks, total size, snapshot count, blockers — and deletes nothing. It used to
+  delete on the first call.
+  A vmware-pilot workflow step that calls `vm_delete` now previews rather than deletes; no shipped Pilot
+  template or rollback uses it.
+* **Deleting takes `confirm=True` plus `acknowledge_blast_radius`**, set to the preview's `acknowledge_with`
+  (instance UUID, disk count, snapshot count — keys that do not drift on their own). The VM is re-measured first
+  and the call refused if any of them changed: another snapshot taken, or a different VM recreated under the same
+  name. The object destroyed is the one measured; there is no second lookup by name.
+* **Refused outright**: a powered-on or suspended VM (the docstring always said "must be powered off", while the code powered
+  it off for you — power it off with `vm_power_off` first); a VM whose identity, disks or snapshots cannot be read.
+* **`vm_apply_plan` is not a way around it.** A plan's `delete_vm` step goes through the same gate: it needs
+  `acknowledge_blast_radius` from a `vm_delete` preview and is refused without it. Rolling back a failed plan
+  still deletes the VMs that plan itself created.
+* The TTL daemon drops an entry whose VM name has become ambiguous, without deleting anything, instead of retrying
+  it every cycle.
+* A template and a VM with the same name now count as a duplicate too, so `deploy_from_template` / `convert_to_vm`
+  refuse until one is renamed.
+* **A name that matches more than one VM is refused** everywhere this skill looks a VM up by name (`AmbiguousVMError`),
+  instead of acting on whichever the property collector listed first. vSphere allows duplicate names across folders,
+  and every caller of that lookup goes on to change the VM it gets back. `vm_create_plan` reports it as a step error.
+  Hosts, datastores and clusters still resolve to the first match (follow-up).
+* **The CLI `vm delete` prints the same blast radius** before its two prompts. It still powers a running VM off
+  before deleting it, and the TTL daemon's deletion is unchanged.
+* **Guest tools' `risk_level` raised** on both surfaces: `vm_guest_exec`, `vm_guest_exec_output`,
+  `vm_guest_provision` medium → critical; `vm_guest_upload`, `vm_guest_download` medium → high. This changes which
+  `deny` rules match them and what the audit row records, not whether they run.
+* Documentation that described the old contract — "no confirmation over MCP, by design", "a preview that one
+  `confirm=True` call skips", "a preview, not an approval" — is rewritten in SKILL.md, the references and both READMEs.
+
 ## v1.9.7 — structured results say which target answered, and the server says which targets exist
 
 Found in a scenario test on 2026-09-16: asked for a VM's investigation bundle *and* to say where the data came

@@ -2,8 +2,8 @@
 
 Destructive and deploy commands ask for two confirmations and most write
 commands take `--dry-run` (not `deploy iso`, `deploy mark-template`,
-`vm cancel-ttl`, `vm guest-download`). These are CLI-only: the MCP tools act on the first call, and
-the enforcement boundary there is the RBAC of the vCenter/ESXi account — see
+`vm cancel-ttl`, `vm guest-download`). These are CLI-only: most MCP write tools act on the first call (`vm_delete` and seven
+network/DRS tools preview first), and the enforcement boundary there is the RBAC of the vCenter/ESXi account — see
 `capabilities.md` → "What gates a write".
 
 ```bash

@@ -19,6 +19,30 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def _delete_acknowledged(si: ServiceInstance, vm_name: str, ack: Any) -> str:
+    from vmware_aiops.ops.vm_delete_gate import delete_vm_acknowledged
+
+    r = delete_vm_acknowledged(si, vm_name, ack)
+    return (
+        f"VM '{r['vm']}' deleted ({r['disk_count']} disk(s), {r['total_disk_gb']} GB, "
+        f"{r['snapshot_count']} snapshot(s))."
+    )
+
+
+def _rollback_dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
+    """Rollback of a step this plan itself executed.
+
+    Undoing a ``create_vm`` / clone / deploy deletes the VM that step created,
+    which is the rollback contract the user invoked explicitly; it keeps the
+    ungated executor. Every other rollback action goes through ``_dispatch``.
+    """
+    if action == "delete_vm":
+        from vmware_aiops.ops.vm_lifecycle import delete_vm
+
+        return delete_vm(si, params["vm_name"])
+    return _dispatch(si, action, params)
+
+
 def _dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
     """Execute a single action. Returns result string."""
     from vmware_aiops.ops.vm_lifecycle import (
@@ -26,7 +50,6 @@ def _dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
         create_snapshot,
         create_vm,
         delete_snapshot,
-        delete_vm,
         migrate_vm,
         power_off_vm,
         power_on_vm,
@@ -62,7 +85,11 @@ def _dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
                 if params.get(key) is not None
             },
         ),
-        "delete_vm": lambda: delete_vm(si, params["vm_name"]),
+        # A plan must not be the way around vm_delete's gate: the step needs
+        # the acknowledgement from a vm_delete preview, and is refused without.
+        "delete_vm": lambda: _delete_acknowledged(
+            si, params["vm_name"], params.get("acknowledge_blast_radius"),
+        ),
         "reconfigure": lambda: reconfigure_vm(
             si, params["vm_name"],
             cpu=params.get("cpu"),
@@ -320,7 +347,7 @@ def rollback_plan(si: ServiceInstance, plan_id: str) -> dict:
             continue
 
         try:
-            result = _dispatch(si, rollback_action, rollback_params)
+            result = _rollback_dispatch(si, rollback_action, rollback_params)
             step["status"] = "rolled_back"
             entry = {
                 "step_index": step["index"],

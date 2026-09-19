@@ -27,8 +27,10 @@ Do **not** open a public GitHub issue for security vulnerabilities.
 ### Destructive Operation Safeguards
 
 Layers 1, 4 and 5 apply to every write on every surface. **Layers 2 and 3 are
-CLI-only** — the MCP tools an AI agent calls have no confirmation step and no
-dry-run:
+CLI-only.** Over MCP, most write tools act on the first call; `vm_delete` and seven
+host-network/DRS tools take `confirm` (default false), which returns a no-write
+preview. `vm_delete` also refuses unless the preview's `acknowledge_with` is echoed
+back and still matches, and refuses powered-on or suspended VMs:
 
 1. **`@vmware_tool` decorator** — mandatory on every MCP tool; provides pre-checks, audit logging, data sanitization, and timeout control
 2. **Double confirmation (CLI only)** — CLI destructive commands (delete, force power-off, snapshot revert, guest exec/upload) require two separate "Are you sure?" prompts. An agent with a shell can satisfy both with `yes |`; this defends the mistyped command, not a determined caller

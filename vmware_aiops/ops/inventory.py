@@ -15,6 +15,16 @@ class InventoryError(Exception):
     """Raised when a required inventory object cannot be resolved."""
 
 
+class AmbiguousVMError(InventoryError):
+    """Raised when a VM name matches more than one VM.
+
+    vSphere allows duplicate VM names across folders. Every caller of
+    ``find_vm_by_name`` in this skill goes on to change the VM it gets back,
+    and a write that lands on the wrong one of two same-named VMs looks
+    exactly like a write that landed on the right one.
+    """
+
+
 # Server-side page size for PropertyCollector. Large inventories are streamed in
 # batches of this many objects; the helper transparently follows continuation
 # tokens, so the caller always gets the full result set.
@@ -336,8 +346,24 @@ def _find_by_name(si: ServiceInstance, obj_type: list, name: str):
 
 
 def find_vm_by_name(si: ServiceInstance, vm_name: str) -> vim.VirtualMachine | None:
-    """Find a VM by exact name. Returns None if not found."""
-    return _find_by_name(si, [vim.VirtualMachine], vm_name)
+    """Find a VM by exact name. Returns None if not found.
+
+    Raises AmbiguousVMError when the name matches more than one VM, rather
+    than returning whichever the property collector listed first.
+    """
+    matches = [
+        obj for obj, p in _collect(si, [vim.VirtualMachine], ["name"])
+        if p.get("name") == vm_name
+    ]
+    if len(matches) > 1:
+        raise AmbiguousVMError(
+            f"{len(matches)} VMs are named '{sanitize(vm_name, 200)}'. This skill "
+            "refuses to guess which one you meant, because every operation that "
+            "looks a VM up by name goes on to change it. Run vm_investigation_bundle "
+            "or list_virtual_machines (vmware-monitor) to tell them apart, then "
+            "retry once the duplicate is renamed or removed."
+        )
+    return matches[0] if matches else None
 
 
 def find_host_by_name(si: ServiceInstance, host_name: str) -> vim.HostSystem | None:

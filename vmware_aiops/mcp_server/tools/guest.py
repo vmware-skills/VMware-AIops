@@ -24,7 +24,7 @@ from vmware_aiops.ops.guest_ops import (
 # guest and writes the *caller's* disk, which is a different hazard with its own
 # guard, and a label applied to everything tells a client nothing.
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium", sensitive_params=['password'])
+@vmware_tool(risk_level="critical", sensitive_params=['password'])
 @tool_errors("dict")
 def vm_guest_exec(
     vm_name: str,
@@ -63,7 +63,7 @@ def vm_guest_exec(
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium", sensitive_params=['password'])
+@vmware_tool(risk_level="critical", sensitive_params=['password'])
 @tool_errors("dict")
 def vm_guest_exec_output(
     vm_name: str,
@@ -97,7 +97,7 @@ def vm_guest_exec_output(
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium", sensitive_params=['password'])
+@vmware_tool(risk_level="high", sensitive_params=['password'])
 @tool_errors("str")
 def vm_guest_upload(
     vm_name: str,
@@ -131,7 +131,7 @@ def vm_guest_upload(
 # the user. Annotated exactly like its mirror vm_guest_upload — same operation,
 # opposite direction.
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium", sensitive_params=['password'])
+@vmware_tool(risk_level="high", sensitive_params=['password'])
 @tool_errors("str")
 def vm_guest_download(
     vm_name: str,
@@ -171,7 +171,7 @@ def vm_guest_download(
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium", sensitive_params=['password'])
+@vmware_tool(risk_level="critical", sensitive_params=['password'])
 @tool_errors("dict")
 def vm_guest_provision(
     vm_name: str,

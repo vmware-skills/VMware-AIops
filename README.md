@@ -322,7 +322,7 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | **Dry-Run Mode** (**CLI only**) | `--dry-run` prints the exact API call without executing, on every CLI write except `deploy iso`, `deploy mark-template`, `vm cancel-ttl` and `vm guest-download` |
 | **Plan → Confirm → Execute → Log** | CLI workflow: show current state, confirm changes, execute, audit log |
 | **Double Confirmation** (**CLI only**) | Destructive and deploy CLI commands (`vm` power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate, set-ttl, clean-slate, guest-exec, guest-upload; `deploy` ova, template, linked-clone, batch, batch-clone, mark-template; `cluster` delete, add-host, remove-host, configure, drs-rule-set/create/delete; `alarm reset`) require 2 sequential prompts and take no bypass flag |
-| **No confirmation on the MCP path** | The 43 write tools an agent sees over MCP act on the first call — no `confirmed=` handshake, no approval tier, no read-only switch. What decides whether a write lands is the privilege of the vCenter account, and what records it is the audit trail. See [What protects you](#what-protects-you) |
+| **Little confirmation on the MCP path** | 35 of the 43 write tools an agent sees over MCP act on the first call; `vm_delete` and seven network/DRS tools preview first. There is no approval tier and no read-only switch. What decides whether a write lands is the privilege of the vCenter account, and what records it is the audit trail. See [What protects you](#what-protects-you) |
 | **Rejection Logging** | Declined CLI confirmations are recorded in the audit trail |
 | **Audit Trail** | All operations logged to `~/.vmware-aiops/audit.log` (JSONL) with before/after state |
 | **Input Validation** | VM name, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated |
@@ -361,15 +361,17 @@ compensating for.
 human. It does not defend against an agent, which satisfies both prompts with
 `yes |`.
 
-**Over MCP**, there is no confirmation step at all. All 43 write tools —
-`vm_delete`, `cluster_delete`, `vm_guest_exec` among them — act on the first
-call. Seven host-networking and DRS tools take a `confirm` argument that
-defaults to a no-write preview, but that is a preview switch, not an approval
-gate: one more call is all it takes. This is deliberate. A `confirmed=`
-handshake was considered in July 2026 and cut, along with the earlier
-`VMWARE_READ_ONLY` switch, because neither was a real boundary — the switch was
-enforced on the MCP path only and any agent with a shell walked around it via
-the CLI, and a handshake is a speed-bump a model that intends to act steps over.
+**Over MCP**, destructive tools are moving to one argument, `confirm`, whose
+default is a no-write preview. `vm_delete` is first: a bare call reports what
+it would destroy (disks, total size, snapshots, host) and deletes nothing;
+deleting takes `confirm=True` plus the preview's `acknowledge_with` echoed back,
+and is refused if the VM changed since, is powered on or suspended, or cannot be fully read.
+Seven host-networking and DRS tools also default to a preview. The other 35
+write tools — `cluster_delete` and `vm_guest_exec` among them — still act on the
+first call until they move over. A confirmation is not authorization, which is
+why the `VMWARE_READ_ONLY` switch stays removed (it was enforced on the MCP path
+only, and any agent with a shell walked around it via the CLI). What the preview
+buys is narrower: an agent does not destroy something it has not looked at.
 
 **What actually decides whether a write lands is the vCenter/ESXi service
 account.** Give the skill an account with the privileges the work needs and no

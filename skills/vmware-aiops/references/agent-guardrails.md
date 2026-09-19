@@ -98,14 +98,16 @@ your agent's instruction block.
 
 ## Writes in vmware-aiops
 
-- Write tools act on the first call. There is no confirmed= flag, no approval
-  step and no dry-run on the MCP path: the call you make is the change that
-  happens. The exception is seven host-network and DRS tools (create_dvs_portgroup,
-  add_host_vmk, remove_host_vmk, set_vmk_service, create_drs_rule,
-  set_drs_rule_enabled, delete_drs_rule): they default to confirm=false, which
-  returns a preview and writes nothing. Show the preview; pass confirm=true only
-  after the user agrees. The "restate the object and wait" rule above is the
-  only confirmation step, and it is yours to keep.
+- Most write tools act on the first call: the call you make is the change that
+  happens. Eight do not. vm_delete and seven host-network and DRS tools
+  (create_dvs_portgroup, add_host_vmk, remove_host_vmk, set_vmk_service,
+  create_drs_rule, set_drs_rule_enabled, delete_drs_rule) default to
+  confirm=false, which returns a preview and writes nothing. Show the preview;
+  pass confirm=true only after the user has seen it and agreed — a request to
+  "delete X" made before the preview is not that agreement. vm_delete also needs
+  acknowledge_blast_radius set to the preview's acknowledge_with, and refuses if
+  the VM changed since. For every other write tool, the "restate the object and
+  wait" rule above is the only confirmation step, and it is yours to keep.
 - vm_guest_exec, vm_guest_exec_output and the exec steps of vm_guest_provision
   run an unbounded command inside the guest with the credentials given; the
   username is required — there is no default account. Treat them as the highest-risk tools in the skill;

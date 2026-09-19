@@ -5,12 +5,15 @@ from typing import Optional
 from vmware_policy import paginated, vmware_tool
 
 from vmware_aiops.mcp_server._shared import _get_connection, mcp, tool_errors
+from vmware_aiops.ops.vm_delete_gate import (
+    delete_vm_acknowledged,
+    vm_delete_blast_radius,
+)
 from vmware_aiops.ops.vm_lifecycle import (
     clone_vm,
     create_snapshot,
     create_vm,
     delete_snapshot,
-    delete_vm,
     get_task_status,
     list_snapshots,
     migrate_vm,
@@ -227,20 +230,46 @@ def vm_migrate(
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="critical")
-@tool_errors("str")
-def vm_delete(vm_name: str, target: Optional[str] = None) -> str:
-    """[WRITE] Delete a VM (irreversible). VM must be powered off.
+@tool_errors("dict")
+def vm_delete(
+    vm_name: str,
+    confirm: bool = False,
+    acknowledge_blast_radius: Optional[dict] = None,
+    target: Optional[str] = None,
+) -> dict:
+    """[WRITE] Delete a VM and its disks and snapshots (irreversible).
 
-    Returns a status string. Power it off first with vm_power_off. This destroys
-    the VM's disks, so confirm with the user before calling; use vm_set_ttl
-    instead when you only want the VM to expire later.
+    Without confirm=True this only previews: it returns blast_radius (identity,
+    host, disks, total size, snapshot count, blockers) and destroys nothing.
+    Show that to the user and get their explicit decision. Do not set
+    confirm=True on your own because the user said "delete" earlier: they
+    have not seen what it destroys yet.
+
+    To delete, call again with confirm=True and acknowledge_blast_radius set to
+    the preview's acknowledge_with object, unchanged. The VM is re-measured
+    first; if it changed (another snapshot, a different VM under the same
+    name), nothing is deleted and you must preview again.
+
+    Refused outright: a powered-on or suspended VM (power it off with vm_power_off first),
+    a VM whose disks or identity cannot be read, and a name that matches more
+    than one VM. Use vm_set_ttl instead when the VM should only expire later.
 
     Args:
-        vm_name: VM to delete. Must be powered off.
+        vm_name: Exact name of the VM to delete.
+        confirm: False (default) previews; True deletes, with the acknowledgement.
+        acknowledge_blast_radius: The preview's acknowledge_with object.
         target: vCenter/ESXi target name from config.
     """
     si = _get_connection(target)
-    return delete_vm(si, vm_name)
+    if not confirm:
+        return {
+            "action": "preview",
+            "blast_radius": vm_delete_blast_radius(si, vm_name),
+            "hint": "Nothing was deleted. Show blast_radius to the user; to delete, re-run "
+                    "with confirm=True and acknowledge_blast_radius set to its acknowledge_with.",
+        }
+    radius = delete_vm_acknowledged(si, vm_name, acknowledge_blast_radius)
+    return {"action": "deleted", "deleted": radius["vm"], "blast_radius": radius}
 
 
 # idempotentHint: false. CreateSnapshot_Task is called unconditionally and
