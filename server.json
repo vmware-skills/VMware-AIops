@@ -7,12 +7,12 @@
     "url": "https://github.com/vmware-skills/VMware-AIops",
     "source": "github"
   },
-  "version": "1.11.0",
+  "version": "1.12.0",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "vmware-aiops",
-      "version": "1.11.0",
+      "version": "1.12.0",
       "runtimeHint": "uvx",
       "packageArguments": [
         {

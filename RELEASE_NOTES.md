@@ -1,3 +1,27 @@
+## v1.12.0 — the MCP instructions name the configured targets
+
+`initialize` hands the client this server's `instructions`, and for a skill whose every tool takes a target that
+text is the only place the client learns which targets exist. Until now this one shipped a static description that never named them. The model then
+called tools with no target, got whatever the default was, and answered confidently about the wrong system —
+measured in vmware-monitor on 2026-09-15, where a standalone ESXi host was the default, so "how many VMs does the
+vCenter have" was answered from that host.
+
+The instructions now carry, built from the loaded config on every server start:
+
+* **`Configured targets:`** — each configured target with its host, and which one answers when none is named.
+* **`Choosing a target:`** — how to pick one from what the user asked, and to ask rather than guess when the
+  request does not say and the targets would answer differently.
+
+**A config that cannot be read is said out loud, not dropped.** On a machine that has not run `init` yet — every
+new install — this server now reports `Configured targets: could not be read (FileNotFoundError) — run `vmware-aiops doctor`.` instead of falling silent. A client shown no listing cannot
+tell "this skill has no targets worth naming" from "this skill could not read them", and only the first reading
+produces a confident answer about a system nobody chose. Only the error's type is included; its text quotes the
+config path.
+
+No tool, parameter or result shape changed. A new family gate (`mcp_instructions_name_targets.py`, in
+`family_smoke`) probes every server under an empty HOME, so the check runs in the state a new user is in rather
+than the one the developer happens to be in.
+
 ## v1.11.0 — destructive MCP tools preview by default
 
 HLD §7, second batch. `vm_delete` (v1.10.0) and the seven host-network/DRS tools already previewed; now every
