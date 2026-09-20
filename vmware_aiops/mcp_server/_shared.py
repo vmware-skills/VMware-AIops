@@ -334,17 +334,27 @@ def _target_instructions() -> str:
     starting — the tools report that error themselves, with the remedy. The
     first configured target is the default because this skill has no
     ``default_target`` key; saying so beats implying a choice nobody made.
+
+    A config it could not read is still said out loud, under the same heading.
+    Dropping the line was this function's own version of the bug it exists to
+    prevent: on a machine that has not run ``init`` yet — every customer, on day
+    one — the client saw no listing at all, and "this skill has no targets worth
+    naming" reads exactly like "this skill could not read them" (2026-09-20).
     """
     try:
         targets = load_config().targets
-    except Exception:  # noqa: BLE001 — instructions must not gate startup
-        targets = ()
-    listed = "; ".join(
-        f"{t.name} ({t.type}, {t.host}{', default' if i == 0 else ''})"
-        for i, t in enumerate(targets)
-    )
-    configured = f" Configured targets: {listed}." if listed else ""
-    return f"{_BASE_INSTRUCTIONS}{configured}{_TARGET_RULE}"
+    except Exception as exc:  # noqa: BLE001 — instructions must not gate startup
+        # Only the exception's type: its text quotes the config path.
+        detail = f"could not be read ({type(exc).__name__}) — run `vmware-aiops doctor`"
+    else:
+        listed = "; ".join(
+            f"{t.name} ({t.type}, {t.host}{', default' if i == 0 else ''})"
+            for i, t in enumerate(targets)
+        )
+        detail = listed or (
+            "none yet — add one under `targets:` in ~/.vmware-aiops/config.yaml"
+        )
+    return f"{_BASE_INSTRUCTIONS} Configured targets: {detail}.{_TARGET_RULE}"
 
 
 mcp = _FrameErrorFastMCP("vmware-aiops", instructions=_target_instructions())
