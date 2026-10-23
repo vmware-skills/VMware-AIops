@@ -15,7 +15,21 @@ class InventoryError(Exception):
     """Raised when a required inventory object cannot be resolved."""
 
 
-class AmbiguousVMError(InventoryError):
+class AmbiguousNameError(InventoryError):
+    """Raised when a name matches more than one inventory object of the kind asked for.
+
+    Cluster, datastore and folder names are unique only within their parent,
+    so two datacenters can each hold a ``Cluster01``. Returning whichever one
+    the property collector lists first would make a write on the wrong one
+    look exactly like a write on the right one.
+    """
+
+
+#: Managed-object ids listed in an ambiguity message; the count covers the rest.
+_MAX_LISTED_IDS = 5
+
+
+class AmbiguousVMError(AmbiguousNameError):
     """Raised when a VM name matches more than one VM.
 
     vSphere allows duplicate VM names across folders. Every caller of
@@ -333,16 +347,25 @@ def list_networks(si: ServiceInstance) -> list[dict]:
     return sorted(results, key=lambda x: x["name"])
 
 
-def _find_by_name(si: ServiceInstance, obj_type: list, name: str):
-    """Return the first managed object of ``obj_type`` whose name matches.
+def _find_unique_by_name(si: ServiceInstance, obj_type: list, name: str, kind: str):
+    """Return the one managed object of ``obj_type`` named ``name``, or None.
 
-    Fetches every object's ``name`` in one batched call rather than touching
-    ``obj.name`` per object (each of which would be a round-trip).
+    Raises AmbiguousNameError, naming the matches' managed-object ids, when
+    more than one object has that name. Fetches every object's ``name`` in one
+    batched call rather than touching ``obj.name`` per object (each of which
+    would be a round-trip).
     """
-    for obj, p in _collect(si, obj_type, ["name"]):
-        if p.get("name") == name:
-            return obj
-    return None
+    matches = [obj for obj, p in _collect(si, obj_type, ["name"]) if p.get("name") == name]
+    if len(matches) > 1:
+        ids = ", ".join(str(getattr(m, "_moId", "?")) for m in matches[:_MAX_LISTED_IDS])
+        more = f" and {len(matches) - _MAX_LISTED_IDS} more" if len(matches) > _MAX_LISTED_IDS else ""
+        raise AmbiguousNameError(
+            f"{len(matches)} {kind}s are named '{sanitize(name, 200)}' ({ids}{more}), "
+            "for example in different datacenters. This skill refuses to guess "
+            f"which one you meant. Rename one {kind} so the name is unique on this "
+            "vCenter, then retry."
+        )
+    return matches[0] if matches else None
 
 
 def find_vm_by_name(si: ServiceInstance, vm_name: str) -> vim.VirtualMachine | None:
@@ -367,29 +390,29 @@ def find_vm_by_name(si: ServiceInstance, vm_name: str) -> vim.VirtualMachine | N
 
 
 def find_host_by_name(si: ServiceInstance, host_name: str) -> vim.HostSystem | None:
-    """Find a host by name. Returns None if not found."""
-    return _find_by_name(si, [vim.HostSystem], host_name)
+    """Find a host by exact name. None if not found; AmbiguousNameError if several match."""
+    return _find_unique_by_name(si, [vim.HostSystem], host_name, "host")
 
 
 def find_datastore_by_name(
     si: ServiceInstance, ds_name: str
 ) -> vim.Datastore | None:
-    """Find a datastore by name. Returns None if not found."""
-    return _find_by_name(si, [vim.Datastore], ds_name)
+    """Find a datastore by exact name. None if not found; AmbiguousNameError if several match."""
+    return _find_unique_by_name(si, [vim.Datastore], ds_name, "datastore")
 
 
 def find_cluster_by_name(
     si: ServiceInstance, cluster_name: str
 ) -> vim.ClusterComputeResource | None:
-    """Find a cluster by exact name. Returns None if not found."""
-    return _find_by_name(si, [vim.ClusterComputeResource], cluster_name)
+    """Find a cluster by exact name. None if not found; AmbiguousNameError if several match."""
+    return _find_unique_by_name(si, [vim.ClusterComputeResource], cluster_name, "cluster")
 
 
 def find_datacenter_by_name(
     si: ServiceInstance, dc_name: str
 ) -> vim.Datacenter | None:
-    """Find a datacenter by exact name. Returns None if not found."""
-    return _find_by_name(si, [vim.Datacenter], dc_name)
+    """Find a datacenter by exact name. None if not found; AmbiguousNameError if several match."""
+    return _find_unique_by_name(si, [vim.Datacenter], dc_name, "datacenter")
 
 
 def resolve_datacenter(
