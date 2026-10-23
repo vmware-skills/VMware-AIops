@@ -377,9 +377,12 @@ def precheck_targets(si: ServiceInstance, operations: list[dict[str, Any]]) -> l
         # Check target host for migrate
         target_host = op.get("target_host")
         if target_host and action == "migrate":
-            from vmware_aiops.ops.inventory import find_host_by_name
-            if find_host_by_name(si, target_host) is None:
-                errors.append(f"Step {i} ({action}): host '{target_host}' not found")
+            from vmware_aiops.ops.inventory import AmbiguousNameError, find_host_by_name
+            try:
+                if find_host_by_name(si, target_host) is None:
+                    errors.append(f"Step {i} ({action}): host '{target_host}' not found")
+            except AmbiguousNameError as e:
+                errors.append(f"Step {i} ({action}): {e}")
 
     return errors
 
