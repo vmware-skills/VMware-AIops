@@ -226,7 +226,7 @@ def test_falsy_error_key_is_not_a_failure(monkeypatch) -> None:
     # stubbed clean so this stays about the falsy error key.
     monkeypatch.setattr(
         "vmware_aiops.mcp_server.tools.guest.measure_guest_provision",
-        lambda *a, **k: {"blockers": [], "unmeasured": []},
+        lambda *a, **k: {"instance_uuid": "uuid-1", "blockers": [], "unmeasured": []},
     )
 
     result = call(

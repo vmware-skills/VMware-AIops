@@ -25,6 +25,35 @@ class AmbiguousNameError(InventoryError):
     """
 
 
+class VMChangedError(InventoryError):
+    """Raised when the VM found by name is not the one a preview measured.
+
+    The MCP write tools measure a VM, then their executor looks it up by name
+    again. A VM recreated under the same name in between would otherwise be
+    changed instead of the one the caller saw in the blast radius.
+    """
+
+
+def require_instance_uuid(vm: vim.VirtualMachine, vm_name: str, expected: str | None) -> None:
+    """Refuse when ``vm`` is not the VM whose instance UUID was measured.
+
+    ``expected`` None means the caller measured nothing (the CLI path): no check.
+    """
+    if expected is None:
+        return
+    try:
+        actual = vm.config.instanceUuid
+    except (AttributeError, vmodl.fault.ManagedObjectNotFound):
+        actual = None
+    if actual != expected:
+        raise VMChangedError(
+            f"VM '{sanitize(vm_name, 200)}' is not the VM that was previewed (instance "
+            f"UUID {sanitize(str(actual), 64)} instead of {sanitize(expected, 64)}): it "
+            "was removed or recreated under the same name since. Nothing was changed. "
+            "Preview again and confirm what the new preview shows."
+        )
+
+
 #: Managed-object ids listed in an ambiguity message; the count covers the rest.
 _MAX_LISTED_IDS = 5
 

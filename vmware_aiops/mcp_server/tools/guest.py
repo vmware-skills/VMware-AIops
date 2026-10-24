@@ -97,6 +97,7 @@ def run_vm_guest_command(
         si, vm_name, command, username, password,
         arguments=arguments,
         working_directory=working_directory,
+        expect_instance_uuid=radius["instance_uuid"],
     )
     return {**result, "action": "executed", "blast_radius": radius}
 
@@ -151,7 +152,8 @@ def run_vm_guest_command_with_output(
     refuse_on(radius, "run_vm_guest_command_with_output")
     authorize_reached("run_vm_guest_command_with_output",
                       {"vm_name": vm_name, "username": username}, target)
-    result = guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout)
+    result = guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout,
+                                    expect_instance_uuid=radius["instance_uuid"])
     return {**result, "action": "executed", "blast_radius": radius}
 
 
@@ -198,7 +200,8 @@ def upload_vm_guest_file(
     if not confirm:
         return preview(radius, _HINT)
     refuse_on(radius, "upload_vm_guest_file")
-    message = guest_upload(si, vm_name, local_path, guest_path, username, password)
+    message = guest_upload(si, vm_name, local_path, guest_path, username, password,
+                           expect_instance_uuid=radius["instance_uuid"])
     return {"action": "uploaded", "message": message, "blast_radius": radius}
 
 
@@ -305,5 +308,6 @@ def provision_vm_guest(
     # The password stays out of the policy check and its audit row.
     authorize_reached("provision_vm_guest", {"vm_name": vm_name, "username": username}, target,
                       used=used_by_provision(steps))
-    result = guest_provision(si, vm_name, username, password, steps, timeout=timeout)
+    result = guest_provision(si, vm_name, username, password, steps, timeout=timeout,
+                             expect_instance_uuid=radius["instance_uuid"])
     return {**result, "action": "provisioned", "blast_radius": radius}

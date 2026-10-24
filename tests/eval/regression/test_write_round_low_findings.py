@@ -89,7 +89,7 @@ def test_a_cpu_feature_refusal_leads_with_the_remedy(monkeypatch) -> None:
     vm.datastore = []
     host = MagicMock()
     host.parent.resourcePool = vim.ResourcePool("resgroup-1", None)
-    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n: vm)
+    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n, **k: vm)
     monkeypatch.setattr(vm_lifecycle, "find_host_by_name", lambda si, n: host)
     monkeypatch.setattr(vm_lifecycle.vim.vm, "RelocateSpec", lambda **k: MagicMock())
 

@@ -119,7 +119,9 @@ def power_off_vm(
     if not confirm:
         return preview(radius)
     refuse_on(radius, "power_off_vm")
-    message = _ops_power_off_vm(si, vm_name, force=force)
+    message = _ops_power_off_vm(
+        si, vm_name, force=force, expect_instance_uuid=radius["instance_uuid"]
+    )
     if read_power_state(vm) == "poweredOff":
         return {"action": "powered_off", "result": message, "blast_radius": radius}
     return {
@@ -289,7 +291,8 @@ def migrate_vm(
     if not confirm:
         return preview(radius)
     refuse_on(radius, "migrate_vm")
-    message = _ops_migrate_vm(si, vm_name, to_host, target_datastore=to_datastore)
+    message = _ops_migrate_vm(si, vm_name, to_host, target_datastore=to_datastore,
+                              expect_instance_uuid=radius["instance_uuid"])
     if " migrated from " not in message:
         raise did_not_act("migrate_vm", message)
     return {"action": "migrated", "result": message, "blast_radius": radius}
@@ -426,7 +429,11 @@ def revert_vm_snapshot(
     if not confirm:
         return preview(radius)
     refuse_on(radius, "revert_vm_snapshot")
-    message = revert_to_snapshot(si, vm_name, snapshot_name)
+    message = revert_to_snapshot(
+        si, vm_name, snapshot_name,
+        expect_instance_uuid=radius["instance_uuid"],
+        expect_snapshot_id=radius["snapshot"]["id"],
+    )
     # Success is recognised, not failure: the executor answers every refusal
     # (not found, ambiguous) with a sentence, and a new one must not read as done.
     if " reverted to snapshot " not in message:
@@ -483,7 +490,8 @@ def delete_vm_snapshot(
         return preview(radius)
     refuse_on(radius, "delete_vm_snapshot")
     message = delete_snapshot(
-        si, vm_name, snapshot_name, remove_children=remove_children, wait=wait
+        si, vm_name, snapshot_name, remove_children=remove_children, wait=wait,
+        expect_instance_uuid=radius["instance_uuid"], expect_snapshot_id=radius["snapshot"]["id"],
     )
     if "deleted from VM" in message:
         action = "snapshot_deleted"
