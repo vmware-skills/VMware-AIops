@@ -392,7 +392,7 @@ def test_clean_slate_of_a_running_vm_is_stopped_at_the_power_off(harness, monkey
 def test_an_exec_only_provision_is_not_affected_by_an_upload_deny(harness, monkeypatch):
     _rules(harness, "upload_vm_guest_file")
     monkeypatch.setattr(guest_tools, "measure_guest_provision",
-                        lambda *a, **k: {"blockers": [], "unmeasured": []})
+                        lambda *a, **k: {"instance_uuid": "uuid-1", "blockers": [], "unmeasured": []})
     ran = []
     monkeypatch.setattr(guest_tools, "guest_provision", lambda *a, **k: ran.append(1) or {})
     steps = [{"type": "exec", "command": "id"}]
