@@ -203,7 +203,7 @@ def test_guest_upload_refuses_a_vm_recreated_under_the_same_name(
 ):
     finds(_vm("uuid-B"))
     src = tmp_path / "f.txt"
-    src.write_text("x")
+    src.write_text("x", encoding="utf-8")
     monkeypatch.setattr(guest_tools, "measure_guest_upload", lambda *a, **k: _radius())
 
     out = guest_tools.upload_vm_guest_file("web-01", str(src), "/tmp/f.txt", "root", "pw",
