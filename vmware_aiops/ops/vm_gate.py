@@ -453,6 +453,11 @@ def _locate_snapshot(
         "unmeasured": unmeasured,
     }
     if node is not None:
+        # The executor can only pin the selected snapshot when its managed
+        # object id was measured. Without it, a same-name replacement would
+        # silently bypass the identity check on the confirmed call.
+        if not radius["snapshot"]["id"]:
+            radius["unmeasured"].append("snapshot_id")
         radius["is_current_snapshot"] = (
             current is not None and current == radius["snapshot"]["id"]
         )

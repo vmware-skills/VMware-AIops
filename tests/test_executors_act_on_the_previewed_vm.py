@@ -166,6 +166,24 @@ def test_snapshot_revert_still_acts_on_the_measured_snapshot(monkeypatch, finds)
     vm.snapshot.rootSnapshotList[0].snapshot.RevertToSnapshot_Task.assert_called_once()
 
 
+@pytest.mark.parametrize("tool", ["revert", "delete"])
+@pytest.mark.parametrize("missing_id", [None, ""])
+def test_snapshot_tools_refuse_when_snapshot_id_cannot_be_measured(
+    finds, tool, missing_id
+):
+    vm = finds(_vm("uuid-A", snapshot_moid=missing_id))
+
+    if tool == "revert":
+        out = vm_tools.revert_vm_snapshot("web-01", "before", confirm=True)
+    else:
+        out = vm_tools.delete_vm_snapshot("web-01", "before", confirm=True)
+
+    assert "snapshot_id" in _error(out)
+    node = vm.snapshot.rootSnapshotList[0]
+    node.snapshot.RevertToSnapshot_Task.assert_not_called()
+    node.snapshot.RemoveSnapshot_Task.assert_not_called()
+
+
 # ─── guest ───────────────────────────────────────────────────────────────────
 
 
