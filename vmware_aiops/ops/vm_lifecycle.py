@@ -16,6 +16,7 @@ from vmware_aiops.ops.inventory import (
     find_datastore_by_name,
     find_host_by_name,
     find_vm_by_name,
+    require_instance_uuid,
     resolve_datacenter,
 )
 
@@ -98,8 +99,14 @@ def _wait_for_task(task, timeout: int = 300) -> object:
     raise TaskFailedError("Task failed: " + " | ".join(parts))
 
 
-def _require_vm(si: ServiceInstance, vm_name: str) -> vim.VirtualMachine:
-    """Find a VM or raise VMNotFoundError."""
+def _require_vm(
+    si: ServiceInstance, vm_name: str, *, expect_instance_uuid: str | None = None
+) -> vim.VirtualMachine:
+    """Find a VM or raise VMNotFoundError.
+
+    With ``expect_instance_uuid`` (what a preview measured), also raise
+    VMChangedError when the VM under that name is a different one now.
+    """
     vm = find_vm_by_name(si, vm_name)
     if vm is None:
         raise VMNotFoundError(
@@ -107,7 +114,25 @@ def _require_vm(si: ServiceInstance, vm_name: str) -> vim.VirtualMachine:
             f"filter by name e.g. '{vm_name[:3]}*') to see available VMs and copy an "
             f"exact name — vSphere VM names are case-sensitive."
         )
+    require_instance_uuid(vm, vm_name, expect_instance_uuid)
     return vm
+
+
+def _require_snapshot_id(node, snap_name: str, expected: str | None) -> str | None:
+    """A refusal when the snapshot found by name is not the one a preview measured."""
+    if expected is None:
+        return None
+    try:
+        actual = node.snapshot._moId
+    except AttributeError:
+        actual = None
+    if actual == expected:
+        return None
+    return (
+        f"Snapshot '{sanitize(snap_name, 200)}' not changed: it is not the snapshot that "
+        f"was previewed (id {sanitize(str(actual), 64)} instead of {sanitize(expected, 64)}). "
+        "It was removed or recreated under the same name since. Preview again."
+    )
 
 
 # ─── Info ─────────────────────────────────────────────────────────────────────
@@ -190,9 +215,15 @@ def power_on_vm(si: ServiceInstance, vm_name: str) -> str:
     return f"VM '{vm_name}' powered on successfully."
 
 
-def power_off_vm(si: ServiceInstance, vm_name: str, force: bool = False) -> str:
+def power_off_vm(
+    si: ServiceInstance,
+    vm_name: str,
+    force: bool = False,
+    *,
+    expect_instance_uuid: str | None = None,
+) -> str:
     """Power off a VM. Graceful (guest shutdown) by default, force if specified."""
-    vm = _require_vm(si, vm_name)
+    vm = _require_vm(si, vm_name, expect_instance_uuid=expect_instance_uuid)
     if vm.runtime.powerState == vim.VirtualMachine.PowerState.poweredOff:
         return f"VM '{vm_name}' is already powered off."
 
@@ -504,11 +535,24 @@ def resolve_snapshot(vm: vim.VirtualMachine, snap_name: str) -> tuple[object | N
 
 
 def revert_to_snapshot(
-    si: ServiceInstance, vm_name: str, snap_name: str
+    si: ServiceInstance,
+    vm_name: str,
+    snap_name: str,
+    *,
+    expect_instance_uuid: str | None = None,
+    expect_snapshot_id: str | None = None,
 ) -> str:
-    """Revert VM to a named snapshot."""
-    node, refusal = resolve_snapshot(_require_vm(si, vm_name), snap_name)
+    """Revert VM to a named snapshot.
+
+    The ``expect_*`` values are what a preview measured; a different VM or
+    snapshot under the same names is refused instead of reverted.
+    """
+    vm = _require_vm(si, vm_name, expect_instance_uuid=expect_instance_uuid)
+    node, refusal = resolve_snapshot(vm, snap_name)
     if node is None:
+        return refusal
+    refusal = _require_snapshot_id(node, snap_name, expect_snapshot_id)
+    if refusal:
         return refusal
 
     task = node.snapshot.RevertToSnapshot_Task()
@@ -524,6 +568,8 @@ def delete_snapshot(
     *,
     wait: bool = True,
     timeout: int = 1800,
+    expect_instance_uuid: str | None = None,
+    expect_snapshot_id: str | None = None,
 ) -> str:
     """Delete a named snapshot, consolidating its delta disk into the parent.
 
@@ -532,9 +578,15 @@ def delete_snapshot(
     than the 300s used by metadata ops. When ``wait`` is False the task is fired
     and the task id returned immediately (use ``get_task_status`` to poll) — this
     avoids blocking an agent's context window on a long consolidation.
+    The ``expect_*`` values are what a preview measured, as in
+    :func:`revert_to_snapshot`.
     """
-    node, refusal = resolve_snapshot(_require_vm(si, vm_name), snap_name)
+    vm = _require_vm(si, vm_name, expect_instance_uuid=expect_instance_uuid)
+    node, refusal = resolve_snapshot(vm, snap_name)
     if node is None:
+        return refusal
+    refusal = _require_snapshot_id(node, snap_name, expect_snapshot_id)
+    if refusal:
         return refusal
 
     task = node.snapshot.RemoveSnapshot_Task(removeChildren=remove_children)
@@ -680,14 +732,17 @@ def migrate_vm(
     target_host_name: str,
     *,
     target_datastore: str | None = None,
+    expect_instance_uuid: str | None = None,
 ) -> str:
     """Migrate (vMotion) a VM to another host, optionally with storage vMotion.
 
     If the target host does not have access to the VM's current datastore,
     ``target_datastore`` is **required** — otherwise vCenter rejects the
     Relocate task with "host has no access to the source datastore".
+    ``expect_instance_uuid`` is what a preview measured; a different VM under
+    the same name is refused.
     """
-    vm = _require_vm(si, vm_name)
+    vm = _require_vm(si, vm_name, expect_instance_uuid=expect_instance_uuid)
     target_host = find_host_by_name(si, target_host_name)
     if target_host is None:
         raise InventoryError(

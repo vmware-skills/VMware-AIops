@@ -22,7 +22,7 @@ from vmware_policy import sanitize
 from vmware_policy.hostpaths import check_host_path
 
 from vmware_aiops.connection import get_verify_ssl
-from vmware_aiops.ops.inventory import find_vm_by_name
+from vmware_aiops.ops.inventory import find_vm_by_name, require_instance_uuid
 from vmware_aiops.ops.vm_lifecycle import VMNotFoundError
 
 if TYPE_CHECKING:
@@ -44,9 +44,13 @@ class GuestOpsError(Exception):
 
 
 def _require_vm_with_tools(
-    si: ServiceInstance, vm_name: str
+    si: ServiceInstance, vm_name: str, *, expect_instance_uuid: str | None = None
 ) -> vim.VirtualMachine:
-    """Find VM and verify VMware Tools is running."""
+    """Find VM and verify VMware Tools is running.
+
+    With ``expect_instance_uuid`` (what a preview measured), a different VM
+    under the same name raises VMChangedError.
+    """
     vm = find_vm_by_name(si, vm_name)
     if vm is None:
         raise VMNotFoundError(
@@ -54,6 +58,7 @@ def _require_vm_with_tools(
             f"filter by name e.g. '{vm_name[:3]}*') to see available VMs and copy an "
             f"exact name — vSphere VM names are case-sensitive."
         )
+    require_instance_uuid(vm, vm_name, expect_instance_uuid)
     if vm.runtime.powerState != vim.VirtualMachine.PowerState.poweredOn:
         raise GuestOpsError(
             f"VM '{vm_name}' is not powered on. Guest operations need a running guest: "
@@ -96,6 +101,8 @@ def guest_exec(
     arguments: str = "",
     working_directory: str | None = None,
     timeout: int = _EXEC_TIMEOUT,
+    *,
+    expect_instance_uuid: str | None = None,
 ) -> dict:
     """Execute a command inside a VM via VMware Tools.
 
@@ -112,7 +119,7 @@ def guest_exec(
     Returns:
         dict with keys: exit_code, stdout, stderr, timed_out.
     """
-    vm = _require_vm_with_tools(si, vm_name)
+    vm = _require_vm_with_tools(si, vm_name, expect_instance_uuid=expect_instance_uuid)
     content = si.RetrieveContent()
     gom = content.guestOperationsManager
     pm = gom.processManager
@@ -182,6 +189,8 @@ def guest_exec_with_output(
     username: str,
     password: str,
     timeout: int = _EXEC_TIMEOUT,
+    *,
+    expect_instance_uuid: str | None = None,
 ) -> dict:
     """Execute a shell command inside a VM and capture stdout + stderr.
 
@@ -200,7 +209,7 @@ def guest_exec_with_output(
     Returns:
         dict with keys: exit_code, stdout, stderr, timed_out, command, os_family.
     """
-    vm = _require_vm_with_tools(si, vm_name)
+    vm = _require_vm_with_tools(si, vm_name, expect_instance_uuid=expect_instance_uuid)
     family = vm.guest.guestFamily if vm.guest else None
     program, flag = _detect_shell(vm)
 
@@ -273,8 +282,13 @@ def guest_provision(
     password: str,
     steps: list[dict],
     timeout: int = 300,
+    *,
+    expect_instance_uuid: str | None = None,
 ) -> dict:
     """Provision a VM by running a sequence of guest operations.
+
+    ``expect_instance_uuid`` (what a preview measured) is checked before every
+    step, so a VM recreated under the same name mid-run stops the run there.
 
     Each step is a dict with a ``type`` key:
 
@@ -314,7 +328,8 @@ def guest_provision(
             if step_type == "exec":
                 command = step["command"]
                 step_result["command"] = command
-                out = guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout)
+                out = guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout,
+                                             expect_instance_uuid=expect_instance_uuid)
                 step_result["exit_code"] = out["exit_code"]
                 step_result["stdout"] = out["stdout"]
                 step_result["timed_out"] = out["timed_out"]
@@ -325,7 +340,8 @@ def guest_provision(
                 guest_path = step["guest_path"]
                 step_result["local_path"] = local_path
                 step_result["guest_path"] = guest_path
-                msg = guest_upload(si, vm_name, local_path, guest_path, username, password)
+                msg = guest_upload(si, vm_name, local_path, guest_path, username, password,
+                                   expect_instance_uuid=expect_instance_uuid)
                 step_result["message"] = msg
                 step_result["success"] = True
 
@@ -335,7 +351,8 @@ def guest_provision(
                 step_result["service"] = name
                 step_result["action"] = action
                 command = f"systemctl {action} {name}"
-                out = guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout)
+                out = guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout,
+                                             expect_instance_uuid=expect_instance_uuid)
                 step_result["exit_code"] = out["exit_code"]
                 step_result["stdout"] = out["stdout"]
                 step_result["success"] = out["exit_code"] == 0
@@ -389,6 +406,8 @@ def guest_upload(
     username: str,
     password: str,
     overwrite: bool = True,
+    *,
+    expect_instance_uuid: str | None = None,
 ) -> str:
     """Upload a file from the local machine to a VM via VMware Tools.
 
@@ -407,7 +426,7 @@ def guest_upload(
     import urllib.request
     import ssl
 
-    vm = _require_vm_with_tools(si, vm_name)
+    vm = _require_vm_with_tools(si, vm_name, expect_instance_uuid=expect_instance_uuid)
     content = si.RetrieveContent()
     gom = content.guestOperationsManager
     fm = gom.fileManager
