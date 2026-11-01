@@ -1,6 +1,8 @@
 <!-- mcp-name: io.github.vmware-skills/vmware-aiops -->
 # VMware AIops
 
+For a read-only check of this skill with your model and agent host, use the shared [model-fit self-test](https://github.com/vmware-skills/marketplace/blob/main/MODEL_FIT_SELF_TEST.md) in the marketplace root.
+
 > **Author**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
 > This is a community-driven project by a VMware engineer, not an official VMware product.
 > For official VMware developer tools see [developer.broadcom.com](https://developer.broadcom.com).

@@ -1,6 +1,8 @@
 <!-- mcp-name: io.github.vmware-skills/vmware-aiops -->
 # VMware AIops
 
+要用自己的模型和 Agent 平台进行只读自测，请看 marketplace 根目录的[共享模型适配自测任务](https://github.com/vmware-skills/marketplace/blob/main/MODEL_FIT_SELF_TEST.md)。
+
 > **作者**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
 > 本项目由 VMware 工程师维护的社区项目，非 VMware 官方产品。
 > VMware 官方开发者工具请访问 [developer.broadcom.com](https://developer.broadcom.com)。
