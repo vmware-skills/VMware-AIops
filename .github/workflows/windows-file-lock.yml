@@ -1,0 +1,32 @@
+name: Windows file lock
+
+on:
+  pull_request:
+    paths:
+      - 'vmware_aiops/_filelock.py'
+      - 'tests/windows_lock_check.py'
+      - '.github/workflows/windows-file-lock.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'vmware_aiops/_filelock.py'
+      - 'tests/windows_lock_check.py'
+      - '.github/workflows/windows-file-lock.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-msvcrt:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Check four-process serialization, bounded timeout, and release
+        run: python tests/windows_lock_check.py vmware_aiops/_filelock.py
