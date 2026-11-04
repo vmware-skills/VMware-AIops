@@ -1,3 +1,7 @@
+## Unreleased — dependency security
+
+* Require certifi 2026.10.19 or later to exclude the compromised emSign root CA from the TLS trust bundle (GHSA-6q48-6c7w-9gw2). The development lock now resolves 2026.10.23.
+
 ## v2.4.2 — a login refused for lack of a role says so; an unreadable host is not called unreachable (2026-10-19)
 
 Needs vmware-monitor 2.4.2 (now the floor). Found on a vCenter 8.0.3 lab with two restricted SSO accounts
