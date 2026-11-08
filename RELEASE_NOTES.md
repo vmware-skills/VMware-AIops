@@ -1,6 +1,10 @@
-## Unreleased — dependency security
+## v2.4.3 — bind confirmed writes to measured identities; reject ambiguous inventory names (2026-11-08)
 
-* Require certifi 2026.10.19 or later to exclude the compromised emSign root CA from the TLS trust bundle (GHSA-6q48-6c7w-9gw2). The development lock now resolves 2026.10.23.
+* **Confirmed MCP writes re-check the identities measured during that call.** The eight confirm-gated VM and snapshot tools pass the current blast-radius measurement's VM instance UUID and snapshot id into execution, refusing a replacement object found by the executor. Each `confirm=True` invocation measures afresh; the separate earlier preview supplies no identity token. The existing `delete_vm` acknowledgement requirement is unchanged, as are the CLI and plan-executor paths (AIops#49).
+* **Missing objects in delegated investigation tools keep their remedy.** VM, host and datastore lookup errors from vmware-monitor retain the exact-name/listing guidance through AIops MCP and are classified as request errors; unexpected delegate failures remain reduced to their type.
+* **Ambiguous host, cluster, datastore and datacenter names are refused.** A lookup that finds more than one match raises `AmbiguousNameError` with the matching managed-object ids; plan prechecks and CLI output expose the ambiguity instead of selecting the first result (AIops#48).
+* The image-cache and TTL cross-process file lock is exercised on a real Windows GitHub Actions runner: four concurrent writers retain every row, a held lock times out with the lock path, and the lock is released after the holder exits (AIops#51).
+* Require certifi 2026.10.19 or later to exclude the compromised emSign root CA from the TLS trust bundle (GHSA-6q48-6c7w-9gw2). The development lock resolves 2026.10.23 (AIops#53).
 
 ## v2.4.2 — a login refused for lack of a role says so; an unreadable host is not called unreachable (2026-10-19)
 

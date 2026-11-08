@@ -22,6 +22,11 @@ from typing import Any, Callable, Optional
 from mcp import types as mcp_types
 from mcp.server.fastmcp import FastMCP
 from pyVmomi import vim
+from vmware_monitor.ops.investigate_datastore import (
+    DatastoreNotFoundError as MonitorDatastoreNotFoundError,
+)
+from vmware_monitor.ops.investigate_host import HostNotFoundError as MonitorHostNotFoundError
+from vmware_monitor.ops.vm_info import VMNotFoundError as MonitorVMNotFoundError
 from vmware_policy import report_tool_failure, sanitize
 
 from vmware_aiops import __version__
@@ -56,6 +61,15 @@ _ROLE_HINT = (
 #: the message already names the fix, and doctor would report green (2026-10-17).
 _FIX_IN_MESSAGE_HINT = "The error message says what to change; connectivity is not the problem."
 
+#: Monitor delegates author these missing-object remedies. Their classes are
+#: distinct from AIops's own lookup errors; unknown delegate exceptions remain reduced.
+_DELEGATED_LOOKUP_ERRORS = (
+    MonitorVMNotFoundError,
+    MonitorHostNotFoundError,
+    MonitorDatastoreNotFoundError,
+)
+
+
 #: Authored errors whose cause is the request, not the connection. ssl.SSLError
 #: subclasses ValueError and is excluded explicitly below.
 _REQUEST_ERRORS = (
@@ -76,6 +90,7 @@ _REQUEST_ERRORS = (
     ClusterError,
     HostNetworkError,
     NetworkError,
+    *_DELEGATED_LOOKUP_ERRORS,
 )
 
 #: ValueErrors whose text was not authored as a remedy: a body that was not
@@ -173,6 +188,7 @@ def _safe_error(exc: Exception, tool: str) -> str:
         DatastoreBrowseError,
         DeployError,
         NetworkError,
+        *_DELEGATED_LOOKUP_ERRORS,
     )
     if isinstance(exc, _passthrough):
         # 500 is sanitize's own default, not 300. The list above is precisely
