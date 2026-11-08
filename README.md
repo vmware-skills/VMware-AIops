@@ -345,7 +345,7 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | **Password Protection** | `.env` file loading with permission check; never in shell history |
 | **SSL Self-signed Support** | `verify_ssl: false` — only for ESXi with self-signed certs in isolated labs; production should use CA-signed certificates |
 | **Prompt Injection Protection** | vSphere event messages and host logs are truncated, stripped of control characters, and wrapped in boundary markers before output |
-| **Webhook Data Scope** | Disabled by default. When configured, the daemon posts to your URL only: every critical issue (alarms, events, ESXi log lines matching critical/panic/corrupt, targets it could not connect to) and every alarm/event warning — host-log warnings stay in the scan log, and `info` rows are never sent. Each issue carries its entity name and message: sanitized alarm, event, or ESXi log text, or the connection error, which can include host names, IP addresses, and user names. No credentials from the skill's config or `.env` are sent |
+| **Webhook Data Scope** | Disabled by default. When configured, the daemon posts to your URL only: every critical issue (alarms, events, ESXi log lines matching critical/panic/corrupt, targets it could not connect to) and every alarm/event warning — host-log warnings stay in the scan log, and `info` rows are never sent. Each issue carries its entity name and message: sanitized alarm, event, or ESXi log text, or a generic connection failure class; operational text can include host names, IP addresses, and user names. No credentials from the skill's config or `.env` are sent |
 | **Task Waiting** | All async operations wait for completion and report result |
 | **State Validation** | Pre-operation checks (VM exists, power state correct) |
 
@@ -550,6 +550,8 @@ VMWARE_{TARGET_NAME_UPPER}_PASSWORD
 ```
 
 ### Security Best Practices
+
+Scanner notification failures report an HTTP status or exception class. Raw webhook response bodies, transport errors and connection exceptions are excluded from notification diagnostics and audit summaries to keep endpoint tokens out of them.
 
 - **NEVER** hardcode passwords in scripts or config files
 - **NEVER** pass passwords as command-line arguments (visible in `ps`)
