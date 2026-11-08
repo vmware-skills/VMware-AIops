@@ -11,6 +11,8 @@ English | [中文](README-CN.md)
 
 AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 61 tools.
 
+Scope also includes datastore file browsing and deployment image discovery, alarm acknowledgment and reset, and an explicitly started scanning/TTL daemon with optional configured webhooks. Alarm reset can clear multiple matching alarms; guest commands and file transfers retain the account and file-access boundaries documented in the [capabilities reference](skills/vmware-aiops/references/capabilities.md).
+
 > **Companion skills** handle everything else:
 >
 > | Skill | Scope | Install |
