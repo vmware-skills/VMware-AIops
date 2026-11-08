@@ -1,9 +1,11 @@
-## Unreleased — notification secret minimization
+## v2.4.4 — minimize notification and audit secrets (2026-11-08)
 
+* Update public author/project contact metadata to `zhouwei008@gmail.com`.
+
+### notification secret minimization
 * Webhook status/transport logs and unexpected scan/send audit failures retain HTTP status or exception class without raw response/exception text. Connection-failure notifications no longer forward raw exceptions that can contain credential-bearing URLs or opaque tokens.
 
-## Unreleased — scope declaration
-
+### scope declaration
 * Explicitly declare the existing datastore browsing/image discovery, multi-alarm reset and user-started scanning/TTL daemon capabilities in the canonical skill description and both READMEs. Runtime behavior, permission boundaries and risk disclosures are unchanged.
 
 ## v2.4.3 — bind confirmed writes to measured identities; reject ambiguous inventory names (2026-11-08)
@@ -1960,7 +1962,7 @@ This release tracks vmware-pilot v1.5.17 (new `investigate_alert` template + `re
 - **[READ]/[WRITE] tool prefixes**: All MCP tool descriptions now start with [READ] or [WRITE] to clearly indicate operation type
 - **Read/write split counts**: SKILL.md MCP Tools section header shows exact read vs write tool counts
 - **Negative routing**: Description frontmatter includes "Do NOT use when..." clause to prevent misrouting
-- **Broadcom author attestation**: README.md, README-CN.md, and pyproject.toml include VMware by Broadcom author identity (wei-wz.zhou@broadcom.com) to resolve Snyk E005 brand warnings
+- **Broadcom author attestation**: README.md, README-CN.md, and pyproject.toml include VMware by Broadcom author identity (zhouwei008@gmail.com) to resolve Snyk E005 brand warnings
 
 ### AIops-specific
 
