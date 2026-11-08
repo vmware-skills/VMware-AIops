@@ -1,11 +1,15 @@
 ---
 name: vmware-aiops
 description: >
-  Use this skill whenever the user needs to manage VMs in VMware/vSphere/ESXi — it's the entry point for all VM operations.
-  Directly handles: power on/off, clone, snapshot, migrate, deploy from OVA or templates, run commands inside VMs, batch operations, cluster management, vCenter alarm acknowledgment, a one-glance cluster-health triage ("is anything on fire?"), and VM/host/datastore investigation drill-downs.
-  Always use this skill for any "power on", "clone", "deploy", "migrate", "batch", "guest exec", "alarm", or VM lifecycle task, and for triage like "is anything on fire" / "what needs attention now" / "investigate this VM", when the context is explicitly VMware, vSphere, or ESXi.
-  Do NOT use for general read-only queries (inventory/events/VM details — use vmware-monitor), NSX networking (use vmware-nsx), storage/iSCSI/vSAN (use vmware-storage), or Kubernetes cluster lifecycle (use vmware-vks).
-  For multi-step workflows use vmware-pilot. For load balancing/AVI/AKO use vmware-avi.
+  Use for VMware/vSphere/ESXi VM lifecycle: power on/off, clone, snapshot, migrate,
+  OVA/template deployment, guest commands and file transfer, batch operations, plans and clusters.
+  Also handles datastore file browsing and deployment image scanning; alarm acknowledgment
+  and reset (which can clear multiple matching alarms); read-only cluster/VM/host/datastore
+  triage; and a user-started scanning/TTL daemon with optional configured webhooks.
+  Always use for power on, clone, deploy, migrate, guest exec, batch, alarms or VM investigation
+  in VMware. Use vmware-monitor for general read-only inventory/events/VM details;
+  vmware-storage for iSCSI/vSAN/storage configuration; vmware-nsx for NSX;
+  vmware-vks for Kubernetes; vmware-pilot for workflows; vmware-avi for load balancing.
 installer:
   kind: uv
   package: vmware-aiops

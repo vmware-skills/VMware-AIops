@@ -11,6 +11,8 @@
 
 AI 驱动的 VMware vCenter/ESXi VM 生命周期管理与部署工具 — 61 个工具。
 
+范围还包括数据存储文件浏览与部署镜像发现、告警确认与重置，以及需显式启动的扫描/TTL daemon（可选配置 webhook）。告警重置可能清除多个匹配告警；guest 命令与文件传输仍受[能力参考](skills/vmware-aiops/references/capabilities.md)所述的账户和文件访问边界约束。
+
 > **配套技能**负责其他领域：
 >
 > | 技能 | 范围 | 安装 |
