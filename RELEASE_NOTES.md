@@ -1,3 +1,7 @@
+## Unreleased — notification secret minimization
+
+* Webhook status/transport logs and unexpected scan/send audit failures retain HTTP status or exception class without raw response/exception text. Connection-failure notifications no longer forward raw exceptions that can contain credential-bearing URLs or opaque tokens.
+
 ## Unreleased — scope declaration
 
 * Explicitly declare the existing datastore browsing/image discovery, multi-alarm reset and user-started scanning/TTL daemon capabilities in the canonical skill description and both READMEs. Runtime behavior, permission boundaries and risk disclosures are unchanged.

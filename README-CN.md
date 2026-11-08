@@ -291,6 +291,8 @@ Plan 存储在 `~/.vmware-aiops/plans/`，成功后自动删除，超过 24 小�
 
 ## 安全特性
 
+扫描通知失败只报告 HTTP 状态或异常类型。通知诊断与审计摘要不引用原始 webhook 响应、传输错误或连接异常，避免写入其中可能包含的端点令牌。
+
 | 功能 | 说明 |
 |------|------|
 | 预演模式（Dry-Run，**仅 CLI**） | 加 `--dry-run` 只打印将要发出的 API 调用而不执行；除 `deploy iso`、`deploy mark-template`、`vm cancel-ttl`、`vm guest-download` 外，每个 CLI 写操作都支持 |
@@ -304,7 +306,7 @@ Plan 存储在 `~/.vmware-aiops/plans/`，成功后自动删除，超过 24 小�
 | 配置文件内容 | `config.yaml` 仅存储主机名、端口和 `.env` 引用路径，**不含密码或 Token** |
 | SSL 自签名 | 仅用于 ESXi 自签名证书的隔离实验环境；生产环境应使用 CA 签名证书 |
 | Prompt 注入防护 | vSphere 事件消息和主机日志在输出前进行截断、控制字符清理和边界标记包裹 |
-| Webhook 数据范围 | **默认禁用**。配置后，daemon 只向你配置的 URL 发送：所有 critical 问题（告警、事件、匹配 critical/panic/corrupt 的 ESXi 日志行、连不上的目标）和所有告警/事件类 warning——主机日志的 warning 只写入扫描日志，`info` 记录从不发送。每条问题带实体名和消息：经过清洗的告警、事件或 ESXi 日志文本，或连接错误信息，其中可能含主机名、IP 地址和用户名。不会发送 skill 配置或 `.env` 里的任何凭据 |
+| Webhook 数据范围 | **默认禁用**。配置后，daemon 只向你配置的 URL 发送：所有 critical 问题（告警、事件、匹配 critical/panic/corrupt 的 ESXi 日志行、连不上的目标）和所有告警/事件类 warning——主机日志的 warning 只写入扫描日志，`info` 记录从不发送。每条问题带实体名和消息：经过清洗的告警、事件或 ESXi 日志文本，或不含原始异常的连接失败类型；运维文本可能含主机名、IP 地址和用户名。不会发送 skill 配置或 `.env` 里的任何凭据 |
 | 最小权限 | 推荐使用专用 vCenter 服务账户，仅授予所需最小权限。仅需监控时使用 [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor) |
 | 任务等待 | 所有异步操作等待完成并报告结果 |
 

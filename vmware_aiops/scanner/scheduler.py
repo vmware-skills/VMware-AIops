@@ -22,13 +22,13 @@ from vmware_aiops.connection import ConnectionManager
 from vmware_aiops.notify.logger import ScanLogger
 from vmware_aiops.notify.webhook import WebhookNotifier
 from vmware_aiops.ops.inventory import AmbiguousVMError
+from vmware_aiops.ops.step_policy import TOOL_RISK
 from vmware_aiops.ops.ttl import (
     TTLIdentityError,
     get_expired_entries,
     remove_entry,
     verify_ttl_identity,
 )
-from vmware_aiops.ops.step_policy import TOOL_RISK
 from vmware_aiops.ops.vm_lifecycle import VMNotFoundError, delete_vm
 from vmware_aiops.scanner.alarm_scanner import scan_alarms
 from vmware_aiops.scanner.log_scanner import scan_host_logs_since, scan_logs
@@ -192,7 +192,7 @@ def _send_webhook(webhook: WebhookNotifier, paged: list[dict]) -> None:
                 "error": "webhook send failed; the daemon log has the HTTP status or exception"
             }
     except Exception as exc:
-        status, result = "error", {"error": sanitize(f"{type(exc).__name__}: {exc}", 500)}
+        status, result = "error", {"error": type(exc).__name__}
         raise
     except BaseException as exc:
         # Ctrl+C / shutdown mid-send: not delivered, and not a plain failure.
@@ -235,7 +235,8 @@ def _run_scan(
                 issue = {
                     "severity": "critical",
                     "source": "connection",
-                    "message": f"Failed to connect to {target_name}: {e}",
+                    "message": f"Failed to connect to {target_name} ({type(e).__name__}); "
+                               "run vmware-aiops doctor",
                     "time": "",
                     "entity": target_name,
                 }
@@ -261,7 +262,7 @@ def _run_scan(
             status = "error"
             outcome["error"] = sanitize("incomplete scan: " + "; ".join(failed), 500)
     except Exception as exc:
-        status, outcome = "error", {"error": sanitize(f"{type(exc).__name__}: {exc}", 500)}
+        status, outcome = "error", {"error": type(exc).__name__}
         raise
     except BaseException as exc:
         # Ctrl+C during the first scan (before signal handlers are installed) or a

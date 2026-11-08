@@ -52,15 +52,10 @@ class WebhookNotifier:
             if response.status_code < 300:
                 logger.info("Webhook sent successfully (%d issues)", len(issues))
                 return True
-            logger.warning(
-                "Webhook returned %d: %s",
-                response.status_code,
-                # Strip CR/LF so a hostile endpoint can't inject forged log lines.
-                response.text[:200].replace("\n", " ").replace("\r", " "),
-            )
+            logger.warning("Webhook returned HTTP %d", response.status_code)
             return False
         except httpx.HTTPError as e:
-            logger.error("Webhook failed: %s", e)
+            logger.error("Webhook failed (%s)", type(e).__name__)
             return False
 
 
