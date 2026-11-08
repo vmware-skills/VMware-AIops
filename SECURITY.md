@@ -4,13 +4,13 @@
 
 This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom Inc.
 
-**Author**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
+**Author**: Wei Zhou, VMware by Broadcom — zhouwei008@gmail.com
 
 ## Reporting Vulnerabilities
 
 If you discover a security vulnerability, please report it privately:
 
-- **Email**: wei-wz.zhou@broadcom.com
+- **Email**: zhouwei008@gmail.com
 - **GitHub**: Open a [private security advisory](https://github.com/vmware-skills/VMware-AIops/security/advisories/new)
 
 Do **not** open a public GitHub issue for security vulnerabilities.
