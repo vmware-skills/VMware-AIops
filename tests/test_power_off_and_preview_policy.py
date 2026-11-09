@@ -300,7 +300,7 @@ def test_rollback_of_a_different_vm_reports_identity_not_policy(harness, monkeyp
     """Review 2026-10-18: the UUID mismatch is the reason, not the power-off deny."""
     _rules(harness, "power_off_vm")
     vm, calls = _created_vm(ON, uuid="uuid-OTHER")
-    monkeypatch.setattr("vmware_aiops.ops.inventory.find_vm_by_name", lambda si, n, **kwargs: vm)
+    monkeypatch.setattr("vmware_aiops.ops.inventory.find_vm_by_name", lambda si, n: vm)
 
     _, blockers, _ = plan_gate._gate([_rollback_step()], 0, MagicMock(), "t", False)
     assert blockers == []
@@ -314,7 +314,7 @@ def test_check_step_leaves_the_rollback_power_off_to_the_executor(harness, monke
     """One check, at the moment of the power-off: no second denied row from the gate."""
     _rules(harness, "power_off_vm")
     vm, _ = _created_vm(ON)
-    monkeypatch.setattr("vmware_aiops.ops.inventory.find_vm_by_name", lambda si, n, **kwargs: vm)
+    monkeypatch.setattr("vmware_aiops.ops.inventory.find_vm_by_name", lambda si, n: vm)
     plan_gate.check_step(MagicMock(), _rollback_step(), target="t")
     assert not any(r.get("tool") == "power_off_vm" for r in rows)
 
@@ -342,7 +342,7 @@ def test_set_vm_ttl_reaches_power_off():
 def test_rollback_preview_shows_the_power_off_deny(harness, monkeypatch):
     _rules(harness, "power_off_vm")
     vm, _ = _vm(ON)
-    monkeypatch.setattr("vmware_aiops.ops.inventory.find_vm_by_name", lambda si, n, **kwargs: vm)
+    monkeypatch.setattr("vmware_aiops.ops.inventory.find_vm_by_name", lambda si, n: vm)
 
     fields, blockers, _ = plan_gate._gate([_rollback_step()], 0, MagicMock(), "t", False)
 
