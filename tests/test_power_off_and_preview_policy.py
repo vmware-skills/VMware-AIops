@@ -151,7 +151,7 @@ def test_with_output_preview_shows_the_download_deny(harness, monkeypatch):
 @pytest.mark.unit
 def test_ops_delete_asks_before_powering_off(monkeypatch, no_wait):
     vm, calls = _vm(ON)
-    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n: vm)
+    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n, **kwargs: vm)
 
     def refuse():
         raise GateRefusedError("power_off_vm denied")
@@ -164,7 +164,7 @@ def test_ops_delete_asks_before_powering_off(monkeypatch, no_wait):
 @pytest.mark.unit
 def test_ops_delete_of_a_powered_off_vm_does_not_ask(monkeypatch, no_wait):
     vm, calls = _vm(OFF)
-    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n: vm)
+    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n, **kwargs: vm)
 
     vm_lifecycle.delete_vm(MagicMock(), "web-01",
                            before_power_off=lambda: pytest.fail("asked for an off VM"))
@@ -177,7 +177,7 @@ def _cli_delete(monkeypatch, state):
     from vmware_aiops.cli import app
 
     vm, calls = _vm(state)
-    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n: vm)
+    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n, **kwargs: vm)
     monkeypatch.setattr(vm_lifecycle, "_wait_for_task", lambda task: None)
     monkeypatch.setattr("vmware_aiops.cli.vm._get_connection",
                         lambda *a, **k: (MagicMock(), MagicMock()))
@@ -216,7 +216,7 @@ def _expired():
 def test_ttl_daemon_does_not_power_off_when_power_off_is_denied(harness, monkeypatch, rows):
     _rules(harness, "power_off_vm")
     vm, calls = _vm(ON)
-    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n: vm)
+    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n, **kwargs: vm)
     monkeypatch.setattr(vm_lifecycle, "_wait_for_task", lambda task: None)
     monkeypatch.setattr(scheduler, "_last_ttl_outcome", {}, raising=False)
     monkeypatch.setattr(scheduler, "get_expired_entries", lambda: [_expired()])
@@ -244,7 +244,7 @@ def test_ttl_daemon_power_off_check_that_fails_is_an_error_not_a_deny(monkeypatc
     monkeypatch.setattr(scheduler, "guard", lambda skill, tool, *a, **k:
                         broken() if tool == "power_off_vm" else None)
     vm, calls = _vm(ON)
-    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n: vm)
+    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n, **kwargs: vm)
     monkeypatch.setattr(scheduler, "_last_ttl_outcome", {}, raising=False)
     monkeypatch.setattr(scheduler, "get_expired_entries", lambda: [_expired()])
     monkeypatch.setattr(scheduler, "verify_ttl_identity", lambda si, e: None)
@@ -270,7 +270,7 @@ def _created_vm(state, uuid="uuid-1"):
 def _delete_created(monkeypatch, vm):
     from vmware_aiops.ops import plan_executor
 
-    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n: vm)
+    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n, **kwargs: vm)
     monkeypatch.setattr(vm_lifecycle, "_wait_for_task", lambda task: None)
     return plan_executor._delete_created_vm(MagicMock(), _rollback_step()["params"],
                                             plan_gate.rollback_power_off_check("t"))
@@ -300,7 +300,7 @@ def test_rollback_of_a_different_vm_reports_identity_not_policy(harness, monkeyp
     """Review 2026-10-18: the UUID mismatch is the reason, not the power-off deny."""
     _rules(harness, "power_off_vm")
     vm, calls = _created_vm(ON, uuid="uuid-OTHER")
-    monkeypatch.setattr("vmware_aiops.ops.inventory.find_vm_by_name", lambda si, n: vm)
+    monkeypatch.setattr("vmware_aiops.ops.inventory.find_vm_by_name", lambda si, n, **kwargs: vm)
 
     _, blockers, _ = plan_gate._gate([_rollback_step()], 0, MagicMock(), "t", False)
     assert blockers == []
@@ -314,7 +314,7 @@ def test_check_step_leaves_the_rollback_power_off_to_the_executor(harness, monke
     """One check, at the moment of the power-off: no second denied row from the gate."""
     _rules(harness, "power_off_vm")
     vm, _ = _created_vm(ON)
-    monkeypatch.setattr("vmware_aiops.ops.inventory.find_vm_by_name", lambda si, n: vm)
+    monkeypatch.setattr("vmware_aiops.ops.inventory.find_vm_by_name", lambda si, n, **kwargs: vm)
     plan_gate.check_step(MagicMock(), _rollback_step(), target="t")
     assert not any(r.get("tool") == "power_off_vm" for r in rows)
 
@@ -342,7 +342,7 @@ def test_set_vm_ttl_reaches_power_off():
 def test_rollback_preview_shows_the_power_off_deny(harness, monkeypatch):
     _rules(harness, "power_off_vm")
     vm, _ = _vm(ON)
-    monkeypatch.setattr("vmware_aiops.ops.inventory.find_vm_by_name", lambda si, n: vm)
+    monkeypatch.setattr("vmware_aiops.ops.inventory.find_vm_by_name", lambda si, n, **kwargs: vm)
 
     fields, blockers, _ = plan_gate._gate([_rollback_step()], 0, MagicMock(), "t", False)
 
@@ -376,7 +376,7 @@ def test_clean_slate_of_a_running_vm_is_stopped_at_the_power_off(harness, monkey
     _rules(harness, "power_off_vm")
     monkeypatch.setattr("vmware_aiops.ops.ttl.measure_clean_slate", _clean_slate_radius("poweredOn"))
     vm, calls = _vm(ON)
-    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n: vm)
+    monkeypatch.setattr(vm_lifecycle, "_require_vm", lambda si, n, **kwargs: vm)
     monkeypatch.setattr(vm_lifecycle, "resolve_snapshot", lambda vm, n: (MagicMock(), None))
     monkeypatch.setattr(vm_lifecycle, "_wait_for_task", lambda task: None)
 

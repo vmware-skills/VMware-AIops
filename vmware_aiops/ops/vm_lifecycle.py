@@ -386,15 +386,19 @@ def delete_vm(
     si: ServiceInstance,
     vm_name: str,
     *,
+    expect_instance_uuid: str | None = None,
     before_power_off: Callable[[], None] | None = None,
 ) -> str:
     """Delete a VM. Powers off first if running.
+
+    ``expect_instance_uuid`` binds the final lookup to the VM recorded by a TTL
+    or preview, before any power-off or destruction.
 
     ``before_power_off`` runs just before that power-off and raises to stop it:
     the caller's check that power_off_vm is allowed, since the power-off is that
     tool's work and a deny on it must hold here too.
     """
-    vm = _require_vm(si, vm_name)
+    vm = _require_vm(si, vm_name, expect_instance_uuid=expect_instance_uuid)
 
     if vm.runtime.powerState == vim.VirtualMachine.PowerState.poweredOn:
         if before_power_off is not None:

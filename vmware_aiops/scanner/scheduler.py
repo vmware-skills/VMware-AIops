@@ -21,7 +21,7 @@ from vmware_aiops.config import AppConfig, load_config
 from vmware_aiops.connection import ConnectionManager
 from vmware_aiops.notify.logger import ScanLogger
 from vmware_aiops.notify.webhook import WebhookNotifier
-from vmware_aiops.ops.inventory import AmbiguousVMError
+from vmware_aiops.ops.inventory import AmbiguousVMError, VMChangedError
 from vmware_aiops.ops.step_policy import TOOL_RISK
 from vmware_aiops.ops.ttl import (
     TTLIdentityError,
@@ -352,6 +352,7 @@ def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
             # that has since taken its name.
             verify_ttl_identity(si, entry)
             result = delete_vm(si, vm_name,
+                               expect_instance_uuid=entry.instance_uuid,
                                before_power_off=lambda: _check_ttl_power_off(params, target))
             logger.info("TTL expired: %s", result)
         except _PowerOffRefused as exc:
@@ -362,7 +363,7 @@ def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
             logger.warning("TTL deletion of running VM '%s' refused: %s; keeping entry",
                            vm_name, exc.detail["error"])
             continue
-        except TTLIdentityError as exc:
+        except (TTLIdentityError, VMChangedError) as exc:
             # Not transient: the entry's VM is gone and another holds its name.
             # Nothing is deleted; the entry goes, and the row says why.
             _audit_ttl(vm_name, params, "error",
