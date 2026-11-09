@@ -28,6 +28,12 @@ AI 驱动的 VMware vCenter/ESXi VM 生命周期管理与部署工具 — 61 个
 [![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/vmware-skills/VMware-AIops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+破坏性 MCP 工具默认只预览，需传 `confirm=True` 才执行；这是调用者传入的参数，不代表独立人工审批。其余写操作可能首次调用即执行。Guest 命令与文件传输仍分别受客户机账号和主机路径边界约束。
+
+Skills.sh 示例分别固定安装器 `skills@1.7.6`（需 Node.js >=22.20.0）和仓库 release tag；这不等于锁定传递依赖。
+
+保持 TLS 校验开启，私有 CA 通过 `SSL_CERT_FILE` 加入信任。关闭证书/主机名校验仅限隔离实验环境，会允许端点冒充和凭据拦截。
+
 ## 升级到 2.0
 
 2.0 把 MCP 工具名改成动词在前（共改名 38 处）（例如 `cluster_add_host` → `add_cluster_host`, `cluster_configure` → `configure_cluster`, `cluster_create` → `create_cluster`），完整的新旧名对照表见
@@ -62,7 +68,7 @@ MCP 下对应工具为 `get_cluster_health_summary`、`get_cross_vcenter_attenti
 
 ```bash
 # 通过 Skills.sh 安装
-npx skills add vmware-skills/VMware-AIops
+npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.4.4
 
 # 通过 ClawHub 安装
 clawhub install @zw008/vmware-aiops
@@ -72,13 +78,13 @@ clawhub install @zw008/vmware-aiops
 
 ```bash
 # 通过 uv 安装（推荐）
-uv tool install vmware-aiops
+uv tool install vmware-aiops==2.4.4
 
 # 或通过 pip 安装
-pip install vmware-aiops
+pip install vmware-aiops==2.4.4
 
 # 国内镜像加速
-pip install vmware-aiops -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install vmware-aiops==2.4.4 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ### 离线 / 气隙环境安装（从源码）
@@ -359,7 +365,7 @@ skill 内部无法绕过。**想让 agent 只读，就给它一个只读的 vCen
 **客户机账号是与 vCenter 账号相互独立的第二道授权边界**——一个只读的 vCenter
 角色约束不了这个工具在 VM *内部*做什么。skill 自身不保存客户机凭据：在 MCP 上它们是
 agent 看得到的工具参数（审计行里会脱敏密码）。请传入最小权限的客户机账号，不要把
-agent 用不到的客户机凭据交给它。`upload_vm_guest_file` 能读取 server 进程可读的任何本地文件。
+agent 用不到的客户机凭据交给它。`upload_vm_guest_file` 读取前会经过 Policy 路径检查：受保护的 skill 配置和凭据、策略/审计/token 文件、已登记的 TLS 文件及设备/进程路径都会被拒绝。HTTPS 模式默认禁止主机文件访问，只有设置 `VMWARE_MCP_FILE_ROOT` 后才允许在该根目录内访问。其余允许上传的文件与 guest 命令执行仍属于敏感管理能力。
 
 哪些工具有闸门、哪些没有，完整清单见
 [references/capabilities.md](skills/vmware-aiops/references/capabilities.md#what-gates-a-write)；
@@ -492,7 +498,7 @@ chmod 600 ~/.vmware-aiops/.env
 
 ```bash
 # 方式一：由安装器放置 skill（推荐）
-npx skills add vmware-skills/VMware-AIops
+npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.4.4
 # 或
 clawhub install @zw008/vmware-aiops
 
@@ -509,7 +515,7 @@ cp -r skills/vmware-aiops/. ~/.claude/skills/vmware-aiops/
 claude mcp add vmware-aiops -- vmware-aiops mcp
 ```
 
-> 生产环境建议改用只读的 [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor)（`npx skills add vmware-skills/VMware-Monitor`），代码级零破坏性。
+> 生产环境建议改用只读的 [VMware-Monitor](https://github.com/vmware-skills/VMware-Monitor)（`npx skills@1.7.6 add vmware-skills/VMware-Monitor#v2.6.0`），代码级零破坏性。
 
 #### Gemini CLI
 
@@ -580,7 +586,7 @@ cp skills/vmware-aiops/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
 
 MCP 服务器通过 [Model Context Protocol](https://modelcontextprotocol.io) 将 VMware 操作暴露为工具，兼容所有 MCP 客户端（Claude Desktop、Cursor 等）。
 
-**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-aiops` 后，**一条命令启动 MCP**：
+**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-aiops==2.4.4` 后，**一条命令启动 MCP**：
 
 ```bash
 # 推荐 — 单命令，无网络依赖
@@ -610,7 +616,7 @@ VMWARE_AIOPS_CONFIG=/path/to/config.yaml vmware-aiops mcp
 
 ```bash
 # 不想安装，临时运行（每次需要联网 resolve 依赖）
-uvx --from vmware-aiops vmware-aiops mcp
+uvx --from vmware-aiops==2.4.4 vmware-aiops mcp
 
 # 旧 entry point（仍可用，向后兼容）
 vmware-aiops-mcp
@@ -780,7 +786,7 @@ VMware-AIops/
 
 | Skill | 范围 | 工具数 | 安装 |
 |-------|------|:-----:|------|
-| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** | VM 生命周期、部署、Guest Ops、集群、数据存储浏览、健康速览 | 49 | `uv tool install vmware-aiops` |
+| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** | VM 生命周期、部署、Guest Ops、集群、数据存储浏览、健康速览 | 49 | `uv tool install vmware-aiops==2.4.4` |
 | **[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)** | 只读监控、告警、事件、对象调查 bundle | 27 | `uv tool install vmware-monitor` |
 | **[vmware-storage](https://github.com/vmware-skills/VMware-Storage)** | 数据存储、iSCSI、vSAN | 11 | `uv tool install vmware-storage` |
 | **[vmware-vks](https://github.com/vmware-skills/VMware-VKS)** | Tanzu 命名空间、TKC 集群生命周期 | 20 | `uv tool install vmware-vks` |

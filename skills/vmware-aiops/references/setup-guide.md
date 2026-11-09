@@ -9,11 +9,13 @@ All install methods fetch from the same source: [github.com/vmware-skills/VMware
 uv tool install vmware-aiops==2.4.4
 
 # Via Skills.sh (fetches from GitHub)
-npx skills add vmware-skills/VMware-AIops#v2.4.4
+npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.4.4
 
 # Via ClawHub (fetches from ClawHub registry snapshot of GitHub)
 clawhub install @zw008/vmware-aiops --version 2.4.4
 ```
+
+The installer is pinned to `skills@1.7.6` (Node.js >=22.20.0); the repository tag separately selects the skill revision. Review the installer and its dependencies before running it. Pinning the top-level package does not lock its dependency graph. Alternative: use the release-tagged manual copy below.
 
 ### Claude Code
 
@@ -175,7 +177,7 @@ For Claude Code / Cursor users who prefer structured tool calls, add to `~/.clau
 ```
 
 > v1.5.15+ recommends the single-command form `vmware-aiops mcp`. Pre-1.5.15 used
-> `uvx --from vmware-aiops vmware-aiops-mcp`, which still works but re-resolves from <!-- install-pin: historical -->
+> `uvx --from vmware-aiops==2.4.4 vmware-aiops-mcp`, which still works but re-resolves from
 > PyPI on each launch and breaks behind corporate TLS proxies. The legacy
 > `vmware-aiops-mcp` entry point is also kept for backward compatibility.
 

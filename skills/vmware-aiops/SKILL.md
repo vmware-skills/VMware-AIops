@@ -64,7 +64,7 @@ Read before connecting an agent. Per-tool inventory: `references/capabilities.md
 - **CLI only**: destructive commands require double confirmation; most CLI writes take `--dry-run`. Neither applies to MCP.
 - **Policy**: deny rules and a maintenance window in `~/.vmware/rules.yaml` are checked before every MCP and remote CLI call (e.g. deny writes to `environment: production` targets). The shipped baseline denies nothing. An in-process guardrail, not a substitute for RBAC.
 - **Audit**: every MCP call is recorded in `~/.vmware/audit.db`, credentials redacted (`vmware-audit log --last 20`). Best-effort: a failed audit write warns, never blocks.
-- **Guest ops** run any command or file write the guest account allows — a read-only vCenter role does not limit this. `username` is required (no default account) and over MCP the password is a tool argument the agent sees; pass a minimal guest account. `upload_vm_guest_file` reads any local file the server can read.
+- **Guest ops** execute with supplied guest credentials, independently of vCenter RBAC. `username` is required; MCP passwords are visible to the agent but redacted in audit. Uploads enforce Policy protected paths; HTTPS host files additionally require `VMWARE_MCP_FILE_ROOT`. Upload boundaries: `references/capabilities.md`.
 
 ## Quick Install
 
@@ -301,7 +301,7 @@ Run `vmware-aiops plan list` to see failed plan status. Ask user if they want to
 
 ### Connection refused / SSL error
 1. Verify target is reachable: `vmware-aiops doctor`
-2. For self-signed certs: set `verify_ssl: false` in config.yaml (lab environments only)
+2. Keep `verify_ssl: true`; trust a private CA via `SSL_CERT_FILE`. An isolated-lab-only `verify_ssl: false` disables certificate/hostname checks and permits endpoint impersonation and credential interception
 
 ### Every command fails with "session is not authenticated"
 The account has no vSphere role. Assign one (Read-Only or higher) on the vCenter root folder; `vmware-aiops doctor` reports this case by name.
