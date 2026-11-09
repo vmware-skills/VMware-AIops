@@ -48,7 +48,7 @@ Skills.sh 示例分别固定安装器 `skills@1.7.6`（需 Node.js >=22.20.0）�
 需要 Python `>=3.10` 和 `uv`。
 
 ```bash
-uv tool install vmware-aiops==2.4.4
+uv tool install vmware-aiops==2.4.5
 vmware-aiops --help
 ```
 
@@ -71,7 +71,7 @@ node --version      # Gemini/Codex CLI 需要 Node.js 18+
 所有平台共用同一个 Python 后端：
 
 ```bash
-git clone https://github.com/vmware-skills/VMware-AIops.git
+git clone --branch v2.4.5 https://github.com/vmware-skills/VMware-AIops.git
 cd VMware-AIops
 python3 -m venv .venv
 source .venv/bin/activate
@@ -122,12 +122,12 @@ chmod 600 ~/.vmware-aiops/.env
 
 ```bash
 # 方式一：由安装器放置 skill（推荐）
-npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.4.4
+npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.4.5
 # 或
-clawhub install @zw008/vmware-aiops
+clawhub install @zw008/vmware-aiops --version 2.4.5
 
 # 方式二：手工安装 skill
-git clone https://github.com/vmware-skills/VMware-AIops.git
+git clone --branch v2.4.5 https://github.com/vmware-skills/VMware-AIops.git
 cd VMware-AIops
 mkdir -p ~/.claude/skills/vmware-aiops
 cp -r skills/vmware-aiops/. ~/.claude/skills/vmware-aiops/
@@ -210,7 +210,7 @@ cp skills/vmware-aiops/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
 
 MCP 服务器通过 [Model Context Protocol](https://modelcontextprotocol.io) 将 VMware 操作暴露为工具，兼容所有 MCP 客户端（Claude Desktop、Cursor 等）。
 
-**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-aiops==2.4.4` 后，**一条命令启动 MCP**：
+**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-aiops==2.4.5` 后，**一条命令启动 MCP**：
 
 ```bash
 # 推荐 — 单命令，无网络依赖
@@ -240,7 +240,7 @@ VMWARE_AIOPS_CONFIG=/path/to/config.yaml vmware-aiops mcp
 
 ```bash
 # 不想安装，临时运行（每次需要联网 resolve 依赖）
-uvx --from vmware-aiops==2.4.4 vmware-aiops mcp
+uvx --from vmware-aiops==2.4.5 vmware-aiops mcp
 
 # 旧 entry point（仍可用，向后兼容）
 vmware-aiops-mcp
@@ -279,7 +279,7 @@ vmware-aiops datastore browse datastore1 --target home-esxi
   "mcpServers": {
     "vmware-aiops": {
       "command": "uvx",
-      "args": ["--from", "vmware-aiops==2.4.4", "vmware-aiops-mcp"],
+      "args": ["--from", "vmware-aiops==2.4.5", "vmware-aiops-mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "~/.vmware-aiops/config.yaml"
       }
@@ -318,23 +318,23 @@ MCP 下对应工具为 `get_cluster_health_summary`、`get_cross_vcenter_attenti
 
 ```bash
 # 通过 Skills.sh 安装
-npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.4.4
+npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.4.5
 
 # 通过 ClawHub 安装
-clawhub install @zw008/vmware-aiops
+clawhub install @zw008/vmware-aiops --version 2.4.5
 ```
 
 #### PyPI 安装（无需访问 GitHub）
 
 ```bash
 # 通过 uv 安装（推荐）
-uv tool install vmware-aiops==2.4.4
+uv tool install vmware-aiops==2.4.5
 
 # 或通过 pip 安装
-pip install vmware-aiops==2.4.4
+pip install vmware-aiops==2.4.5
 
 # 国内镜像加速
-pip install vmware-aiops==2.4.4 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install vmware-aiops==2.4.5 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 #### 离线 / 气隙环境安装（从源码）
@@ -810,7 +810,7 @@ VMware Skills 家族包含 14 个 MCP Server 和共享 Policy 库。按职责选
 
 | Skill | 范围 | 工具数 | 安装 |
 |-------|------|:-----:|------|
-| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** | VM 生命周期、部署、Guest Ops、集群、数据存储浏览、健康速览 | 49 | `uv tool install vmware-aiops==2.4.4` |
+| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** | VM 生命周期、部署、Guest Ops、集群、数据存储浏览、健康速览 | 49 | `uv tool install vmware-aiops==2.4.5` |
 | **[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)** | 只读监控、告警、事件、对象调查 bundle | 27 | `uv tool install vmware-monitor` |
 | **[vmware-storage](https://github.com/vmware-skills/VMware-Storage)** | 数据存储、iSCSI、vSAN | 11 | `uv tool install vmware-storage` |
 | **[vmware-vks](https://github.com/vmware-skills/VMware-VKS)** | Tanzu 命名空间、TKC 集群生命周期 | 20 | `uv tool install vmware-vks` |

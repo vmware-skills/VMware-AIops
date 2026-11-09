@@ -1,3 +1,16 @@
+## v2.4.5 — Security documentation and Gemini extension packaging
+
+Released 2026-11-09.
+
+Clarify actual capability, credential, local-write and transport boundaries where applicable.
+Pin documented setup/fallback tools and make credential examples owner-only before writing,
+without overwriting existing files. Runtime permissions, TLS defaults and approval behavior are unchanged.
+These edits do not establish a new ClawHub scan verdict.
+
+Add the root Gemini CLI extension manifest and discovery metadata, using the existing canonical skill and exact MCP package version. No duplicate skill entrypoint is introduced.
+
+Runtime infrastructure operations, permissions, TLS defaults and confirmation behavior are unchanged. No new vSphere/VCF 9.x or live product compatibility is claimed. ClawHub skill and bundle verdicts are checked separately after publication; documentation corrections are not a clean-scan claim.
+
 ## v2.4.4 — minimize notification and audit secrets (2026-11-08)
 
 * Update public author/project contact metadata to `zhouwei008@gmail.com`.
@@ -8,12 +21,6 @@
 ### scope declaration
 * Explicitly declare the existing datastore browsing/image discovery, multi-alarm reset and user-started scanning/TTL daemon capabilities in the canonical skill description and both READMEs. Runtime behavior, permission boundaries and risk disclosures are unchanged.
 
-## Unreleased — security documentation corrections
-
-Clarify actual capability, credential, local-write and transport boundaries where applicable.
-Pin documented setup/fallback tools and make credential examples owner-only before writing,
-without overwriting existing files. Runtime permissions, TLS defaults and approval behavior are unchanged.
-These edits do not establish a new ClawHub scan verdict.
 
 ## v2.4.3 — bind confirmed writes to measured identities; reject ambiguous inventory names (2026-11-08)
 
