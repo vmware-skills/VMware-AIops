@@ -1,4 +1,6 @@
-## Unreleased
+## v2.4.6 — Recheck TTL identity at final deletion lookup
+
+Released 2026-11-09.
 
 * Bind TTL expiry deletion to the recorded VM instance UUID at the final lookup, before power-off or destruction. A same-name replacement is refused, audited as an error, and its stale TTL entry is removed.
 
