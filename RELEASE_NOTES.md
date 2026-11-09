@@ -8,6 +8,13 @@
 ### scope declaration
 * Explicitly declare the existing datastore browsing/image discovery, multi-alarm reset and user-started scanning/TTL daemon capabilities in the canonical skill description and both READMEs. Runtime behavior, permission boundaries and risk disclosures are unchanged.
 
+## Unreleased — security documentation corrections
+
+Clarify actual capability, credential, local-write and transport boundaries where applicable.
+Pin documented setup/fallback tools and make credential examples owner-only before writing,
+without overwriting existing files. Runtime permissions, TLS defaults and approval behavior are unchanged.
+These edits do not establish a new ClawHub scan verdict.
+
 ## v2.4.3 — bind confirmed writes to measured identities; reject ambiguous inventory names (2026-11-08)
 
 * **Confirmed MCP writes re-check the identities measured during that call.** The eight confirm-gated VM and snapshot tools pass the current blast-radius measurement's VM instance UUID and snapshot id into execution, refusing a replacement object found by the executor. Each `confirm=True` invocation measures afresh; the separate earlier preview supplies no identity token. The existing `delete_vm` acknowledgement requirement is unchanged, as are the CLI and plan-executor paths (AIops#49).

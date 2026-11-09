@@ -87,7 +87,11 @@ skill a guest account with the privileges the work actually needs, and pass it �
 password is an ordinary tool argument, so the agent — and its transcript — sees
 it; only the audit row redacts it. The skill stores no guest credentials of its
 own. Relatedly, `upload_vm_guest_file` and the `upload` steps of `provision_vm_guest`
-read any local file the server process can read and copy it into the guest.
+copy permitted server-host files into the guest, subject to Policy host-path checks.
+Protected config/credentials, policy/audit/token files, registered TLS files and device/process paths
+are refused. Network transport additionally disables host-file access unless
+`VMWARE_MCP_FILE_ROOT` is set, then confines it to that root. These checks do not
+judge the contents of permitted uploads or limit arbitrary commands inside the guest.
 Second, until
 2026-08-30 all four tools that push content into a guest were annotated
 `destructiveHint: false` — the field a client consults before deciding whether
@@ -333,7 +337,7 @@ the account may not be allowed, or after a NoPermission. The table it reads is
 | Feature | Details |
 |---------|---------|
 | Plan → Confirm → Execute → Log | CLI workflow: show current state, confirm changes, execute, audit log |
-| Double Confirmation (**CLI only**) | CLI destructive and deploy commands (`vm` power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate, set-ttl, clean-slate, guest-exec, guest-upload; `deploy` ova, template, linked-clone, batch, batch-clone, mark-template; `cluster` delete, add-host, remove-host, configure, drs-rule-set/create/delete; `alarm reset`) require 2 sequential prompts and take no bypass flag. **The MCP tools have no confirmation step at all** — see [What gates a write](#what-gates-a-write) |
+| Double Confirmation (**CLI only**) | CLI destructive and deploy commands (`vm` power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate, set-ttl, clean-slate, guest-exec, guest-upload; `deploy` ova, template, linked-clone, batch, batch-clone, mark-template; `cluster` delete, add-host, remove-host, configure, drs-rule-set/create/delete; `alarm reset`) require 2 sequential prompts and take no bypass flag. **Destructive MCP tools have a default no-write preview and require `confirm=True`; this model-supplied flag is not independent human approval. Other MCP writes may execute on the first call** — see [What gates a write](#what-gates-a-write) |
 | Rejection Logging | Declined CLI confirmations are recorded in the audit trail for security review |
 | Audit Trail | Every MCP call and every CLI command that reaches vCenter logged to `~/.vmware/audit.db` (SQLite WAL, via vmware-policy; parameters, result, status, caller — credentials redacted). Most CLI writes also append to `~/.vmware-aiops/audit.log`, with before/after state where the command captures it (power, delete, reconfigure, snapshot-revert, clone, migrate, clean-slate, cluster delete/configure, DRS rule delete) |
 | Input Validation | VM name length/format, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated before execution |

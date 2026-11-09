@@ -28,6 +28,12 @@ Scope also includes datastore file browsing and deployment image discovery, alar
 [![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/vmware-skills/VMware-AIops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+Destructive MCP tools preview by default and require `confirm=True`; this is a caller-supplied flag, not independent human approval. Other writes may execute on the first call. Guest execution and file transfers remain subject to their separate account and host-path boundaries.
+
+Skills.sh examples pin `skills@1.7.6` (Node.js >=22.20.0) separately from the repository release tag. These pins do not lock transitive dependencies.
+
+Keep TLS verification enabled and trust private CAs with `SSL_CERT_FILE`. Disabling certificate/hostname checks is an isolated-lab exception and permits endpoint impersonation and credential interception.
+
 ## Upgrading to 2.0
 
 2.0 renames 38 of its MCP tools so every name starts with a verb (e.g. `cluster_add_host` → `add_cluster_host`, `cluster_configure` → `configure_cluster`, `cluster_create` → `create_cluster`). The full old → new table is in
@@ -65,7 +71,7 @@ Works with Claude Code, Cursor, Codex, Gemini CLI, Trae, and 30+ AI agents:
 
 ```bash
 # Via Skills.sh
-npx skills add vmware-skills/VMware-AIops
+npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.4.4
 
 # Via ClawHub
 clawhub install @zw008/vmware-aiops
@@ -75,13 +81,13 @@ clawhub install @zw008/vmware-aiops
 
 ```bash
 # Install via uv (recommended)
-uv tool install vmware-aiops
+uv tool install vmware-aiops==2.4.4
 
 # Or via pip
-pip install vmware-aiops
+pip install vmware-aiops==2.4.4
 
 # China mainland mirror (faster)
-pip install vmware-aiops -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install vmware-aiops==2.4.4 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ### Offline / Air-Gapped Install (from source)
@@ -412,8 +418,10 @@ a *separate* authorization boundary from the vCenter one — a read-only vCenter
 role does not constrain what this tool does inside a VM. The skill stores no
 guest credentials: over MCP they are tool arguments the agent sees (the audit row
 redacts the password). Pass a least-privilege guest account, and do not hand the
-agent guest credentials it does not need. `upload_vm_guest_file` reads any local file
-the server process can read.
+agent guest credentials it does not need. `upload_vm_guest_file` applies Policy host-path checks before reading:
+protected skill config/credentials, policy/audit/token files, registered TLS files and device/process paths
+are refused. Over HTTPS, host-file access is disabled unless `VMWARE_MCP_FILE_ROOT` is set, then limited
+to that root. Other permitted uploads and guest execution remain sensitive administrative operations.
 
 The full inventory of which tools are gated and which are not is in
 [references/capabilities.md](skills/vmware-aiops/references/capabilities.md#what-gates-a-write),
@@ -578,7 +586,7 @@ Choose one (or more) of the following:
 Either installer places the skill in Claude Code's skills directory for you:
 
 ```bash
-npx skills add vmware-skills/VMware-AIops
+npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.4.4
 # or
 clawhub install @zw008/vmware-aiops
 ```
@@ -744,7 +752,7 @@ cp skills/vmware-aiops/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
 
 The MCP server exposes VMware operations as tools via the [Model Context Protocol](https://modelcontextprotocol.io). Works with any MCP-compatible client (Claude Desktop, Cursor, etc.).
 
-**After `uv tool install vmware-aiops`, start the MCP server with one command** (v1.5.15+):
+**After `uv tool install vmware-aiops==2.4.4`, start the MCP server with one command** (v1.5.15+):
 
 ```bash
 # Recommended — single command, no network re-resolve
@@ -774,7 +782,7 @@ VMWARE_AIOPS_CONFIG=/path/to/config.yaml vmware-aiops mcp
 
 ```bash
 # Run without installing (requires PyPI access each launch)
-uvx --from vmware-aiops vmware-aiops mcp
+uvx --from vmware-aiops==2.4.4 vmware-aiops mcp
 
 # Legacy entry point (still works, kept for backward compatibility)
 vmware-aiops-mcp
@@ -808,9 +816,9 @@ Already installed? Re-run the install command for your channel to get the latest
 | Install Channel | Update Command |
 |----------------|----------------|
 | ClawHub | `clawhub install @zw008/vmware-aiops` |
-| Skills.sh | `npx skills add vmware-skills/VMware-AIops` |
+| Skills.sh | `npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.4.4` |
 | Git clone | `cd VMware-AIops && git pull origin main && uv pip install --no-sources -e .` (without `--no-sources`, uv looks for a sibling `../VMware-Monitor` checkout) |
-| uv | `uv tool install vmware-aiops --force` |
+| uv | `uv tool install vmware-aiops==2.4.4 --force` |
 
 Check your current version: `vmware-aiops --version`
 
@@ -1117,7 +1125,7 @@ Built on **pyVmomi** (vSphere Web Services API / SOAP).
 
 | Skill | Scope | Tools | Install |
 |-------|-------|:-----:|---------|
-| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** | VM lifecycle, deployment, guest ops, cluster, datastore browse, triage | 49 | `uv tool install vmware-aiops` |
+| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** | VM lifecycle, deployment, guest ops, cluster, datastore browse, triage | 49 | `uv tool install vmware-aiops==2.4.4` |
 | **[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)** | Read-only monitoring, alarms, events, investigation bundles | 27 | `uv tool install vmware-monitor` |
 | **[vmware-storage](https://github.com/vmware-skills/VMware-Storage)** | Datastores, iSCSI, vSAN | 11 | `uv tool install vmware-storage` |
 | **[vmware-vks](https://github.com/vmware-skills/VMware-VKS)** | Tanzu Namespaces, TKC cluster lifecycle | 20 | `uv tool install vmware-vks` |
