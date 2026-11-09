@@ -395,11 +395,7 @@ Copy this configuration into your MCP client's local stdio settings. The client 
   "mcpServers": {
     "vmware-aiops": {
       "command": "uvx",
-      "args": [
-        "--from",
-        "vmware-aiops==2.4.4",
-        "vmware-aiops-mcp"
-      ],
+      "args": ["--from", "vmware-aiops==2.4.4", "vmware-aiops-mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "~/.vmware-aiops/config.yaml"
       }

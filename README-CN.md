@@ -279,11 +279,7 @@ vmware-aiops datastore browse datastore1 --target home-esxi
   "mcpServers": {
     "vmware-aiops": {
       "command": "uvx",
-      "args": [
-        "--from",
-        "vmware-aiops==2.4.4",
-        "vmware-aiops-mcp"
-      ],
+      "args": ["--from", "vmware-aiops==2.4.4", "vmware-aiops-mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "~/.vmware-aiops/config.yaml"
       }
