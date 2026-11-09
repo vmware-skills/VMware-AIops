@@ -1,3 +1,7 @@
+## Unreleased
+
+* Bind TTL expiry deletion to the recorded VM instance UUID at the final lookup, before power-off or destruction. A same-name replacement is refused, audited as an error, and its stale TTL entry is removed.
+
 ## v2.4.5 — Security documentation and Gemini extension packaging
 
 Released 2026-11-09.
