@@ -27,7 +27,7 @@ from vmware_monitor.ops.investigate_datastore import (
 )
 from vmware_monitor.ops.investigate_host import HostNotFoundError as MonitorHostNotFoundError
 from vmware_monitor.ops.vm_info import VMNotFoundError as MonitorVMNotFoundError
-from vmware_policy import report_tool_failure, sanitize
+from vmware_policy import PolicyDenied, report_tool_failure, sanitize
 
 from vmware_aiops import __version__
 from vmware_aiops.config import ConfigError, UnknownTargetError, load_config
@@ -349,6 +349,10 @@ def tool_errors(shape: str = "str") -> Callable:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 result = func(*args, **kwargs)
+            except PolicyDenied:
+                # A backend state check is still a Policy denial. Let the
+                # outer audit decorator retain its rule and denied status.
+                raise
             except Exception as e:  # noqa: BLE001 — sanitised below
                 msg = _safe_error(e, name)
                 # This wrapper swallows the exception, so @vmware_tool above it

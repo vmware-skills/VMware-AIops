@@ -33,7 +33,7 @@ compatibility: >
 
 > **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom. Source code is publicly auditable at [github.com/vmware-skills/VMware-AIops](https://github.com/vmware-skills/VMware-AIops) under the MIT license.
 
-VMware family entry point — AI-powered VM lifecycle, deployment, and alarm management — 61 MCP tools.
+VM lifecycle, deployment and alarm management — 61 MCP tools.
 
 > **Start here**: install vmware-aiops first, then add modules as needed.
 > Run `vmware-aiops hub status` to see which family members are installed.
@@ -66,10 +66,12 @@ Read before connecting an agent. Per-tool inventory: `references/capabilities.md
 - **Audit**: every MCP call is recorded in `~/.vmware/audit.db`, credentials redacted (`vmware-audit log --last 20`). Best-effort: a failed audit write warns, never blocks.
 - **Guest ops** execute with supplied guest credentials, independently of vCenter RBAC. `username` is required; MCP passwords are visible to the agent but redacted in audit. Uploads enforce Policy protected paths; HTTPS host files additionally require `VMWARE_MCP_FILE_ROOT`. Upload boundaries: `references/capabilities.md`.
 
+Backend resize limits: see `references/capabilities.md`.
+
 ## Quick Install
 
 ```bash
-uv tool install vmware-aiops==2.4.6
+uv tool install vmware-aiops==2.5.0
 vmware-aiops doctor
 vmware-aiops hub status   # see which family members are installed
 ```
@@ -309,7 +311,7 @@ The account has no vSphere role. Assign one (Read-Only or higher) on the vCenter
 ## Setup
 
 ```bash
-uv tool install vmware-aiops==2.4.6
+uv tool install vmware-aiops==2.5.0
 mkdir -p ~/.vmware-aiops
 vmware-aiops init  # generates config.yaml and .env templates
 chmod 600 ~/.vmware-aiops/.env

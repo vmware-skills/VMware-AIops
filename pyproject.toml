@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vmware-aiops"
-version = "2.4.6"
+version = "2.5.0"
 description = "VMware vCenter/ESXi AI-powered VM lifecycle and deployment tool"
 readme = "README.md"
 license = "MIT"
@@ -20,7 +20,7 @@ dependencies = [
     "certifi>=2026.10.19",  # GHSA-6q48-6c7w-9gw2: exclude compromised emSign root
     "python-dotenv>=1.0,<2.0",
     "mcp[cli]>=1.30,<2.0",
-    "vmware-policy>=1.23.1,<2.0",
+    "vmware-policy>=1.25.0,<2.0",
     # Read-only cluster-health triage (summary + HTML snapshot) is owned by
     # vmware-monitor; AIops delegates to it so a conversation with the AIops
     # entry point can produce the same report without duplicating the code.

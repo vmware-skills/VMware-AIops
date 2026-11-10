@@ -356,3 +356,9 @@ the account may not be allowed, or after a NoPermission. The table it reads is
 | 6.5 | ✅ Compatible | Backward-compatible, tested |
 
 > pyVmomi auto-negotiates the API version during SOAP handshake — no manual configuration needed.
+
+## Maintenance safety boundary
+
+VM resize limits use backend-read CPU/memory and bind configuration changeVersion. Do not treat a caller-provided percentage as evidence; a limit refusal must remain a Policy denial.
+
+Post-deployment resizing through this backend remains subject to limits. Refusal may leave an already-created VM at its original size; inspect the failed result before retrying. Initial create/clone tasks are not percentage-limit gates, and no automatic deletion or clone replay is introduced.
