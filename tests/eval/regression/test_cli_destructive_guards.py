@@ -77,11 +77,15 @@ def _ops_imported_in(tree: ast.Module) -> set[str]:
 
 
 def _calls_in(node: ast.AST) -> set[str]:
-    return {
-        c.func.id
-        for c in ast.walk(node)
-        if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
-    }
+    calls = set()
+    for c in ast.walk(node):
+        if not isinstance(c, ast.Call):
+            continue
+        if isinstance(c.func, ast.Name):
+            calls.add(c.func.id)
+        elif isinstance(c.func, ast.Attribute) and isinstance(c.func.value, ast.Name) and c.func.value.id == "runtime":
+            calls.add(c.func.attr)
+    return calls
 
 
 def _must_confirm_ops() -> frozenset[str]:
@@ -180,3 +184,7 @@ def test_double_confirm_prompts_twice(monkeypatch):
     monkeypatch.setattr(typer, "confirm", lambda msg, **kw: asked.append(msg))
     _common._double_confirm("删除", "web-01")
     assert len(asked) == 2, "both confirmations must still be asked"
+
+
+def test_runtime_confirmation_reference_is_recognized():
+    assert "_double_confirm" in _calls_in(ast.parse("runtime._double_confirm()"))

@@ -1195,7 +1195,7 @@ wheels = [
 
 [[package]]
 name = "vmware-aiops"
-version = "2.4.6"
+version = "2.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "apscheduler" },
@@ -1230,7 +1230,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.0,<16.0" },
     { name = "typer", specifier = ">=0.12,<1.0" },
     { name = "vmware-monitor", editable = "../VMware-Monitor" },
-    { name = "vmware-policy", specifier = ">=1.23.1,<2.0" },
+    { name = "vmware-policy", specifier = ">=1.25.0,<2.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1242,7 +1242,7 @@ dev = [
 
 [[package]]
 name = "vmware-monitor"
-version = "2.6.1"
+version = "2.6.2"
 source = { editable = "../VMware-Monitor" }
 dependencies = [
     { name = "apscheduler" },
@@ -1278,14 +1278,14 @@ dev = [
 
 [[package]]
 name = "vmware-policy"
-version = "1.24.3"
+version = "1.25.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/36/9f/eeeea7d3d119c0eab9b0fb7a7b428b6584e7f13a6b38470c551130d276e6/vmware_policy-1.24.3.tar.gz", hash = "sha256:d15b049d93f3102717a2633d1268f3c1d8332cc4dec18905f977318581c5c948", size = 369604, upload-time = "2026-10-24T13:03:14.773Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/72/3530d38a39193ae7b65ecad66f30b7384b9892006040add134cc2e35046b/vmware_policy-1.25.0.tar.gz", hash = "sha256:c8ceb89a763e395d0539a81e9aa1a509f7dce48862bd8e65a822210c2b0acded", size = 376801, upload-time = "2026-11-10T16:12:56.488Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fb/ad/b292c3cd8d6a2f69b0fdca62f86a34769d7df44bc7a87a1b997ee1c19b66/vmware_policy-1.24.3-py3-none-any.whl", hash = "sha256:90d0358421b54fea8e5b6179d0ac75bd8c43cbbaa1bc5ee0b932da3b84afb34a", size = 134565, upload-time = "2026-10-24T13:03:13.293Z" },
+    { url = "https://files.pythonhosted.org/packages/25/8c/b2b9b2eabfc2a54468f6655493d0d04745cec9dc4e1fd35b30aa0af2c160/vmware_policy-1.25.0-py3-none-any.whl", hash = "sha256:2edfa666e047f4d8b9c8aca228e774e6fa7fcf60e451d930990994d773290027", size = 139214, upload-time = "2026-11-10T16:12:54.736Z" },
 ]

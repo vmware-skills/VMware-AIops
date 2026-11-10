@@ -48,7 +48,7 @@ Skills.sh 示例分别固定安装器 `skills@1.7.6`（需 Node.js >=22.20.0）�
 需要 Python `>=3.10` 和 `uv`。
 
 ```bash
-uv tool install vmware-aiops==2.4.6
+uv tool install vmware-aiops==2.5.0
 vmware-aiops --help
 ```
 
@@ -71,7 +71,7 @@ node --version      # Gemini/Codex CLI 需要 Node.js 18+
 所有平台共用同一个 Python 后端：
 
 ```bash
-git clone --branch v2.4.6 https://github.com/vmware-skills/VMware-AIops.git
+git clone --branch v2.5.0 https://github.com/vmware-skills/VMware-AIops.git
 cd VMware-AIops
 python3 -m venv .venv
 source .venv/bin/activate
@@ -122,12 +122,12 @@ chmod 600 ~/.vmware-aiops/.env
 
 ```bash
 # 方式一：由安装器放置 skill（推荐）
-npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.4.6
+npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.5.0
 # 或
-clawhub install @zw008/vmware-aiops --version 2.4.6
+clawhub install @zw008/vmware-aiops --version 2.5.0
 
 # 方式二：手工安装 skill
-git clone --branch v2.4.6 https://github.com/vmware-skills/VMware-AIops.git
+git clone --branch v2.5.0 https://github.com/vmware-skills/VMware-AIops.git
 cd VMware-AIops
 mkdir -p ~/.claude/skills/vmware-aiops
 cp -r skills/vmware-aiops/. ~/.claude/skills/vmware-aiops/
@@ -210,7 +210,7 @@ cp skills/vmware-aiops/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
 
 MCP 服务器通过 [Model Context Protocol](https://modelcontextprotocol.io) 将 VMware 操作暴露为工具，兼容所有 MCP 客户端（Claude Desktop、Cursor 等）。
 
-**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-aiops==2.4.6` 后，**一条命令启动 MCP**：
+**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-aiops==2.5.0` 后，**一条命令启动 MCP**：
 
 ```bash
 # 推荐 — 单命令，无网络依赖
@@ -240,7 +240,7 @@ VMWARE_AIOPS_CONFIG=/path/to/config.yaml vmware-aiops mcp
 
 ```bash
 # 不想安装，临时运行（每次需要联网 resolve 依赖）
-uvx --from vmware-aiops==2.4.6 vmware-aiops mcp
+uvx --from vmware-aiops==2.5.0 vmware-aiops mcp
 
 # 旧 entry point（仍可用，向后兼容）
 vmware-aiops-mcp
@@ -279,7 +279,7 @@ vmware-aiops datastore browse datastore1 --target home-esxi
   "mcpServers": {
     "vmware-aiops": {
       "command": "uvx",
-      "args": ["--from", "vmware-aiops==2.4.6", "vmware-aiops-mcp"],
+      "args": ["--from", "vmware-aiops==2.5.0", "vmware-aiops-mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "~/.vmware-aiops/config.yaml"
       }
@@ -318,23 +318,23 @@ MCP 下对应工具为 `get_cluster_health_summary`、`get_cross_vcenter_attenti
 
 ```bash
 # 通过 Skills.sh 安装
-npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.4.6
+npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.5.0
 
 # 通过 ClawHub 安装
-clawhub install @zw008/vmware-aiops --version 2.4.6
+clawhub install @zw008/vmware-aiops --version 2.5.0
 ```
 
 #### PyPI 安装（无需访问 GitHub）
 
 ```bash
 # 通过 uv 安装（推荐）
-uv tool install vmware-aiops==2.4.6
+uv tool install vmware-aiops==2.5.0
 
 # 或通过 pip 安装
-pip install vmware-aiops==2.4.6
+pip install vmware-aiops==2.5.0
 
 # 国内镜像加速
-pip install vmware-aiops==2.4.6 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install vmware-aiops==2.5.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 #### 离线 / 气隙环境安装（从源码）
@@ -810,7 +810,7 @@ VMware Skills 家族包含 14 个 MCP Server 和共享 Policy 库。按职责选
 
 | Skill | 范围 | 工具数 | 安装 |
 |-------|------|:-----:|------|
-| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** | VM 生命周期、部署、Guest Ops、集群、数据存储浏览、健康速览 | 49 | `uv tool install vmware-aiops==2.4.6` |
+| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** | VM 生命周期、部署、Guest Ops、集群、数据存储浏览、健康速览 | 49 | `uv tool install vmware-aiops==2.5.0` |
 | **[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)** | 只读监控、告警、事件、对象调查 bundle | 27 | `uv tool install vmware-monitor` |
 | **[vmware-storage](https://github.com/vmware-skills/VMware-Storage)** | 数据存储、iSCSI、vSAN | 11 | `uv tool install vmware-storage` |
 | **[vmware-vks](https://github.com/vmware-skills/VMware-VKS)** | Tanzu 命名空间、TKC 集群生命周期 | 20 | `uv tool install vmware-vks` |
@@ -947,3 +947,17 @@ VMware-AIops/
 ## 许可证
 
 MIT
+
+### VM 扩缩容限额
+
+Policy 1.25.0 及以上版本支持 `~/.vmware/rules.yaml` 中的
+`change_limits.max_cpu_change_pct` 和 `max_memory_change_pct`，按 VM 当前配置
+约束增减的绝对百分比。事实来自后端最终解析的 VM，调用方不能靠声明较小
+百分比绕过。缺少必要状态或版本、限额配置无效时不提交任务。ConfigSpec 的
+`changeVersion` 防止并发配置变化使比较基数失效。该限制适用于配置调整（包括部署后的扩缩容），
+初始创建/克隆任务不受此百分比检查约束；未配置限额时保持原行为。已有合成拒绝及版本绑定测试，
+并发拒绝的正向真机验证仍待补。
+
+通过同一后端进行的部署后扩缩容仍会检查限额。拒绝时，新建 VM 可能已经存在，
+且保持原始规格；重试前应先查看结果。最初的创建/克隆任务本身不执行百分比
+限额检查，本轮不引入自动删除或重复克隆。
