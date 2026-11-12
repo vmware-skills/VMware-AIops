@@ -1036,7 +1036,7 @@ every tool through a governed harness:
 If you only ever power-cycle VMs in one vCenter, a single-file server is fine. If you
 run a real (regulated, NSX-segmented, multi-domain) VMware estate and need an AI
 operator an auditor can sign off on, that's what this family is for — see
-[docs/compliance-ready.md](../../../../docs/compliance-ready.md).
+[governance and evidence boundaries](https://github.com/vmware-skills/marketplace#evidence-permissions-and-local-data).
 
 ### Supported AI Platforms
 

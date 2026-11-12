@@ -4,13 +4,13 @@
 
 把虚拟机运维需求变成明确、可审计的操作。
 
-English · [简体中文](README-CN.md)
+[English](README.md) · 简体中文
 
 社区维护 · MIT 开源 · 非 VMware/Broadcom 官方产品。
 
 [![18 秒调查示意演示](https://raw.githubusercontent.com/vmware-skills/marketplace/main/assets/demos/vmware-skills-zh.gif)](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-zh.mp4)
 
-使用合成数据的示意动画，非实时录屏。[观看家族配音介绍（约 2 分钟）](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-zh.mp4)
+使用合成数据的示意动画，非实时录屏。[观看家族 AI 配音介绍（约 2 分钟）](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-zh.mp4)
 
 ## 能解决什么问题？
 
@@ -27,7 +27,7 @@ uv tool install vmware-aiops==2.5.0
 vmware-aiops --help
 ```
 
-需要 uv 与 Python >=3.10。远程查询前，在本地配置目标与凭据。[配置指南](skills/vmware-aiops/references/setup-guide.md).
+需要 uv 与 Python >=3.10。远程查询前，在本地配置目标与凭据。[配置指南](skills/vmware-aiops/references/setup-guide.md)。
 
 Claude Code 及其他宿主安装方式见[家族门户](https://github.com/vmware-skills/marketplace/blob/main/README-CN.md)。
 
