@@ -10,6 +10,16 @@
 
 社区维护的开源项目，非 VMware 或 Broadcom 官方产品。
 
+<!-- family-demo:start -->
+**[VMware Skills 家族](https://github.com/vmware-skills/marketplace/blob/main/README-CN.md)** 的一部分：15 个 skill、14 个 MCP server 与一个共享 Policy 库。从只读任务开始，按需增加模块。
+
+[![18 秒 VMware 调查示意演示](https://raw.githubusercontent.com/vmware-skills/marketplace/main/assets/demos/vmware-skills-zh.gif)](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-zh.mp4)
+
+[观看配音介绍（约 2 分钟）](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-zh.mp4) · [家族总览与安装](https://github.com/vmware-skills/marketplace/blob/main/README-CN.md)
+
+使用合成数据的示意动画，非实时连接录屏；配音为 AI 合成。如果家族对你有用，欢迎 Star 共享门户，帮助更多人发现它。
+<!-- family-demo:end -->
+
 [概述](#readme-overview) · [快速开始](#readme-quick-start) · [MCP 配置](#readme-mcp-configuration) · [能力与工作流](#readme-capabilities-and-workflows) · [安全与审计](#readme-safety-and-audit) · [故障排查](#readme-troubleshooting) · [配套 Skills](#readme-companion-skills) · [参考资料](#readme-reference) · [许可证](#readme-license)
 
 <a id="readme-overview"></a>

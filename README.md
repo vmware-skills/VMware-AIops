@@ -10,6 +10,16 @@ Maintainer: Wei Zhou · [zhouwei008@gmail.com](mailto:zhouwei008@gmail.com)
 
 Community-maintained open-source project; not an official VMware or Broadcom product.
 
+<!-- family-demo:start -->
+**Part of [VMware Skills](https://github.com/vmware-skills/marketplace)** — 15 skills, 14 MCP servers and a shared Policy library. Start with a read-only task and add modules as needed.
+
+[![18-second illustrative VMware investigation demo](https://raw.githubusercontent.com/vmware-skills/marketplace/main/assets/demos/vmware-skills-en.gif)](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-en.mp4)
+
+[Watch the narrated introduction (~2 min)](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-en.mp4) · [Family overview and installation](https://github.com/vmware-skills/marketplace)
+
+Illustrative animation with synthetic data; not a live connection recording. AI-generated narration. If the family helps your work, star the shared portal to help others find it.
+<!-- family-demo:end -->
+
 [Overview](#readme-overview) · [Quick Start](#readme-quick-start) · [MCP Configuration](#readme-mcp-configuration) · [Capabilities and Workflows](#readme-capabilities-and-workflows) · [Safety and Audit](#readme-safety-and-audit) · [Troubleshooting](#readme-troubleshooting) · [Companion Skills](#readme-companion-skills) · [Reference](#readme-reference) · [License](#readme-license)
 
 <a id="readme-overview"></a>
