@@ -48,7 +48,10 @@ body:
     id: vsphere-version
     attributes:
       label: vSphere Version
+      description: Report the version used; this list is not a compatibility guarantee.
       options:
+        - "9.1"
+        - "9.0"
         - "8.0"
         - "7.0"
         - "6.7"

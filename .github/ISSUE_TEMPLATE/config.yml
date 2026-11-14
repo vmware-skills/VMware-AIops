@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Share setup progress / 分享接入进度
+    url: https://github.com/vmware-skills/marketplace/issues/new?template=setup-feedback.yml
+    about: Installed, blocked, got a first result, or used it again? Share the stage without logs or credentials.
   - name: Email Support
     url: mailto:zhouwei008@gmail.com
     about: For security issues or private inquiries, contact us via email
