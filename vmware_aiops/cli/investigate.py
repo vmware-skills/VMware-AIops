@@ -15,6 +15,7 @@ from typing import Annotated
 
 import typer
 
+from vmware_aiops._feedback import print_feedback_hint, reached_a_target
 from vmware_aiops.cli._common import (
     ConfigOption,
     TargetOption,
@@ -22,6 +23,7 @@ from vmware_aiops.cli._common import (
     _get_all_connections,
     _get_connection,
     cli_errors,
+    console,
 )
 from vmware_policy import audited
 
@@ -154,3 +156,5 @@ def attention_cmd(
         write_attention_html_snapshot(data, html_path)
         return
     render_attention_console(data)
+    if reached_a_target(data):
+        print_feedback_hint(console)

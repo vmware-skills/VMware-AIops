@@ -12,6 +12,7 @@ from typing import Callable
 from rich.console import Console
 from rich.table import Table
 
+from vmware_aiops._feedback import print_feedback_hint
 from vmware_aiops.config import CONFIG_DIR, ENV_FILE, resolve_config_path
 from vmware_policy.fsperms import check_secret_file
 
@@ -245,6 +246,10 @@ def run_doctor(skip_auth: bool = False) -> int:
 
     if failures == 0:
         console.print("\n[green bold]✓ All checks passed.[/]\n")
+        print_feedback_hint(
+            console,
+            "run `vmware-aiops attention` and check it returns readable facts for your target.",
+        )
     else:
         console.print(f"\n[red bold]✗ {failures} check(s) failed.[/]\n")
 
