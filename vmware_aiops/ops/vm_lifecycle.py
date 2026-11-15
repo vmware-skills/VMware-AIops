@@ -289,7 +289,9 @@ def create_vm(
                 allowGuestControl=True,
                 connected=True,
             ),
-            addressType="assigned",
+            # No addressType: the host generates the MAC. "assigned" with no
+            # macAddress is rejected as InvalidDeviceSpec on standalone ESXi
+            # 8.0.1 (issue #69).
         ),
     )
 
@@ -303,7 +305,14 @@ def create_vm(
     )
 
     task = vm_folder.CreateVM_Task(config=config_spec, pool=resource_pool)
-    _wait_for_task(task)
+    try:
+        _wait_for_task(task)
+    except TaskFailedError as exc:
+        # A failed CreateVM_Task can leave the VM directory behind (issue #69).
+        raise TaskFailedError(
+            f"{exc} The failed create may have left an empty '{ds_path}/' "
+            "directory on the datastore; remove it before retrying with the same name."
+        ) from exc
     return (
         f"VM '{vm_name}' created successfully "
         f"(CPU: {cpu}, Mem: {memory_mb}MB, Disk: {disk_gb}GB)."
