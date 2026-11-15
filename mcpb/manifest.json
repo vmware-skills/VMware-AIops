@@ -1,0 +1,73 @@
+{
+  "manifest_version": "0.4",
+  "name": "vmware-aiops",
+  "display_name": "VMware AIops",
+  "version": "2.5.0",
+  "description": "Turn VM lifecycle requests into explicit, auditable operations for vCenter and ESXi.",
+  "long_description": "Runs the published vmware-aiops 2.5.0 MCP server locally. This extension starts with read-only tools (expose = read); set it to all to offer VM lifecycle and deployment tools, which stay governed by the shared policy and are recorded in the local audit log. Run `vmware-aiops init` once to write the config file and local credentials, then point this extension at that config.",
+  "author": {
+    "name": "Wei Zhou",
+    "url": "https://github.com/zw008"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vmware-skills/VMware-AIops"
+  },
+  "homepage": "https://github.com/vmware-skills/VMware-AIops",
+  "documentation": "https://github.com/vmware-skills/VMware-AIops/blob/main/skills/vmware-aiops/references/setup-guide.md",
+  "support": "https://github.com/vmware-skills/VMware-AIops/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "uv",
+    "entry_point": "server/main.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${__dirname}",
+        "server/main.py"
+      ],
+      "env": {
+        "VMWARE_AIOPS_CONFIG": "${user_config.config_path}",
+        "VMWARE_AIOPS_MCP_EXPOSE": "${user_config.expose}"
+      }
+    }
+  },
+  "user_config": {
+    "config_path": {
+      "type": "file",
+      "title": "vmware-aiops config file",
+      "description": "config.yaml written by `vmware-aiops init`. Passwords stay in the .env file next to it.",
+      "required": true,
+      "default": "${HOME}/.vmware-aiops/config.yaml"
+    },
+    "expose": {
+      "type": "string",
+      "title": "Tools to offer",
+      "description": "read = read-only tools only (default); all = every tool, including VM lifecycle writes.",
+      "required": true,
+      "default": "read"
+    }
+  },
+  "tools_generated": true,
+  "keywords": [
+    "vmware",
+    "vsphere",
+    "vcenter",
+    "esxi",
+    "vm-lifecycle",
+    "audit"
+  ],
+  "license": "MIT",
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "python": ">=3.10"
+    }
+  }
+}
