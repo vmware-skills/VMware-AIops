@@ -1,0 +1,6 @@
+[project]
+name = "vmware-aiops-mcpb"
+version = "2.5.0"
+description = "Claude Desktop extension shim that runs the published vmware-aiops MCP server"
+requires-python = ">=3.10"
+dependencies = ["vmware-aiops==2.5.0"]

@@ -35,6 +35,8 @@ vmware-aiops --help
 
 需要 uv 与 Python >=3.10。远程查询前，在本地配置目标与凭据。[配置指南](https://github.com/vmware-skills/VMware-AIops/blob/main/skills/vmware-aiops/references/setup-guide.md)。
 
+执行 `init` 后可一键安装：[Claude Desktop 扩展（.mcpb）](https://github.com/vmware-skills/VMware-AIops/releases/download/v2.5.0/vmware-aiops-2.5.0.mcpb)，默认只提供只读工具，可在设置中改为全部 · [在 VS Code 中安装](https://insiders.vscode.dev/redirect/mcp/install?name=vmware-aiops&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22vmware-aiops%3D%3D2.5.0%22%2C%22vmware-aiops-mcp%22%5D%7D)。两者运行固定的 2.5.0 版本，读取 `init` 写入的配置。
+
 Agent 宿主安装见本模块的[配置指南](https://github.com/vmware-skills/VMware-AIops/blob/main/skills/vmware-aiops/references/setup-guide.md)，以及 [Cursor、Codex、Gemini CLI、Cline 与本地模型示例](https://github.com/vmware-skills/marketplace/blob/main/docs/agent-hosts-CN.md)。
 
 选模型可用[共享模型自测流程](https://github.com/vmware-skills/marketplace/blob/main/model-fit/RUNNER-CN.md)：统一任务、复核质量与安全，再按任务组选择最小已测通过配置；不代表生产质量保证。
