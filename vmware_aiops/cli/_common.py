@@ -236,9 +236,10 @@ def _validate_vm_params(
             f"Memory must be 128-1048576 MB, got {memory_mb}. "
             f"Pass --memory in that range (MB, not GB)."
         )
-    if disk_gb is not None and not (1 <= disk_gb <= 65_536):
+    if disk_gb is not None and not (0 <= disk_gb <= 65_536):
         raise typer.BadParameter(
-            f"Disk size must be 1-65536 GB, got {disk_gb}. Pass --disk in that range (GB)."
+            f"Disk size must be 0-65536 GB, got {disk_gb}. Pass --disk in that range "
+            f"(GB); --disk 0 creates the VM without a disk."
         )
 
 

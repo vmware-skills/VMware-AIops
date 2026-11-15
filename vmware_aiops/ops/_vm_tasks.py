@@ -24,7 +24,16 @@ from vmware_aiops.ops._snapshot_tree import (
 
 
 class TaskFailedError(Exception):
-    """Raised when a vSphere task fails."""
+    """Raised when a vSphere task fails.
+
+    ``fault`` keeps the task's vSphere fault object (None when the task carried
+    none), so callers can tell e.g. ``vim.fault.FileNotFound`` from a real
+    failure without parsing the message.
+    """
+
+    def __init__(self, message: str, fault: object | None = None) -> None:
+        super().__init__(message)
+        self.fault = fault
 
 
 class TaskStillRunning(Exception):
@@ -91,4 +100,4 @@ def _wait_for_task(task, timeout: int = 300) -> object:
         if m:
             parts.append(f"detail={m}")
 
-    raise TaskFailedError("Task failed: " + " | ".join(parts))
+    raise TaskFailedError("Task failed: " + " | ".join(parts), fault=err)

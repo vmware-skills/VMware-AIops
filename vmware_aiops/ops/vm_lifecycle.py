@@ -32,6 +32,7 @@ from vmware_aiops.ops._snapshot_tree import (
     snapshot_nodes as snapshot_nodes,
 )
 
+from vmware_aiops.ops._vm_create_cleanup import cleanup_failed_create, vm_dir_state
 from vmware_aiops.ops._vm_tasks import (
     TaskFailedError as TaskFailedError,
     TaskStillRunning as TaskStillRunning,
@@ -213,9 +214,21 @@ def create_vm(
 ) -> str:
     """Create a new VM with basic configuration.
 
-    Failures raise (InventoryError) rather than return a status string: a
-    returned string was reported and audited as success (2026-10-17).
+    Failures raise rather than return a status string: a returned string was
+    reported and audited as success (2026-10-17). Inventory lookups raise
+    InventoryError, an out-of-range ``disk_gb`` ValueError, a failed task
+    TaskFailedError.
+
+    ``disk_gb=0`` creates the VM without a disk (a cheap write probe). When
+    the create task fails, the empty VM directory it left is removed if this
+    call can show the directory is its own (see ``_vm_create_cleanup``);
+    otherwise the error says what to check.
     """
+    if isinstance(disk_gb, bool) or not isinstance(disk_gb, int) or not 0 <= disk_gb <= 65_536:
+        raise ValueError(
+            f"disk_gb must be a whole number of GB from 0 to 65536, got {disk_gb!r}. "
+            "Pass disk_gb=0 to create the VM without a disk."
+        )
     # Find datacenter and folder; InventoryError carries its own remedy.
     datacenter = resolve_datacenter(si, datacenter_name)
     compute_resource = find_compute_resource(datacenter, cluster)
@@ -238,6 +251,7 @@ def create_vm(
     resource_pool = compute_resource.resourcePool
 
     # Find datastore
+    ds = None
     if datastore_name:
         ds = find_datastore_by_name(si, datastore_name)
         if ds is None:
@@ -301,21 +315,22 @@ def create_vm(
         numCPUs=cpu,
         files=vmx_file,
         guestId=guest_id,
-        deviceChange=[scsi_spec, disk_spec, nic_spec],
+        deviceChange=[scsi_spec, *([disk_spec] if disk_gb else []), nic_spec],
     )
 
+    existed_before = vm_dir_state(ds, datastore_name, vm_name, _wait_for_task)
     task = vm_folder.CreateVM_Task(config=config_spec, pool=resource_pool)
     try:
         _wait_for_task(task)
     except TaskFailedError as exc:
         # A failed CreateVM_Task can leave the VM directory behind (issue #69).
-        raise TaskFailedError(
-            f"{exc} The failed create may have left an empty '{ds_path}/' "
-            "directory on the datastore; remove it before retrying with the same name."
-        ) from exc
+        note = cleanup_failed_create(si, datacenter, ds, datastore_name, vm_name,
+                                     existed_before, _wait_for_task)
+        raise TaskFailedError(f"{exc} {note}".rstrip()) from exc
+    disk = f"{disk_gb}GB" if disk_gb else "none"
     return (
         f"VM '{vm_name}' created successfully "
-        f"(CPU: {cpu}, Mem: {memory_mb}MB, Disk: {disk_gb}GB)."
+        f"(CPU: {cpu}, Mem: {memory_mb}MB, Disk: {disk})."
     )
 
 

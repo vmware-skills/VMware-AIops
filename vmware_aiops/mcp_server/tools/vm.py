@@ -153,16 +153,19 @@ def create_vm(
 ) -> str:
     """[WRITE] Create a new empty VM with the given hardware sizing.
 
-    Creates a powered-off VM with one disk and one NIC. To populate it, attach an
-    ISO (attach_iso_to_vm) and power it on, or use deploy_vm_from_ova or clone_vm
-    for a ready-to-run guest. Fails before creating anything if the datastore is
-    not found. Returns a status string with the new VM name.
+    Creates a powered-off VM with one disk (none when disk_gb=0) and one NIC.
+    To populate it, attach an ISO (attach_iso_to_vm) and power it on, or use
+    deploy_vm_from_ova or clone_vm for a ready-to-run guest. Fails before
+    creating anything if the datastore is not found. If the create task fails
+    and datastore_name was given, an empty VM directory it provably left is
+    removed; otherwise the error names what to check. Returns a status string
+    with the new VM name.
 
     Args:
         vm_name: Name for the new VM; must not already exist.
         cpu: vCPU count (default 2).
         memory_mb: Memory in MB (default 4096).
-        disk_gb: Primary disk size in GB (default 40).
+        disk_gb: Primary disk size in GB, 0-65536 (default 40); 0 creates no disk.
         network_name: Port group for the NIC (default "VM Network").
         datastore_name: Target datastore; omit for the first accessible one.
         folder_path: vCenter folder path; omit for the datacenter root.

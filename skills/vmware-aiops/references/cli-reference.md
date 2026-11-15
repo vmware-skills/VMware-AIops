@@ -18,7 +18,7 @@ vmware-aiops mcp-config list
 # VM Operations
 vmware-aiops vm power-on <vm-name>
 vmware-aiops vm power-off <vm-name> [--force]
-vmware-aiops vm create <name> [--cpu <n>] [--memory <mb>] [--disk <gb>]
+vmware-aiops vm create <name> [--cpu <n>] [--memory <mb>] [--disk <gb>]   # --disk 0: no disk
 vmware-aiops vm delete <vm-name>
 vmware-aiops vm reconfigure <vm-name> [--cpu <n>] [--memory <mb>]
 vmware-aiops vm snapshot-create <vm-name> --name <snap-name> [--description <text>] [--memory]
