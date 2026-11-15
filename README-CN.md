@@ -62,4 +62,4 @@ Agent 宿主安装见本模块的[配置指南](https://github.com/vmware-skills
 
 <a id="readme-license"></a>
 
-[分享接入进度或首次结果](https://github.com/vmware-skills/marketplace/issues/new?template=setup-feedback.yml) · [报告问题](https://github.com/vmware-skills/VMware-AIops/issues) · [MIT](https://github.com/vmware-skills/VMware-AIops/blob/main/LICENSE)
+[分享接入进度或首次结果](https://github.com/vmware-skills/marketplace/issues/new?template=setup-feedback.yml) · [在团队中使用？](https://github.com/orgs/vmware-skills/discussions/71) · [报告问题](https://github.com/vmware-skills/VMware-AIops/issues) · [MIT](https://github.com/vmware-skills/VMware-AIops/blob/main/LICENSE)

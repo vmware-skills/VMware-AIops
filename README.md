@@ -62,4 +62,4 @@ Part of [VMware Skills](https://github.com/vmware-skills/marketplace): 15 skills
 
 <a id="readme-license"></a>
 
-[Share setup progress or a first result](https://github.com/vmware-skills/marketplace/issues/new?template=setup-feedback.yml) · [Report a bug](https://github.com/vmware-skills/VMware-AIops/issues) · [MIT](https://github.com/vmware-skills/VMware-AIops/blob/main/LICENSE)
+[Share setup progress or a first result](https://github.com/vmware-skills/marketplace/issues/new?template=setup-feedback.yml) · [Using it at your organization?](https://github.com/orgs/vmware-skills/discussions/71) · [Report a bug](https://github.com/vmware-skills/VMware-AIops/issues) · [MIT](https://github.com/vmware-skills/VMware-AIops/blob/main/LICENSE)
