@@ -1,0 +1,120 @@
+name: Publish container image (GHCR)
+# Packages the PyPI release that a GitHub release names, so the image runs the
+# same pinned server as `uvx` and the .mcpb extension. Source builds stay in
+# ./Dockerfile; this workflow never builds from the working tree.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published PyPI version to package, e.g. 2.5.0
+        required: true
+      latest:
+        description: Also move the latest tag
+        type: boolean
+        default: true
+permissions:
+  contents: read
+  packages: write
+concurrency:
+  group: ghcr-publish
+  cancel-in-progress: false
+env:
+  IMAGE: ghcr.io/vmware-skills/vmware-aiops
+  REQUIREMENT_NAME: vmware-aiops
+  DIST: vmware-aiops
+  ENTRYPOINT: vmware-aiops-mcp
+  MCP_NAME: io.github.vmware-skills/vmware-aiops
+  DESCRIPTION: "VMware AIops MCP server (stdio)"
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Resolve the version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_LATEST: ${{ inputs.latest }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          v="${INPUT_VERSION:-${TAG#v}}"
+          if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::not a release version: '$v'"; exit 1
+          fi
+          latest=false
+          if [ "$EVENT" = release ] || [ "$INPUT_LATEST" = true ]; then latest=true; fi
+          echo "VERSION=$v" >> "$GITHUB_ENV"
+          echo "LATEST=$latest" >> "$GITHUB_ENV"
+      - name: Wait until PyPI serves this version
+        run: |
+          for _ in $(seq 1 30); do
+            curl -fsS "https://pypi.org/pypi/$DIST/$VERSION/json" >/dev/null && exit 0
+            sleep 20
+          done
+          echo "::error::$DIST $VERSION is not on PyPI"; exit 1
+      - name: Write the Dockerfile
+        run: |
+          mkdir -p "$RUNNER_TEMP/ctx"
+          cat > "$RUNNER_TEMP/ctx/Dockerfile" <<'EOF'
+          FROM python:3.12-slim
+          ARG REQUIREMENT
+          ARG ENTRYPOINT
+          RUN pip install --no-cache-dir "$REQUIREMENT" \
+           && useradd --create-home --uid 1000 app \
+           && ln -s "$(command -v "$ENTRYPOINT")" /usr/local/bin/mcp-entrypoint
+          USER app
+          WORKDIR /home/app
+          ENV PYTHONUNBUFFERED=1
+          ENTRYPOINT ["mcp-entrypoint"]
+          EOF
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build for the smoke test (amd64)
+        run: |
+          docker buildx build --load -t smoke "$RUNNER_TEMP/ctx" \
+            --build-arg REQUIREMENT="$REQUIREMENT_NAME==$VERSION" \
+            --build-arg ENTRYPOINT="$ENTRYPOINT"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: stdio handshake with no network
+        run: |
+          python -m pip install --quiet 'mcp>=1.30,<2'
+          python - <<'PY'
+          import asyncio
+          from mcp import ClientSession, StdioServerParameters
+          from mcp.client.stdio import stdio_client
+
+          async def check():
+              # No mounts, credentials, network or infrastructure tool calls.
+              params = StdioServerParameters(
+                  command='docker', args=['run', '--rm', '-i', '--network=none', 'smoke'])
+              async with asyncio.timeout(120):
+                  async with stdio_client(params) as (reader, writer):
+                      async with ClientSession(reader, writer) as session:
+                          await session.initialize()
+                          await session.send_ping()
+                          tools = (await session.list_tools()).tools
+                          assert tools, 'No tools discovered'
+                          print(f'PASS: {len(tools)} tools; initialize, ping, tools/list only')
+          asyncio.run(check())
+          PY
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Build and push (amd64, arm64)
+        run: |
+          tags=(-t "$IMAGE:$VERSION")
+          if [ "$LATEST" = true ]; then tags+=(-t "$IMAGE:latest"); fi
+          docker buildx build --push --platform linux/amd64,linux/arm64 "${tags[@]}" "$RUNNER_TEMP/ctx" \
+            --build-arg REQUIREMENT="$REQUIREMENT_NAME==$VERSION" \
+            --build-arg ENTRYPOINT="$ENTRYPOINT" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.licenses=MIT" \
+            --label "org.opencontainers.image.description=$DESCRIPTION" \
+            --label "io.modelcontextprotocol.server.name=$MCP_NAME"
+          echo "Pushed $IMAGE:$VERSION (latest=$LATEST)" >> "$GITHUB_STEP_SUMMARY"
