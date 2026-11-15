@@ -111,7 +111,7 @@ def create_vm(
     name: str,
     cpu: Annotated[int, typer.Option(help="Number of CPUs")] = 2,
     memory: Annotated[int, typer.Option(help="Memory in MB")] = 4096,
-    disk: Annotated[int, typer.Option(help="Disk size in GB")] = 40,
+    disk: Annotated[int, typer.Option(help="Disk size in GB; 0 = no disk")] = 40,
     network: Annotated[str, typer.Option(help="Network name")] = "VM Network",
     datastore: Annotated[str, typer.Option(help="Datastore name")] = "",
     folder: Annotated[str, typer.Option(help="VM folder path")] = "",
