@@ -49,7 +49,7 @@ Full agent instructions: [`skills/vmware-aiops/SKILL.md`](../../../skills/vmware
 Requires Python `>=3.10` and `uv`.
 
 ```bash
-uv tool install vmware-aiops==2.5.0
+uv tool install vmware-aiops==2.5.1
 vmware-aiops --help
 ```
 
@@ -75,7 +75,7 @@ node --version
 All platforms share the same Python backend.
 
 ```bash
-git clone --branch v2.5.0 https://github.com/vmware-skills/VMware-AIops.git
+git clone --branch v2.5.1 https://github.com/vmware-skills/VMware-AIops.git
 cd VMware-AIops
 python3 -m venv .venv
 source .venv/bin/activate
@@ -138,15 +138,15 @@ Choose one (or more) of the following:
 Either installer places the skill in Claude Code's skills directory for you:
 
 ```bash
-npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.5.0
+npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.5.1
 # or
-clawhub install @zw008/vmware-aiops --version 2.5.0
+clawhub install @zw008/vmware-aiops --version 2.5.1
 ```
 
 **Method 2: Manual skill install**
 
 ```bash
-git clone --branch v2.5.0 https://github.com/vmware-skills/VMware-AIops.git
+git clone --branch v2.5.1 https://github.com/vmware-skills/VMware-AIops.git
 cd VMware-AIops
 
 # Copy the skill into Claude Code's personal skills directory
@@ -304,7 +304,7 @@ cp skills/vmware-aiops/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
 
 The MCP server exposes VMware operations as tools via the [Model Context Protocol](https://modelcontextprotocol.io). Works with any MCP-compatible client (Claude Desktop, Cursor, etc.).
 
-**After `uv tool install vmware-aiops==2.5.0`, start the MCP server with one command** (v1.5.15+):
+**After `uv tool install vmware-aiops==2.5.1`, start the MCP server with one command** (v1.5.15+):
 
 ```bash
 # Recommended — single command, no network re-resolve
@@ -334,7 +334,7 @@ VMWARE_AIOPS_CONFIG=/path/to/config.yaml vmware-aiops mcp
 
 ```bash
 # Run without installing (requires PyPI access each launch)
-uvx --from vmware-aiops==2.5.0 vmware-aiops mcp
+uvx --from vmware-aiops==2.5.1 vmware-aiops mcp
 
 # Legacy entry point (still works, kept for backward compatibility)
 vmware-aiops-mcp
@@ -396,7 +396,7 @@ Copy this configuration into your MCP client's local stdio settings. The client 
   "mcpServers": {
     "vmware-aiops": {
       "command": "uvx",
-      "args": ["--from", "vmware-aiops==2.5.0", "vmware-aiops-mcp"],
+      "args": ["--from", "vmware-aiops==2.5.1", "vmware-aiops-mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "~/.vmware-aiops/config.yaml"
       }
@@ -435,23 +435,23 @@ Works with Claude Code, Cursor, Codex, Gemini CLI, Trae, and 30+ AI agents:
 
 ```bash
 # Via Skills.sh
-npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.5.0
+npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.5.1
 
 # Via ClawHub
-clawhub install @zw008/vmware-aiops --version 2.5.0
+clawhub install @zw008/vmware-aiops --version 2.5.1
 ```
 
 #### PyPI Install (No GitHub Access Required)
 
 ```bash
 # Install via uv (recommended)
-uv tool install vmware-aiops==2.5.0
+uv tool install vmware-aiops==2.5.1
 
 # Or via pip
-pip install vmware-aiops==2.5.0
+pip install vmware-aiops==2.5.1
 
 # China mainland mirror (faster)
-pip install vmware-aiops==2.5.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install vmware-aiops==2.5.1 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 #### Offline / Air-Gapped Install (from source)
@@ -979,7 +979,7 @@ The VMware Skills family contains 14 MCP servers and the shared Policy library. 
 
 | Skill | Scope | Tools | Install |
 |-------|-------|:-----:|---------|
-| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** | VM lifecycle, deployment, guest ops, cluster, datastore browse, triage | 49 | `uv tool install vmware-aiops==2.5.0` |
+| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** | VM lifecycle, deployment, guest ops, cluster, datastore browse, triage | 49 | `uv tool install vmware-aiops==2.5.1` |
 | **[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)** | Read-only monitoring, alarms, events, investigation bundles | 27 | `uv tool install vmware-monitor` |
 | **[vmware-storage](https://github.com/vmware-skills/VMware-Storage)** | Datastores, iSCSI, vSAN | 11 | `uv tool install vmware-storage` |
 | **[vmware-vks](https://github.com/vmware-skills/VMware-VKS)** | Tanzu Namespaces, TKC cluster lifecycle | 20 | `uv tool install vmware-vks` |
@@ -1097,10 +1097,10 @@ Already installed? Re-run the install command for your channel to get the latest
 
 | Install Channel | Update Command |
 |----------------|----------------|
-| ClawHub | `clawhub install @zw008/vmware-aiops --version 2.5.0` |
-| Skills.sh | `npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.5.0` |
+| ClawHub | `clawhub install @zw008/vmware-aiops --version 2.5.1` |
+| Skills.sh | `npx skills@1.7.6 add vmware-skills/VMware-AIops#v2.5.1` |
 | Git clone | `cd VMware-AIops && git pull origin main && uv pip install --no-sources -e .` (without `--no-sources`, uv looks for a sibling `../VMware-Monitor` checkout) |
-| uv | `uv tool install vmware-aiops==2.5.0 --force` |
+| uv | `uv tool install vmware-aiops==2.5.1 --force` |
 
 Check your current version: `vmware-aiops --version`
 

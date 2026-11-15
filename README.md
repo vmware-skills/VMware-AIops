@@ -29,13 +29,13 @@ Synthetic-data GIF; video includes redacted historical screenshots. [Download th
 Install the published CLI and inspect its commands:
 
 ```sh
-uv tool install vmware-aiops==2.5.0
+uv tool install vmware-aiops==2.5.1
 vmware-aiops --help
 ```
 
 Requires uv and Python >=3.10. Configure targets and credentials locally before remote queries. [Setup guide](https://github.com/vmware-skills/VMware-AIops/blob/main/skills/vmware-aiops/references/setup-guide.md).
 
-One-click installs, after `init`: [Claude Desktop extension (.mcpb)](https://github.com/vmware-skills/VMware-AIops/releases/download/v2.5.0/vmware-aiops-2.5.0.mcpb), which offers read-only tools until you change its setting · [Install in VS Code](https://insiders.vscode.dev/redirect/mcp/install?name=vmware-aiops&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22vmware-aiops%3D%3D2.5.0%22%2C%22vmware-aiops-mcp%22%5D%7D). Both run the pinned 2.5.0 server and read the configuration `init` wrote.
+One-click installs, after `init`: [Claude Desktop extension (.mcpb)](https://github.com/vmware-skills/VMware-AIops/releases/download/v2.5.1/vmware-aiops-2.5.1.mcpb), which offers read-only tools until you change its setting · [Install in VS Code](https://insiders.vscode.dev/redirect/mcp/install?name=vmware-aiops&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22vmware-aiops%3D%3D2.5.1%22%2C%22vmware-aiops-mcp%22%5D%7D). Both run the pinned 2.5.1 server and read the configuration `init` wrote.
 
 For agent-host installation, use the [setup guide](https://github.com/vmware-skills/VMware-AIops/blob/main/skills/vmware-aiops/references/setup-guide.md) and [Cursor, Codex, Gemini CLI, Cline and local-model examples](https://github.com/vmware-skills/marketplace/blob/main/docs/agent-hosts.md).
 

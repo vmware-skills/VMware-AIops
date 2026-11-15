@@ -1,3 +1,16 @@
+## v2.5.1 (2026-11-15) — create_vm on standalone ESXi, diskless creates, cleanup after a failed create
+
+Fixes [#69](https://github.com/vmware-skills/VMware-AIops/issues/69), reported on standalone ESXi 8.0.1.
+
+* `create_vm` no longer sets `addressType="assigned"` on the vNIC. With no MAC supplied, standalone ESXi 8.0.1 rejected every create as `InvalidDeviceSpec`; the host now generates the MAC. CLI and MCP share the fix.
+* `disk_gb=0` (CLI `--disk 0`) creates the VM without a disk, a cheap write-permission probe. `create_vm` validates `disk_gb` (whole number, 0-65536) for every entry point, including batch deploy specs.
+* After a failed create, the empty `[datastore] <name>/` directory it left is removed with `FileManager.DeleteDatastoreFile_Task`, but only when it is provably this create's: plain name, absent just before the create, empty after. Anything else is reported in the error, never deleted.
+* `TaskFailedError.fault` keeps the vSphere fault object.
+
+Validation: 1301 tests (26 for these changes), ruff and bandit. Live confirmation on standalone ESXi 8.0.1 is pending from the reporter.
+
+中文：修复单机 ESXi 8.0.1 上 `create_vm` 因网卡 `addressType="assigned"` 全部失败的问题；支持 `--disk 0` 无磁盘创建；创建失败后仅在能确认目录属于本次创建（名称普通、创建前不存在、失败后为空）时自动删除空目录，其余情况只在报错中说明。
+
 ## v2.4.6 — Recheck TTL identity at final deletion lookup
 
 Released 2026-11-09.
