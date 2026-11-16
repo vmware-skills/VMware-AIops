@@ -1,4 +1,4 @@
-## Unreleased — create VM datastore layout
+## v2.5.2 (2026-11-16) — create VM datastore layout
 
 * With an explicit datastore, pass only `[datastore]` as the create location.
   vSphere appends the VM directory itself; adding the VM name twice created
