@@ -576,6 +576,15 @@ ESXi Standalone Host ──→ VM
 
 ### VM Lifecycle
 
+VM details belong to `vmware-monitor vm info <name>`, not the AIops CLI.
+Use `-c ~/.vmware-aiops/config.yaml -t <target>` if Monitor uses a separate
+configuration. A newly created NIC may have no MAC until first power-on.
+Graceful shutdown requires running VMware Tools; `--force` performs a hard
+power-off and can lose guest data. A newly created VM is powered off already.
+`power-off` and `delete` require two interactive confirmations, have no `--yes`
+option, and abort when confirmation input is unavailable. `--force` does not
+bypass confirmation or Policy checks. These CLI examples are interactive.
+
 | Operation | Command | Confirmation | vCenter | ESXi |
 |-----------|---------|:------------:|:-------:|:----:|
 | Power On | `vm power-on <name>` | — | ✅ | ✅ |

@@ -131,6 +131,19 @@ def test_nic_still_targets_the_requested_network(monkeypatch):
 # ─── Diskless create ─────────────────────────────────────────────────────────
 
 
+@pytest.mark.parametrize("disk_gb", [0, 2])
+@pytest.mark.parametrize("name", ["probe", "probe with spaces"])
+def test_create_supplies_datastore_root_not_a_parent_directory(monkeypatch, disk_gb, name):
+    host = FakeHost(monkeypatch)
+    _create(host, name=name, disk_gb=disk_gb, datastore_name="Lab datastore")
+    # CreateVM_Task treats a non-vmx path as a parent directory and appends
+    # <name>/<name>.vmx. Supplying <name> here creates <name>/<name>/ instead,
+    # leaving an empty parent after Destroy_Task (issue #69).
+    assert host.config.files.vmPathName == "[Lab datastore]"
+    assert host.config.name == name
+    assert host.deleted == []
+
+
 def test_disk_zero_creates_no_disk_but_keeps_controller_and_nic(monkeypatch):
     host = FakeHost(monkeypatch)
     result = _create(host, disk_gb=0)

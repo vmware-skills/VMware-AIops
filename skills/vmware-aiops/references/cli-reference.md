@@ -1,5 +1,20 @@
 # CLI Reference
 
+VM details are provided by the companion `vmware-monitor vm info <name>`,
+not `vmware-aiops vm info`. If Monitor has a separate target configuration,
+pass `-c ~/.vmware-aiops/config.yaml -t <target>` to query the AIops target.
+On standalone ESXi, a newly created NIC may have no MAC until first power-on;
+an empty MAC while the VM is powered off does not mean the NIC is missing.
+
+`vm power-off` requests a VMware Tools guest shutdown by default. Without
+running Tools (for example, a powered-on diskless probe), use `--force` for a
+hard power-off, which can lose guest data. Newly created VMs stay powered off;
+there is no need to power one on or shut it down before deleting it.
+`vm power-off` and `vm delete` require two interactive confirmations. They have
+no `--yes` option and abort if confirmation input is unavailable; the examples
+below are interactive commands, not unattended scripts. `--force` changes the
+shutdown method, not the confirmation or Policy requirements.
+
 Destructive and deploy commands ask for two confirmations and most write
 commands take `--dry-run` (not `deploy iso`, `deploy mark-template`,
 `vm cancel-ttl`, `vm guest-download`). These are CLI-only: over MCP the 23 destructive write tools take `confirm` and preview by

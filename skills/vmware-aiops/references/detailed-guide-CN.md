@@ -450,6 +450,13 @@ ESXi 独立主机 ──→ VM
 
 ### 虚拟机生命周期
 
+VM 详情使用 `vmware-monitor vm info <name>`，不在 AIops CLI 中。
+若 Monitor 使用不同配置，可加 `-c ~/.vmware-aiops/config.yaml -t <target>`。
+新建网卡的 MAC 可能到首次开机后才分配。优雅关机要求 VMware Tools 正在运行；
+`--force` 执行硬关机，可能丢失客户机数据。新建 VM 已处于关机状态。
+`power-off` 和 `delete` 需要两次交互确认，没有 `--yes` 选项；确认输入不可用时会中止。
+`--force` 不绕过确认或 Policy 检查。下列 CLI 示例用于交互执行。
+
 | 操作 | 命令 | 确认 | vCenter | ESXi |
 |------|------|:----:|:-------:|:----:|
 | 开机 | `vm power-on <name>` | — | ✅ | ✅ |
