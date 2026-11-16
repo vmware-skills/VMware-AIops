@@ -20,3 +20,7 @@ config.yaml
 skills-lock.json
 tests/fixtures/token_corpus/
 .DS_Store
+
+# Design and planning documents stay out of the public repo and the sdist.
+docs/plans/
+design/
