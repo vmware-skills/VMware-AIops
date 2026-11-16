@@ -1,3 +1,3 @@
 """VMware AIops - AI-powered vCenter/ESXi monitoring and operations."""
 
-__version__ = "2.5.1"
+__version__ = "2.5.2"

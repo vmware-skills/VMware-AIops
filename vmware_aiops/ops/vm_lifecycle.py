@@ -259,7 +259,10 @@ def create_vm(
                 f"Datastore '{datastore_name}' not found on this target. Run "
                 "list_all_datastores (vmware-monitor skill) and copy an exact name."
             )
-        ds_path = f"[{datastore_name}] {vm_name}"
+        # CreateVM_Task appends <name>/<name>.vmx to this parent location.
+        # Appending vm_name ourselves creates a nested <name>/<name>/ layout
+        # whose outer directory survives Destroy_Task (issue #69).
+        ds_path = f"[{datastore_name}]"
     else:
         ds_path = f"{vm_name}"
 
@@ -303,7 +306,8 @@ def create_vm(
                 allowGuestControl=True,
                 connected=True,
             ),
-            # No addressType: the host generates the MAC. "assigned" with no
+            # No addressType: the host generates the MAC (possibly at power-on).
+            # "assigned" with no
             # macAddress is rejected as InvalidDeviceSpec on standalone ESXi
             # 8.0.1 (issue #69).
         ),

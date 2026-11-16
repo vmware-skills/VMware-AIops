@@ -1,3 +1,15 @@
+## v2.5.2 (2026-11-16) — create VM datastore layout
+
+* With an explicit datastore, pass only `[datastore]` as the create location.
+  vSphere appends the VM directory itself; adding the VM name twice created
+  `<name>/<name>/`, leaving an empty outer directory after VM deletion (#69).
+  This fixes the layout of newly created VMs, not existing nested directories.
+* Clarify the Monitor `vm info` command, MAC assignment possibly at first
+  power-on, VMware Tools versus forced power-off, and interactive CLI
+  confirmations. No `--yes` bypass is added.
+
+中文：显式指定 datastore 时只传 `[datastore]`，由 vSphere 创建 VM 目录，避免双层目录及删除后残留外层空目录；不清理已有双层目录。补充 Monitor 信息查询、MAC 分配时机、Tools/强制关机和交互确认说明，未增加 `--yes` 绕过参数。
+
 ## v2.5.1 (2026-11-15) — create_vm on standalone ESXi, diskless creates, cleanup after a failed create
 
 Fixes [#69](https://github.com/vmware-skills/VMware-AIops/issues/69), reported on standalone ESXi 8.0.1.
@@ -7,7 +19,11 @@ Fixes [#69](https://github.com/vmware-skills/VMware-AIops/issues/69), reported o
 * After a failed create, the empty `[datastore] <name>/` directory it left is removed with `FileManager.DeleteDatastoreFile_Task`, but only when it is provably this create's: plain name, absent just before the create, empty after. Anything else is reported in the error, never deleted.
 * `TaskFailedError.fault` keeps the vSphere fault object.
 
-Validation: 1301 tests (26 for these changes), ruff and bandit. Live confirmation on standalone ESXi 8.0.1 is pending from the reporter.
+Validation at release: 1301 tests (26 for these changes), ruff and bandit.
+Follow-up: the reporter confirmed the NIC fix and diskless creation on the
+original standalone ESXi 8.0.1 build 21495797 host in #69 on 2026-11-16.
+The subsequent nested-directory and CLI observations are addressed/tracked
+separately; this confirmation is not validation of the unreleased path fix.
 
 中文：修复单机 ESXi 8.0.1 上 `create_vm` 因网卡 `addressType="assigned"` 全部失败的问题；支持 `--disk 0` 无磁盘创建；创建失败后仅在能确认目录属于本次创建（名称普通、创建前不存在、失败后为空）时自动删除空目录，其余情况只在报错中说明。
 
