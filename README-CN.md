@@ -29,13 +29,13 @@ GIF 使用合成数据；视频包含脱敏的历史截图。[下载家族 AI �
 安装已发布 CLI，并查看可用命令：
 
 ```sh
-uv tool install vmware-aiops==2.5.2
+uv tool install vmware-aiops==2.5.3
 vmware-aiops --help
 ```
 
 需要 uv 与 Python >=3.10。远程查询前，在本地配置目标与凭据。[配置指南](https://github.com/vmware-skills/VMware-AIops/blob/main/skills/vmware-aiops/references/setup-guide.md)。
 
-执行 `init` 后可一键安装：[Claude Desktop 扩展（.mcpb）](https://github.com/vmware-skills/VMware-AIops/releases/download/v2.5.2/vmware-aiops-2.5.2.mcpb)，默认只提供只读工具，可在设置中改为全部 · [在 VS Code 中安装](https://insiders.vscode.dev/redirect/mcp/install?name=vmware-aiops&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22vmware-aiops%3D%3D2.5.2%22%2C%22vmware-aiops-mcp%22%5D%7D)。两者运行固定的 2.5.2 版本，读取 `init` 写入的配置。
+执行 `init` 后可一键安装：[Claude Desktop 扩展（.mcpb）](https://github.com/vmware-skills/VMware-AIops/releases/download/v2.5.3/vmware-aiops-2.5.3.mcpb)，默认只提供只读工具，可在设置中改为全部 · [在 VS Code 中安装](https://insiders.vscode.dev/redirect/mcp/install?name=vmware-aiops&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22vmware-aiops%3D%3D2.5.3%22%2C%22vmware-aiops-mcp%22%5D%7D)。两者运行固定的 2.5.3 版本，读取 `init` 写入的配置。
 
 Agent 宿主安装见本模块的[配置指南](https://github.com/vmware-skills/VMware-AIops/blob/main/skills/vmware-aiops/references/setup-guide.md)，以及 [Cursor、Codex、Gemini CLI、Cline 与本地模型示例](https://github.com/vmware-skills/marketplace/blob/main/docs/agent-hosts-CN.md)。WorkBuddy 用户可在 [SkillHub](https://skillhub.cn) 搜索 `vmware-aiops` 安装技能，并按 [WorkBuddy 说明](https://github.com/vmware-skills/marketplace/blob/main/docs/agent-hosts-CN.md#workbuddy) 注册 MCP。
 
@@ -65,3 +65,7 @@ Agent 宿主安装见本模块的[配置指南](https://github.com/vmware-skills
 <a id="readme-license"></a>
 
 [分享接入进度或首次结果](https://github.com/vmware-skills/marketplace/issues/new?template=setup-feedback.yml) · [在团队中使用？](https://github.com/orgs/vmware-skills/discussions/71) · [报告问题](https://github.com/vmware-skills/VMware-AIops/issues) · [MIT](https://github.com/vmware-skills/VMware-AIops/blob/main/LICENSE)
+
+## MCP 结果契约
+
+支持 offset 的列表提供 `next_offset`，值为 null 时停止翻页，不要用 `truncated` 循环。失败调用由 Policy 1.26.0 提供 `structuredContent.vmware_error`。保留原有文本、旧标记、成功值与确认机制。详见[契约说明](skills/vmware-aiops/references/mcp-result-contract-CN.md)。

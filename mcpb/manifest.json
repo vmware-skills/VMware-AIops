@@ -2,9 +2,9 @@
   "manifest_version": "0.4",
   "name": "vmware-aiops",
   "display_name": "VMware AIops",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "description": "Turn VM lifecycle requests into explicit, auditable operations for vCenter and ESXi.",
-  "long_description": "Runs the published vmware-aiops 2.5.2 MCP server locally. This extension starts with read-only tools (expose = read); set it to all to offer VM lifecycle and deployment tools, which stay governed by the shared policy and are recorded in the local audit log. Run `vmware-aiops init` once to write the config file and local credentials, then point this extension at that config.",
+  "long_description": "Runs the published vmware-aiops 2.5.3 MCP server locally. This extension starts with read-only tools (expose = read); set it to all to offer VM lifecycle and deployment tools, which stay governed by the shared policy and are recorded in the local audit log. Run `vmware-aiops init` once to write the config file and local credentials, then point this extension at that config.",
   "author": {
     "name": "Wei Zhou",
     "url": "https://github.com/zw008"
