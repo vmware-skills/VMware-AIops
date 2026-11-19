@@ -68,4 +68,4 @@ Agent 宿主安装见本模块的[配置指南](https://github.com/vmware-skills
 
 ## MCP 结果契约
 
-支持 offset 的列表提供 `next_offset`，值为 null 时停止翻页，不要用 `truncated` 循环。失败调用由 Policy 1.26.0 提供 `structuredContent.vmware_error`。保留原有文本、旧标记、成功值与确认机制。详见[契约说明](skills/vmware-aiops/references/mcp-result-contract-CN.md)。
+支持 offset 的列表提供 `next_offset`，值为 null 时停止翻页，不要用 `truncated` 循环。失败调用由 Policy 1.26.0 提供 `structuredContent.vmware_error`。保留原有文本、旧标记、成功值与确认机制。详见[契约说明](https://github.com/vmware-skills/VMware-AIops/blob/main/skills/vmware-aiops/references/mcp-result-contract-CN.md)。

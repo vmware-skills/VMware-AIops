@@ -68,4 +68,4 @@ Part of [VMware Skills](https://github.com/vmware-skills/marketplace): 15 skills
 
 ## MCP result contract
 
-Offset-capable listings expose `next_offset`; stop when it is null rather than looping on `truncated`. Failed calls provide `structuredContent.vmware_error` through Policy 1.26.0. Existing text, legacy flags, success values and confirmation checks remain unchanged. See the [contract](skills/vmware-aiops/references/mcp-result-contract.md).
+Offset-capable listings expose `next_offset`; stop when it is null rather than looping on `truncated`. Failed calls provide `structuredContent.vmware_error` through Policy 1.26.0. Existing text, legacy flags, success values and confirmation checks remain unchanged. See the [contract](https://github.com/vmware-skills/VMware-AIops/blob/main/skills/vmware-aiops/references/mcp-result-contract.md).

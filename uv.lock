@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -353,7 +353,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -1195,7 +1195,7 @@ wheels = [
 
 [[package]]
 name = "vmware-aiops"
-version = "2.5.2"
+version = "2.5.3"
 source = { editable = "." }
 dependencies = [
     { name = "apscheduler" },
@@ -1230,7 +1230,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.0,<16.0" },
     { name = "typer", specifier = ">=0.12,<1.0" },
     { name = "vmware-monitor", editable = "../VMware-Monitor" },
-    { name = "vmware-policy", specifier = ">=1.25.0,<2.0" },
+    { name = "vmware-policy", specifier = ">=1.26.0,<2.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1278,14 +1278,14 @@ dev = [
 
 [[package]]
 name = "vmware-policy"
-version = "1.25.0"
+version = "1.26.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e8/72/3530d38a39193ae7b65ecad66f30b7384b9892006040add134cc2e35046b/vmware_policy-1.25.0.tar.gz", hash = "sha256:c8ceb89a763e395d0539a81e9aa1a509f7dce48862bd8e65a822210c2b0acded", size = 376801, upload-time = "2026-11-10T16:12:56.488Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/6e/06ca9d746024413b6a348e1dee5d42f823e6a7b890fcd8be9e6ade99cf74/vmware_policy-1.26.0.tar.gz", hash = "sha256:d846c4a2f5f9274295ca81df5ecf1926d4619959e08e29166b79d6a38839159e", size = 382965, upload-time = "2026-11-19T03:14:21.374Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/25/8c/b2b9b2eabfc2a54468f6655493d0d04745cec9dc4e1fd35b30aa0af2c160/vmware_policy-1.25.0-py3-none-any.whl", hash = "sha256:2edfa666e047f4d8b9c8aca228e774e6fa7fcf60e451d930990994d773290027", size = 139214, upload-time = "2026-11-10T16:12:54.736Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/b9/4a1f231c87cae734d7b1ae19ca9b7b8b02ceb3dbe28a5948b583ef6568ec/vmware_policy-1.26.0-py3-none-any.whl", hash = "sha256:5a5efd30335f5db2ada3aa634ee9afda6a8a305bc4e6f3174b7be036368b7af9", size = 134623, upload-time = "2026-11-19T03:14:19.519Z" },
 ]
