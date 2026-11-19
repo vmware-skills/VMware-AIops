@@ -1,6 +1,6 @@
 {
   "name": "vmware-aiops",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "description": "VMware vCenter/ESXi AI-powered VM lifecycle and deployment tool",
   "mcpServers": {
     "vmware-aiops": {
@@ -8,7 +8,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "vmware-aiops==2.5.2",
+        "vmware-aiops==2.5.3",
         "vmware-aiops-mcp"
       ]
     }

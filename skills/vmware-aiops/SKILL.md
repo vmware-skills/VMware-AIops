@@ -71,7 +71,7 @@ Backend resize limits: see `references/capabilities.md`.
 ## Quick Install
 
 ```bash
-uv tool install vmware-aiops==2.5.2
+uv tool install vmware-aiops==2.5.3
 vmware-aiops doctor
 vmware-aiops hub status   # see which family members are installed
 ```
@@ -311,7 +311,7 @@ The account has no vSphere role. Assign one (Read-Only or higher) on the vCenter
 ## Setup
 
 ```bash
-uv tool install vmware-aiops==2.5.2
+uv tool install vmware-aiops==2.5.3
 mkdir -p ~/.vmware-aiops
 vmware-aiops init  # generates config.yaml and .env templates
 chmod 600 ~/.vmware-aiops/.env
@@ -322,3 +322,5 @@ chmod 600 ~/.vmware-aiops/.env
 ## License
 
 MIT — [github.com/vmware-skills/VMware-AIops](https://github.com/vmware-skills/VMware-AIops)
+
+[Contracts](references/mcp-result-contract.md).

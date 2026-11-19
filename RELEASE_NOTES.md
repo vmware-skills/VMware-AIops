@@ -1,3 +1,9 @@
+## v2.5.3 (2026-11-19) — Compatible MCP result contracts
+
+Add next_offset to offset-capable listings while retaining existing field names, flags and hints. Requires vmware-policy>=1.26.0. No confirmation bypass or page-default change.
+
+中文：支持 offset 的列表新增 next_offset，保留旧字段名、标记和提示。依赖 vmware-policy>=1.26.0；不增加确认绕过、不改变分页默认值。
+
 ## v2.5.2 (2026-11-16) — create VM datastore layout
 
 * With an explicit datastore, pass only `[datastore]` as the create location.

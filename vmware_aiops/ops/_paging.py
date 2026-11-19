@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from vmware_policy import paginated
+from vmware_policy import next_offset, paginated
 
 
 def paginated_window(
@@ -52,4 +52,5 @@ def paginated_window(
         )
     if offset:
         result["offset"] = offset
+    result["next_offset"] = next_offset(result["returned"], limit, offset, total)
     return result
