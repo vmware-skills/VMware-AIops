@@ -322,3 +322,5 @@ chmod 600 ~/.vmware-aiops/.env
 ## License
 
 MIT — [github.com/vmware-skills/VMware-AIops](https://github.com/vmware-skills/VMware-AIops)
+
+[Contracts](references/mcp-result-contract.md).
